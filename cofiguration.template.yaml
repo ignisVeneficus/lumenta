@@ -1,0 +1,291 @@
+# =========================================================
+# LUMENTA – main configuration file
+# =========================================================
+
+# ---------------------------------------------------------
+# HTTP / API server settings
+# ---------------------------------------------------------
+server:
+  # Server bind address (host:port)
+  addr: ":8080"
+
+  # HTTP timeout configuration
+  timeouts:
+    # Maximum duration for reading the entire request
+    read: 10s
+
+    # Maximum duration before timing out writes of the response
+    write: 30s
+
+    # Maximum amount of time to wait for the next request
+    idle: 60s
+
+
+# ---------------------------------------------------------
+# Database connection settings (MariaDB / MySQL)
+# ---------------------------------------------------------
+database:
+  # Database server hostname or IP address
+  host: "localhost"
+
+  # Database port
+  port: 3306
+
+  # Database name
+  name: "lumenta"
+
+  # Database user
+  user: "lumenta"
+
+  # Database password (prefer overriding via ENV)
+  password: "secret"
+
+
+# ---------------------------------------------------------
+# Media storage paths
+# ---------------------------------------------------------
+media:
+  # Read-only filesystem path for original images
+  # (e.g. NAS mount or archival photo storage)
+  originals: "/mnt/photos/originals"
+
+  # Writable cache directory for generated derivatives
+  derivatives: "/var/lib/lumenta/derivatives"
+
+
+# ---------------------------------------------------------
+# Gallery rendering and template configuration
+# ---------------------------------------------------------
+gallery:
+  templates:
+    # Optional directory for custom templates
+    custom: "/etc/lumenta/templates"
+
+
+# ---------------------------------------------------------
+# Album-related settings
+# ---------------------------------------------------------
+albums:
+  rebuild:
+    # Number of images processed in one rebuild batch
+    batch_size: 500
+
+    # Number of parallel workers during album rebuild
+    parallelism: 4
+
+
+# ---------------------------------------------------------
+# Authentication and authorization configuration for admin
+# ---------------------------------------------------------
+auth:
+  # Authentication mode:
+  # - "forward" : reverse-proxy header based authentication
+  # - "oidc"    : OpenID Connect
+  mode: "forward"
+
+  # -------------------------------------------------------
+  # Forward authentication (e.g. Traefik / Authelia)
+  # -------------------------------------------------------
+  forward:
+    # HTTP header containing the authenticated username
+    user_header: "X-Forwarded-User"
+
+    # HTTP header containing user group information
+    groups_header: "X-Forwarded-Groups"
+
+    # List of trusted proxy CIDR ranges
+    trusted_proxy_cidr:
+      - "127.0.0.1/32"
+      - "192.168.0.0/16"
+
+  # -------------------------------------------------------
+  # OpenID Connect configuration (used when mode: oidc)
+  # -------------------------------------------------------
+  oidc:
+    # OIDC issuer URL
+    issuer: "https://auth.example.com"
+
+    # OIDC client ID registered at the provider
+    client_id: "lumenta"
+
+    # Role or group name that grants admin privileges
+    admin_role: "admin"
+
+
+# ---------------------------------------------------------
+# Image derivative (thumbnail / preview) definitions
+# ---------------------------------------------------------
+derivatives:
+  # Square thumbnail derivative
+  - name: "square"
+    # Filename postfix (e.g. image-square.jpg)
+    postfix: "-sq"
+    # Maximum width in pixels
+    max_width: 300
+    # Maximum height in pixels
+    max_height: 300
+    # Resize mode:
+    # - crop : crop to exact dimensions
+    # - fit  : fit within bounds, preserve aspect ratio
+    mode: "crop"
+
+  # Large preview image
+  - name: "large"
+    postfix: "-lg"
+    max_width: 1920
+    max_height: 1080
+    mode: "fit"
+
+
+# ---------------------------------------------------------
+# Filesystem synchronization settings
+# ---------------------------------------------------------
+sync:
+  # -------------------------------------------------------
+  # Conditional inclusion rules based on relative path prefixes
+  #
+  # Each rule defines a RELATIVE PATH PREFIX.
+  # The prefix is matched against the image path
+  # relative to media.originals.
+  #
+  # Example:
+  #   media.originals = /mnt/photos
+  #   image file      = /mnt/photos/children/2023/img001.jpg
+  #   relative path   = children/2023/img001.jpg
+  #
+  # A rule with path: "children/" MATCHES because the
+  # relative path BEGINS WITH the given prefix.
+  #
+  # Only images that pass the associated filter are
+  # inserted into the database.
+  #
+  # NOTE: This is ONLY about inclusion/exclusion into the DB.
+  # -------------------------------------------------------
+  paths:
+    - # Relative path prefix (must match from the beginning)
+      path: "children/"
+
+      # Filter evaluated ONLY if the prefix matches
+      #
+      # If the filter evaluates to FALSE, the image is ignored
+      # completely and will NOT be inserted into the database.
+      filters:
+        op: "any"
+        rules:
+          - type: "rating"
+            op: ">"
+            value: 1
+
+    - # Another rule for a different subtree
+      path: "travel/"
+
+      filters:
+        op: "any"
+        rules:
+          - type: "year"
+            op: ">="
+            value: 2020
+
+  # -------------------------------------------------------
+  # Allowed file extensions (lowercase, without dot)
+  # Files outside this list are ignored by the sync walker.
+  # -------------------------------------------------------
+  extensions:
+    - "jpg"
+    - "jpeg"
+    - "png"
+    - "tif"
+    - "tiff"
+    - "heic"
+
+  # -------------------------------------------------------
+  # Metadata configuration
+  #
+  # This section declares which metadata fields should be
+  # available in the system and under which logical names
+  # (aliases).
+  #
+  # Built-in defaults exist for common technical, GPS and
+  # descriptive metadata fields.
+  #
+  # If a field alias is redefined here, it COMPLETELY
+  # OVERRIDES the built-in definition with the same name
+  # (sources and type).
+  #
+  # If the user wants "camera" to come from a custom XMP
+  # field, they simply redefine "camera" in the config.  
+  #
+  # Metadata sources:
+  # - EXIF   : embedded camera metadata
+  # - IPTC  : embedded editorial metadata
+  # - XMP   : embedded or sidecar metadata
+  #
+  # Extraction is performed using exiftool, therefore
+  # source references MUST use exiftool tag names.
+  #
+  # the Built-in defaults:
+  # taken_at (datetime):  "xmp:exif:DateTimeOriginal"; "exif:DateTimeOriginal"; "exif:CreateDate"
+  # camera (string):      "exif:Model"
+  # lens (string):        "exif:LensModel"; "xmp:aux:Lens"
+  # focal_length (float): "exif:FocalLength"
+  # aperture (float):     "exif:FNumber"; "exif:ApertureValue"
+  # iso (int):            "exif:ISO"
+  # latitude (float):     "exif:GPSLatitude"
+  # longitude (float):    "exif:GPSLongitude"
+  # rotation (int):       "exif:Orientation"
+  # rating (int):         "xmp:xmp:Rating"
+  # title (string):       "xmp:dc:title"; "iptc:ObjectName"
+  # subject (string):     "xmp:dc:description"; "iptc:Caption"
+  # tags (list):          "xmp:dc:subject"; "iptc:Keywords"  
+  # -------------------------------------------------------
+  metadata:
+    fields:
+      # -----------------------------------------------
+      # Capture timestamp
+      # -----------------------------------------------
+      taken_at:
+        # Target data type
+        type: datetime
+        # Metadata sources in priority order
+        sources:
+          - exif:DateTimeOriginal
+          - xmp:CreateDate
+
+      # -----------------------------------------------
+      # Camera model
+      # -----------------------------------------------
+      camera:
+        type: string
+        sources:
+          - exif:Model
+
+      # -----------------------------------------------
+      # ISO sensitivity value
+      # -----------------------------------------------
+      iso:
+        type: int
+        sources:
+          - exif:ISO
+
+      # -----------------------------------------------
+      # GPS coordinates
+      # -----------------------------------------------
+      latitude:
+        type: float
+        sources:
+          - exif:GPSLatitude
+
+      longitude:
+        type: float
+        sources:
+          - exif:GPSLongitude
+
+  # -------------------------------------------------------
+  # Exiftool integration
+  # -------------------------------------------------------
+  exiftool:
+    # Path to the exiftool binary
+    path: "/usr/bin/exiftool"
+
+    # Maximum execution time per exiftool invocation
+    timeout: 5s
