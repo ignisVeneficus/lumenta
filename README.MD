@@ -7,8 +7,6 @@ The project focuses on deterministic data ingestion, rule-based album generation
 
 There is currently no test phase or stable release. The project is in an early, architecture-focused development stage.
 
----
-
 ## Core principles
 
 ### No manual album curation
@@ -17,8 +15,6 @@ Albums are not managed by hand.
 All album–image relationships are generated exclusively by a rule engine and stored as materialized relations.
 
 If an image appears in an album, it is because it matches the album’s rules.
-
----
 
 ### Rule-based albums
 
@@ -31,14 +27,10 @@ Albums are defined using logical rule trees that can combine conditions such as:
 
 Rules are evaluated deterministically and can be expressed in YAML or JSON.
 
----
-
 ### Bottom-up evaluation
 
 Album evaluation is performed from leaf albums toward the root.  
 This enables correct handling of exclusions and parent–child relationships without ambiguity.
-
----
 
 ### Read-only tag model
 
@@ -48,7 +40,44 @@ Tags are imported from external tools (for example, digiKam) and treated as a co
 - Tags are not edited inside Lumenta.
 - The only supported tag mutation is cleanup of orphaned tags (tags without images and without children).
 
+## Metadata Processing and Usage
+
+This system provides a **flexible metadata extraction framework** that allows both
+default and user-defined metadata to be extracted from images and displayed on the website.
+
+Metadata values are resolved using **aliases**, which represent stable, logical identifiers
+independent of the underlying EXIF, IPTC, or XMP field names.  
+Users may redefine or override these aliases in the configuration to customize metadata
+extraction without changing the database schema or application code.
+
+Below is the **default metadata configuration**, which can be redefined by alias
+reconfiguration.
+
 ---
+
+## Default Metadata Mapping
+
+| Alias | Description | Type | Sources (priority order) | Notes |
+|------|-------------|------|--------------------------|-------|
+| `taken_at` | Capture date and time | datetime | `composite:DateTimeCreated`; `xmp-exif:DateTimeOriginal`; `exififd:DateTimeOriginal`; `exififd:createdate`; `exif:DateTimeOriginal`; `exif:CreateDate` | |
+| `camera` | Camera model | string | `ifd0:model`; `exif:Model` | |
+| `maker` | Camera manufacturer | string | `ifd0:make` | |
+| `lens` | Lens identification | string | `composite:LensID`; `exififd:LensModel`; `exififd:LensInfo`; `xmp-aux:Lens` | |
+| `focal_length` | Focal length | float (mm) | `exififd:FocalLength` | |
+| `aperture` | Aperture (f-number) | float (f) | `composite:aperture`; `exififd:fnumber`; `exififd:aperturevalue` | |
+| `iso` | ISO sensitivity | int (ISO) | `exififd:ISO`; `exif:ISO` | |
+| `exposure_time` | Exposure duration | string (s) | `Composite:ShutterSpeed`; `exififd:ExposureTime` | Special case: kept as string to preserve fractional format |
+| `latitude` | GPS latitude | string | `Composite:GPSLatitude`; `exif:GPSLatitude` | Special case: preserves hemisphere and formatting |
+| `longitude` | GPS longitude | string | `composite:GPSLongitude`; `exif:GPSLongitude` | Special case: preserves hemisphere and formatting |
+| `rotation` | Image orientation | string | `ifd0:orientation`; `exif:Orientation` | Special case: mapped later to rotation logic |
+| `rating` | User rating | int | `xmp-xmp:Rating` | |
+| `title` | Image title | string | `xmp-dc:title`; `iptc:objectName` | |
+| `subject` | Image description / caption | string | `xmp-dc:description`; `iptc:caption` | |
+| `tags` | Keywords and hierarchical tags | list | `xmp-digikam:tagslist`; `xmp-lr:hierarchicalsubject`; `iptc:Keywords`; `xmp-dc:subject` | Special case: normalized into tag structure |
+| `height` | Image height | int | `file:ImageHeight` | |
+| `width` | Image width | int | `file:ImageWidth` | |
+
+
 
 ### Filesystem as source of truth
 
@@ -56,15 +85,12 @@ The filesystem is the authoritative source for media files.
 
 A sync pipeline walks the configured root directory and reconciles filesystem state with the database using fingerprints and hashes.
 
----
-
 ### Lazy derivatives
 
 Image derivatives (thumbnails, previews, web sizes) are generated on demand and cached on the filesystem.
 
 No derivatives are generated eagerly unless explicitly requested.
 
----
 
 ## High-level architecture
 
@@ -89,8 +115,6 @@ No derivatives are generated eagerly unless explicitly requested.
 - **Database (MariaDB / MySQL-compatible)**  
   Stores canonical image records, metadata, tags, albums, and materialized relations.
 
----
-
 ## Data model overview
 
 Key concepts in the database design:
@@ -112,8 +136,6 @@ Key concepts in the database design:
 
 The schema is expected to evolve as the project matures.
 
----
-
 ## Configuration
 
 Configuration is intended to be loaded from YAML (and optionally JSON) into a single configuration structure.
@@ -129,8 +151,6 @@ Typical configuration areas include:
 
 Exact schemas and examples will be documented once the configuration stabilizes.
 
----
-
 ## Development status
 
 - Early development
@@ -140,15 +160,12 @@ Exact schemas and examples will be documented once the configuration stabilizes.
 
 This repository should be considered experimental.
 
----
 
 ## Building
 
 ```bash
 go build ./...
 ```
-
----
 
 ## Running (example)
 
@@ -158,7 +175,6 @@ go build ./...
 
 Note: CLI flags, configuration structure, and runtime behavior are subject to change.
 
----
 
 ## Contributing
 
@@ -170,8 +186,6 @@ If you intend to experiment or contribute:
 - keep changes small and well-isolated
 - do not introduce manual album curation paths
 - prefer explicit, deterministic behavior over convenience
-
----
 
 ## License
 
