@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -10,6 +11,55 @@ import (
 	"github.com/ignisVeneficus/lumenta/ruleengine"
 	"github.com/rs/zerolog/log"
 )
+
+// Standardized error message helpers
+
+func errRequired(field string) error {
+	return fmt.Errorf("%s is required", field)
+}
+
+func errMin(field string, min any, value any) error {
+	return fmt.Errorf("%s must be at least %v (got %v)", field, min, value)
+}
+
+func errOneOf(field string, allowed any, value any) error {
+	return fmt.Errorf("%s must be one of %v (got %v)", field, allowed, value)
+}
+
+func requireString(v *ValidationErrors, path string, value string) bool {
+	if strings.TrimSpace(value) == "" {
+		err := errRequired(path)
+		logConfigError(path, value, err)
+		v.Add(err)
+		return false
+	}
+	logConfigOK(path, value)
+	return true
+}
+
+func requireIntMin(v *ValidationErrors, path string, value int, min int) bool {
+	if value < min {
+		err := errMin(path, min, value)
+		logConfigError(path, value, err)
+		v.Add(err)
+		return false
+	}
+	logConfigOK(path, value)
+	return true
+}
+
+func requireOneOf[T comparable](v *ValidationErrors, path string, value T, allowed []T) bool {
+	for _, a := range allowed {
+		if value == a {
+			logConfigOK(path, value)
+			return true
+		}
+	}
+	err := errOneOf(path, allowed, value)
+	logConfigError(path, value, err)
+	v.Add(err)
+	return false
+}
 
 func (c *Config) Validate() error {
 	var verr ValidationErrors
@@ -29,13 +79,7 @@ func (c *Config) Validate() error {
 }
 
 func (cfg *ServerConfig) validate(v *ValidationErrors, path string) {
-	if cfg.Addr == "" {
-		err := fmt.Errorf("addr must be set")
-		logConfigError(path+"/addr", cfg.Addr, err)
-		v.Add(err)
-	} else {
-		logConfigOK(path+"/addr", cfg.Addr)
-	}
+	requireString(v, path+"/addr", cfg.Addr)
 
 	checkDuration(v, path+"/timeouts/read", cfg.Timeouts.Read)
 	checkDuration(v, path+"/timeouts/write", cfg.Timeouts.Write)
@@ -50,7 +94,7 @@ func (m *MediaConfig) validate(v *ValidationErrors, path string) {
 		m.Derivatives != "" &&
 		m.Originals == m.Derivatives {
 
-		err := fmt.Errorf("originals and derivatives must differ")
+		err := errors.New("originals and derivatives must differ")
 		logConfigError(path, map[string]string{
 			"originals":   m.Originals,
 			"derivatives": m.Derivatives,
@@ -70,8 +114,9 @@ func (g *GalleryConfig) validate(v *ValidationErrors, path string) {
 }
 
 func (a *AlbumsConfig) validate(v *ValidationErrors, path string) {
+	// TODO
 	if a.Rebuild.BatchSize <= 0 {
-		err := fmt.Errorf("batch_size must be > 0")
+		err := errors.New("batch_size must be > 0")
 		logConfigError(path+"/rebuild/batch_size", a.Rebuild.BatchSize, err)
 		v.Add(err)
 	} else {
@@ -79,11 +124,11 @@ func (a *AlbumsConfig) validate(v *ValidationErrors, path string) {
 	}
 
 	if a.Rebuild.Parallelism <= 0 {
-		err := fmt.Errorf("parallelism must be > 0")
+		err := errors.New("parallelism must be > 0")
 		logConfigError(path+"/rebuild/parallelism", a.Rebuild.Parallelism, err)
 		v.Add(err)
 	} else if a.Rebuild.Parallelism > 16 {
-		err := fmt.Errorf("parallelism too high")
+		err := errors.New("parallelism too high")
 		logConfigError(path+"/rebuild/parallelism", a.Rebuild.Parallelism, err)
 		v.Add(err)
 	} else {
@@ -93,30 +138,30 @@ func (a *AlbumsConfig) validate(v *ValidationErrors, path string) {
 
 func (a *AuthConfig) validate(v *ValidationErrors, path string) {
 	switch a.Mode {
-	case "forward":
+	case AuthModeForward:
 		logConfigOK(path+"/mode", a.Mode)
-
-		if a.Forward.UserHeader == "" {
-			err := fmt.Errorf("user_header must be set")
-			logConfigError(path+"/forward/user_header", a.Forward.UserHeader, err)
-			v.Add(err)
-		} else {
-			logConfigOK(path+"/forward/user_header", a.Forward.UserHeader)
-		}
+		requireString(v, path+"/forward/user_header", a.Forward.UserHeader)
 
 		if len(a.Forward.TrustedCIDRs) == 0 {
-			err := fmt.Errorf("trusted_proxy_cidr must not be empty")
+			err := errors.New("trusted_proxy_cidr must not be empty")
 			logConfigError(path+"/forward/trusted_proxy_cidr", a.Forward.TrustedCIDRs, err)
 			v.Add(err)
 		} else {
 			logConfigOK(path+"/forward/trusted_proxy_cidr", a.Forward.TrustedCIDRs)
 		}
+		if a.Forward.AdminRole == "" {
+			err := errors.New("admin_role must be set")
+			logConfigError(path+"/forward/admin_role", a.Forward.AdminRole, err)
+			v.Add(err)
+		} else {
+			logConfigOK(path+"/forward/admin_role", a.Forward.AdminRole)
+		}
 
-	case "oidc":
+	case AuthModeOIDC:
 		logConfigOK(path+"/mode", a.Mode)
 
 		if a.OIDC.Issuer == "" {
-			err := fmt.Errorf("issuer must be set")
+			err := errors.New("issuer must be set")
 			logConfigError(path+"/oidc/issuer", a.OIDC.Issuer, err)
 			v.Add(err)
 		} else {
@@ -124,15 +169,22 @@ func (a *AuthConfig) validate(v *ValidationErrors, path string) {
 		}
 
 		if a.OIDC.ClientID == "" {
-			err := fmt.Errorf("client_id must be set")
+			err := errors.New("client_id must be set")
 			logConfigError(path+"/oidc/client_id", a.OIDC.ClientID, err)
 			v.Add(err)
 		} else {
 			logConfigOK(path+"/oidc/client_id", a.OIDC.ClientID)
 		}
+		if a.OIDC.AdminRole == "" {
+			err := errors.New("admin_role must be set")
+			logConfigError(path+"/oidc/admin_role", a.OIDC.AdminRole, err)
+			v.Add(err)
+		} else {
+			logConfigOK(path+"/oidc/admin_role", a.OIDC.AdminRole)
+		}
 
 	default:
-		err := fmt.Errorf("mode must be forward or oidc")
+		err := errors.New("mode must be forward or oidc")
 		logConfigError(path+"/mode", a.Mode, err)
 		v.Add(err)
 	}
@@ -140,7 +192,7 @@ func (a *AuthConfig) validate(v *ValidationErrors, path string) {
 
 func (c *Config) validateDerivatives(v *ValidationErrors, path string) {
 	if len(c.Derivatives) == 0 {
-		err := fmt.Errorf("at least one derivative must be defined")
+		err := errors.New("at least one derivative must be defined")
 		logConfigError(path, nil, err)
 		v.Add(err)
 		return
@@ -152,7 +204,7 @@ func (c *Config) validateDerivatives(v *ValidationErrors, path string) {
 		base := fmt.Sprintf("%s[%d]", path, i)
 
 		if d.Name == "" {
-			err := fmt.Errorf("name missing")
+			err := errors.New("name missing")
 			logConfigError(base+"/name", d.Name, err)
 			v.Add(err)
 		} else {
@@ -160,20 +212,28 @@ func (c *Config) validateDerivatives(v *ValidationErrors, path string) {
 		}
 
 		if _, ok := seen[d.Name]; ok {
-			err := fmt.Errorf("duplicate name")
+			err := errors.New("duplicate name")
 			logConfigError(base+"/name", d.Name, err)
 			v.Add(err)
 		}
 		seen[d.Name] = struct{}{}
 
-		if d.MaxWidth <= 0 || d.MaxHeight <= 0 {
-			err := fmt.Errorf("invalid dimensions")
+		switch {
+		case (d.MaxWidth <= 0 || d.MaxHeight <= 0) && d.Mode == DerivateSizeCrop:
+			err := errors.New("invalid dimensions")
 			logConfigError(base+"/size", map[string]int{
 				"width":  d.MaxWidth,
 				"height": d.MaxHeight,
 			}, err)
 			v.Add(err)
-		} else {
+		case d.MaxWidth <= 0 && d.MaxHeight <= 0:
+			err := errors.New("invalid dimensions")
+			logConfigError(base+"/size", map[string]int{
+				"width":  d.MaxWidth,
+				"height": d.MaxHeight,
+			}, err)
+			v.Add(err)
+		default:
 			logConfigOK(base+"/size", map[string]int{
 				"width":  d.MaxWidth,
 				"height": d.MaxHeight,
@@ -184,7 +244,7 @@ func (c *Config) validateDerivatives(v *ValidationErrors, path string) {
 
 func (d *DatabaseConfig) validate(v *ValidationErrors, path string) {
 	if d.Host == "" {
-		err := fmt.Errorf("host must be set")
+		err := errors.New("host must be set")
 		logConfigError(path+"/host", d.Host, err)
 		v.Add(err)
 	} else {
@@ -192,7 +252,7 @@ func (d *DatabaseConfig) validate(v *ValidationErrors, path string) {
 	}
 
 	if d.Port <= 0 || d.Port > 65535 {
-		err := fmt.Errorf("invalid port")
+		err := errors.New("invalid port")
 		logConfigError(path+"/port", d.Port, err)
 		v.Add(err)
 	} else {
@@ -200,7 +260,7 @@ func (d *DatabaseConfig) validate(v *ValidationErrors, path string) {
 	}
 
 	if d.Name == "" {
-		err := fmt.Errorf("database name must be set")
+		err := errors.New("database name must be set")
 		logConfigError(path+"/name", d.Name, err)
 		v.Add(err)
 	} else {
@@ -208,7 +268,7 @@ func (d *DatabaseConfig) validate(v *ValidationErrors, path string) {
 	}
 
 	if d.User == "" {
-		err := fmt.Errorf("user must be set")
+		err := errors.New("user must be set")
 		logConfigError(path+"/user", d.User, err)
 		v.Add(err)
 	} else {
@@ -216,7 +276,7 @@ func (d *DatabaseConfig) validate(v *ValidationErrors, path string) {
 	}
 
 	if d.Password == "" {
-		err := fmt.Errorf("password must be set")
+		err := errors.New("password must be set")
 		logConfigError(path+"/password", "***", err)
 		v.Add(err)
 	} else {
@@ -251,7 +311,7 @@ func (v *ValidationErrors) Error() string {
 
 func checkDuration(v *ValidationErrors, path string, d time.Duration) {
 	if d <= 0 {
-		err := fmt.Errorf("must be > 0")
+		err := errors.New("must be > 0")
 		logConfigError(path, d, err)
 		v.Add(fmt.Errorf("%s %w", path, err))
 	} else {
@@ -262,7 +322,7 @@ func checkDuration(v *ValidationErrors, path string, d time.Duration) {
 func checkDir(pathKey string, dir string, required bool, v *ValidationErrors) {
 	if dir == "" {
 		if required {
-			err := fmt.Errorf("directory must be set")
+			err := errors.New("directory must be set")
 			logConfigError(pathKey, dir, err)
 			v.Add(fmt.Errorf("%s: %w", pathKey, err))
 		} else {
@@ -289,7 +349,7 @@ func checkDir(pathKey string, dir string, required bool, v *ValidationErrors) {
 	}
 
 	if !info.IsDir() {
-		err := fmt.Errorf("not a directory")
+		err := errors.New("not a directory")
 		if required {
 			logConfigError(pathKey, dir, err)
 			v.Add(fmt.Errorf("%s: %w", pathKey, err))
@@ -323,7 +383,7 @@ func (p *PathFilterConfig) validate(v *ValidationErrors, basePath string, idx in
 	path := fmt.Sprintf("%s/paths[%d]", basePath, idx)
 
 	if p.Path == "" {
-		err := fmt.Errorf("path must be set")
+		err := errors.New("path must be set")
 		logConfigError(path+"/path", p.Path, err)
 		v.Add(err)
 	} else {
@@ -338,13 +398,13 @@ func validateFilterGroup(fg *ruleengine.FilterGroup, v *ValidationErrors, path s
 	case ruleengine.OpAll, ruleengine.OpAny:
 		logConfigOK(path+"/op", fg.Op)
 	default:
-		err := fmt.Errorf("invalid filter group op")
+		err := errors.New("invalid filter group op")
 		logConfigError(path+"/op", fg.Op, err)
 		v.Add(err)
 	}
 
 	if len(fg.Filters) == 0 {
-		err := fmt.Errorf("filters must not be empty")
+		err := errors.New("filters must not be empty")
 		logConfigError(path+"/filters", nil, err)
 		v.Add(err)
 		return
@@ -352,7 +412,7 @@ func validateFilterGroup(fg *ruleengine.FilterGroup, v *ValidationErrors, path s
 
 	for i, f := range fg.Filters {
 		if f == nil {
-			err := fmt.Errorf("nil filter")
+			err := errors.New("nil filter")
 			logConfigError(fmt.Sprintf("%s/filters[%d]", path, i), nil, err)
 			v.Add(err)
 			continue
@@ -360,7 +420,7 @@ func validateFilterGroup(fg *ruleengine.FilterGroup, v *ValidationErrors, path s
 
 		ft := f.FilterType()
 		if ft == "" {
-			err := fmt.Errorf("filter type missing")
+			err := errors.New("filter type missing")
 			logConfigError(fmt.Sprintf("%s/filters[%d]/type", path, i), nil, err)
 			v.Add(err)
 			continue
@@ -385,14 +445,14 @@ func (m *MetadataConfig) validate(v *ValidationErrors, path string) {
 		fieldPath := fmt.Sprintf("%s/metadata/fields/%s", path, key)
 
 		if key == "" {
-			err := fmt.Errorf("metadata field key must not be empty")
+			err := errors.New("metadata field key must not be empty")
 			logConfigError(fieldPath, nil, err)
 			v.Add(err)
 			continue
 		}
 
 		if len(field.Sources) == 0 {
-			err := fmt.Errorf("no metadata sources defined")
+			err := errors.New("no metadata sources defined")
 			logConfigError(fieldPath+"/sources", nil, err)
 			v.Add(err)
 		}
@@ -401,21 +461,21 @@ func (m *MetadataConfig) validate(v *ValidationErrors, path string) {
 			srcPath := fmt.Sprintf("%s/sources[%d]", fieldPath, i)
 
 			if src.Ref == "" {
-				err := fmt.Errorf("metadata source reference is empty")
+				err := errors.New("metadata source reference is empty")
 				logConfigError(srcPath, nil, err)
 				v.Add(err)
 				continue
 			}
 
 			if !isValidMetadataRef(src.Ref) {
-				err := fmt.Errorf("invalid metadata reference format (expected exif:*, iptc:*, xmp:*)")
+				err := errors.New("invalid metadata reference format (expected exif:*, iptc:*, xmp:*)")
 				logConfigError(srcPath, src.Ref, err)
 				v.Add(err)
 			}
 		}
 
 		if field.Type != "" && !isValidMetaType(field.Type) {
-			err := fmt.Errorf("invalid metadata type")
+			err := errors.New("invalid metadata type")
 			logConfigError(fieldPath+"/type", field.Type, err)
 			v.Add(err)
 		}
@@ -445,7 +505,7 @@ func isValidMetaType(t data.MetadataType) bool {
 
 func (c *ExiftoolConfig) validate(v *ValidationErrors, path string) {
 	if c.ResolvedPath == "" {
-		err := fmt.Errorf("invalid exiftool path")
+		err := errors.New("invalid exiftool path")
 		logConfigError(path+"/path", c.Path, err)
 		v.Add(err)
 	}

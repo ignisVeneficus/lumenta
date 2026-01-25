@@ -1,17 +1,19 @@
 package main
 
 import (
+	"context"
 	"os"
 
 	"github.com/ignisVeneficus/lumenta/cli"
 	"github.com/ignisVeneficus/lumenta/config"
+	"github.com/ignisVeneficus/lumenta/derivates"
 	"github.com/ignisVeneficus/lumenta/exif"
 	"github.com/ignisVeneficus/lumenta/logging"
 	"github.com/rs/zerolog/log"
 )
 
 func main() {
-	logging.LoadLogging()
+	logging.LoadLogging(config.GetLogConfigPath())
 
 	cfgPath := os.Getenv("LUMENTA_CONFIG")
 	if cfgPath == "" {
@@ -25,6 +27,8 @@ func main() {
 	}
 	config.SetGlobal(cfg)
 
+	derivates.Init(context.Background(), 10)
+	defer derivates.Shutdown()
 	defer exif.ShutdownExiftool()
 
 	err = cli.Run(*cfg)

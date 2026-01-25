@@ -224,19 +224,23 @@ sync:
   # source references MUST use exiftool tag names.
   #
   # the Built-in defaults:
-  # taken_at (datetime):  "xmp:exif:DateTimeOriginal"; "exif:DateTimeOriginal"; "exif:CreateDate"
-  # camera (string):      "exif:Model"
-  # lens (string):        "exif:LensModel"; "xmp:aux:Lens"
-  # focal_length (float): "exif:FocalLength"
-  # aperture (float):     "exif:FNumber"; "exif:ApertureValue"
-  # iso (int):            "exif:ISO"
-  # latitude (float):     "exif:GPSLatitude"
-  # longitude (float):    "exif:GPSLongitude"
-  # rotation (int):       "exif:Orientation"
-  # rating (int):         "xmp:xmp:Rating"
-  # title (string):       "xmp:dc:title"; "iptc:ObjectName"
-  # subject (string):     "xmp:dc:description"; "iptc:Caption"
-  # tags (list):          "xmp:dc:subject"; "iptc:Keywords"  
+  # taken_at (datetime): "composite:DateTimeCreated"; "xmp-exif:DateTimeOriginal"; "exififd:DateTimeOriginal"; "exififd:createdate"; "exif:DateTimeOriginal"; "exif:CreateDate"
+  # camera (string): "ifd0:model"; "exif:Model"
+  # maker (string): "ifd0:make"
+  # lens (string): "composite:LensID"; "exififd:LensModel"; "exififd:LensInfo"; "xmp-aux:Lens"
+  # focal_length (float, unit=mm): "exififd:FocalLength"
+  # aperture (float, unit=f): "composite:aperture"; "exififd:fnumber"; "exififd:aperturevalue"
+  # iso (int, unit=ISO): "exififd:ISO"; "exif:ISO"
+  # exposure_time (string, unit=s): "Composite:ShutterSpeed"; "exififd:ExposureTime"
+  # latitude (string): "Composite:GPSLatitude"; "exif:GPSLatitude"
+  # longitude (string): "composite:GPSLongitude"; "exif:GPSLongitude"
+  # rotation (string): "ifd0:orientation"; "exif:Orientation"
+  # rating (int): "xmp-xmp:Rating"
+  # title (string): "xmp-dc:title"; "iptc:objectName"
+  # subject (string): "xmp-dc:description"; "iptc:caption"
+  # tags (list): "xmp-digikam:tagslist"; "xmp-lr:hierarchicalsubject"; "iptc:Keywords"; "xmp-dc:subject"
+  # height (int): "file:ImageHeight"
+  # width (int): "file:ImageWidth"  
   # -------------------------------------------------------
   metadata:
     fields:

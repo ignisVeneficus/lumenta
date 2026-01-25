@@ -25,6 +25,8 @@ const (
 	ImageFocusModeCenter ImageFocusMode = "center"
 	ImageFocusModeTop    ImageFocusMode = "top"
 	ImageFocusModeBottom ImageFocusMode = "bottom"
+	ImageFocusModeLeft   ImageFocusMode = "left"
+	ImageFocusModeRight  ImageFocusMode = "right"
 
 	ACLScopePublic  ACLScope = "public"
 	ACLScopeAnyUser ACLScope = "any_user"

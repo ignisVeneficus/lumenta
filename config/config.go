@@ -15,7 +15,16 @@ const (
 	ENV_PREFIX = "LUMENTA"
 )
 
-var LogConfigEnv = ENV_PREFIX + "_LOG_CONFIG"
+type AuthMode string
+type DerivateSizeMode string
+
+var (
+	LogConfigEnv                        = ENV_PREFIX + "_LOG_CONFIG"
+	AuthModeForward    AuthMode         = "forward"
+	AuthModeOIDC       AuthMode         = "oidc"
+	DerivateSizeCrop   DerivateSizeMode = "crop"
+	DerivateSizeResize DerivateSizeMode = "fit"
+)
 
 type Config struct {
 	Env         Environment        `yaml:"-"` // kizárólag ENV-ből
@@ -58,27 +67,34 @@ type AlbumsConfig struct {
 }
 
 type AuthConfig struct {
-	Mode string `yaml:"mode"`
+	Mode    AuthMode    `yaml:"mode"`
+	Forward AuthForward `yaml:"forward"`
+	OIDC    AuthOIDC    `yaml:"oidc"`
+	JWT     JWTConfig   `yaml:"jwt"`
+}
 
-	Forward struct {
-		UserHeader   string   `yaml:"user_header"`
-		GroupsHeader string   `yaml:"groups_header"`
-		TrustedCIDRs []string `yaml:"trusted_proxy_cidr"`
-	} `yaml:"forward"`
+type AuthForward struct {
+	UserHeader   string   `yaml:"user_header"`
+	GroupsHeader string   `yaml:"groups_header"`
+	TrustedCIDRs []string `yaml:"trusted_proxy_cidr"`
+	AdminRole    string   `yaml:"admin_role"`
+}
 
-	OIDC struct {
-		Issuer    string `yaml:"issuer"`
-		ClientID  string `yaml:"client_id"`
-		AdminRole string `yaml:"admin_role"`
-	} `yaml:"oidc"`
+type AuthOIDC struct {
+	Issuer    string `yaml:"issuer"`
+	ClientID  string `yaml:"client_id"`
+	AdminRole string `yaml:"admin_role"`
+}
+type JWTConfig struct {
+	Secret string `yaml:"secret"`
 }
 
 type DerivativeConfig struct {
-	Name      string `yaml:"name"`
-	Postfix   string `yaml:"postfix"`
-	MaxWidth  int    `yaml:"max_width"`
-	MaxHeight int    `yaml:"max_height"`
-	Mode      string `yaml:"mode"` // crop | fit
+	Name      string           `yaml:"name"`
+	Postfix   string           `yaml:"postfix"`
+	MaxWidth  int              `yaml:"max_width"`
+	MaxHeight int              `yaml:"max_height"`
+	Mode      DerivateSizeMode `yaml:"mode"` // crop | fit
 }
 
 type DatabaseConfig struct {

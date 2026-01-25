@@ -2,135 +2,160 @@
 -- USERS
 -- =========================================================
 
-CREATE TABLE IF NOT EXISTS  users (
-  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  username VARCHAR(100) NOT NULL UNIQUE,
-  pass_hash VARCHAR(255) NOT NULL,
-  email VARCHAR(255),
-  role ENUM('user','admin') NOT NULL DEFAULT 'user',
-  disabled BOOLEAN NOT NULL DEFAULT FALSE,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-) ENGINE=InnoDB;
+CREATE TABLE IF NOT EXISTS users (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY 
+    COMMENT 'Internal unique user identifier',
+  username VARCHAR(100) NOT NULL UNIQUE 
+    COMMENT 'Unique login name used for authentication',
+  pass_hash VARCHAR(255) NOT NULL 
+    COMMENT 'Password hash (bcrypt / argon2 / similar)',
+  email VARCHAR(255) NULL 
+    COMMENT 'Optional contact email address',
+  role ENUM('user','admin') NOT NULL DEFAULT 'user' 
+    COMMENT 'High-level role for administrative privileges',
+  disabled BOOLEAN NOT NULL DEFAULT FALSE 
+    COMMENT 'Soft-disable flag; disabled users cannot log in',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP 
+    COMMENT 'Account creation timestamp'
+) ENGINE=InnoDB COMMENT='Application users';
 
 -- =========================================================
--- GROUPS (előre tervezve, de nem kötelező használni)
+-- GROUPS not used yet
 -- =========================================================
 
-CREATE TABLE IF NOT EXISTS  groups (
-  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  name VARCHAR(100) NOT NULL UNIQUE
-) ENGINE=InnoDB;
+CREATE TABLE IF NOT EXISTS groups (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY 
+    COMMENT 'Internal group identifier',
+  name VARCHAR(100) NOT NULL UNIQUE 
+    COMMENT 'Human-readable unique group name'
+) ENGINE=InnoDB COMMENT='User groups for ACL and permission extension';
 
-CREATE TABLE IF NOT EXISTS  user_groups (
-  user_id BIGINT UNSIGNED NOT NULL,
-  group_id BIGINT UNSIGNED NOT NULL,
+CREATE TABLE IF NOT EXISTS user_groups (
+  user_id BIGINT UNSIGNED NOT NULL 
+    COMMENT 'Referenced user ID',
+  group_id BIGINT UNSIGNED NOT NULL 
+    COMMENT 'Referenced group ID',
   PRIMARY KEY (user_id, group_id),
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
   FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE CASCADE
-) ENGINE=InnoDB;
+) ENGINE=InnoDB COMMENT='Many-to-many relation between users and groups';
 
 -- =========================================================
 -- ALBUMS (categories)
 -- =========================================================
 
-CREATE TABLE IF NOT EXISTS  albums (
-  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  parent_id BIGINT UNSIGNED NULL,
-
-  name VARCHAR(255) NOT NULL,
-
-  description TEXT NULL,
-
-
-  -- materialized path JSON formában
-  -- root -> ... -> self (SAJÁT ID BENNE VAN)
-  ancestor_ids JSON NOT NULL,
-
-  -- dinamikus album szabály (AND/OR/NOT fa)
-  rule_json JSON NOT NULL,
-
-
-  -- sibling order
-  rank INT NOT NULL DEFAULT 0,
-
-  -- opcionális fix borító
-  cover_image_id BIGINT UNSIGNED NULL,
-
-
-  -- UI cache mezők (rekurzív)
-  child_album_count INT UNSIGNED NOT NULL DEFAULT 0,
-  image_count       INT UNSIGNED NOT NULL DEFAULT 0,
-
-  -- album ACL (navigációs szint)
-  acl_scope ENUM('public','any_user','user','group','admin') NOT NULL DEFAULT 'public',
-  acl_user_id BIGINT UNSIGNED NULL,
-  acl_group_id BIGINT UNSIGNED NULL,
-
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-
+CREATE TABLE IF NOT EXISTS albums (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY 
+    COMMENT 'Album unique identifier',
+  parent_id BIGINT UNSIGNED NULL 
+    COMMENT 'Parent album ID (NULL for root albums)',
+  name VARCHAR(255) NOT NULL 
+    COMMENT 'Display name of the album',
+  description TEXT NULL 
+    COMMENT 'Optional longer album description',
+  ancestor_ids JSON NOT NULL 
+    COMMENT 'Materialized path: ordered list of ancestor album IDs including self',
+  rule_json JSON NOT NULL 
+    COMMENT 'Serialized dynamic rule tree defining album contents',
+  rank INT NOT NULL DEFAULT 0 
+    COMMENT 'Sibling ordering index within the same parent album',
+  cover_image_id BIGINT UNSIGNED NULL 
+    COMMENT 'Optional fixed cover image overriding automatic selection',
+  child_album_count INT UNSIGNED NOT NULL DEFAULT 0 
+    COMMENT 'Cached recursive count of child albums',
+  image_count INT UNSIGNED NOT NULL DEFAULT 0
+    COMMENT 'Cached recursive count of images in this album',
+  acl_scope ENUM('public','any_user','user','group','admin') NOT NULL DEFAULT 'public'
+    COMMENT 'Album-level access control scope',
+  acl_user_id BIGINT UNSIGNED NULL
+    COMMENT 'User ID for user-scoped album access',
+  acl_group_id BIGINT UNSIGNED NULL
+    COMMENT 'Group ID for group-scoped album access',
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    COMMENT 'Last modification timestamp',
   FOREIGN KEY (parent_id) REFERENCES albums(id) ON DELETE CASCADE,
-
   INDEX idx_albums_parent (parent_id),
   INDEX idx_albums_acl_user (acl_user_id),
   INDEX idx_albums_acl_group (acl_group_id)
-) ENGINE=InnoDB;
+) ENGINE=InnoDB COMMENT='Hierarchical albums with dynamic rule-based contents';
 
 -- =========================================================
 -- IMAGES
 -- =========================================================
 
-CREATE TABLE IF NOT EXISTS  images (
-  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+CREATE TABLE IF NOT EXISTS images (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY
+    COMMENT 'Image unique identifier',
+  path VARCHAR(384) NOT NULL
+    COMMENT 'Directory path relative to configured root',
+  filename VARCHAR(64) NOT NULL
+    COMMENT 'Filename without extension',
+  ext VARCHAR(8) NOT NULL
+    COMMENT 'File extension',
 
-  -- path felbontva (root configból jön)
-  path VARCHAR(384) NOT NULL,
-  filename VARCHAR(64) NOT NULL,
-  ext VARCHAR(8) NOT NULL,
+  file_size INT UNSIGNED NOT NULL
+    COMMENT 'File size in bytes',
+  mtime DATETIME NOT NULL 
+    COMMENT 'Filesystem modification timestamp',
+  file_hash CHAR(64) NOT NULL 
+    COMMENT 'SHA-256 hash of file',
+  meta_hash CHAR(64) NOT NULL 
+    COMMENT 'SHA-256 hash of sidecar file',
 
-  -- filesystem fingerprint
-  file_size INT UNSIGNED NOT NULL,
-  mtime DATETIME NOT NULL,
-  file_hash CHAR(64) NOT NULL,   -- sha256
-  meta_hash CHAR(64) NOT NULL,   -- exif/xmp kanonikus hash
+  taken_at DATETIME NULL
+    COMMENT 'Photo capture timestamp (EXIF)',
+  camera VARCHAR(128) NULL 
+    COMMENT 'Camera model',
+  lens VARCHAR(128) NULL 
+    COMMENT 'Lens model',
+  focal_length DECIMAL(5,1) NULL 
+    COMMENT 'Focal length in millimeters',
+  aperture DECIMAL(4,1) NULL
+    COMMENT 'Aperture (f-number)',
+  exposure DECIMAL(8,6) NULL
+    COMMENT 'Exposure time in seconds',
+  iso SMALLINT UNSIGNED NULL
+    COMMENT 'ISO sensitivity value',
 
-  -- gyakran használt EXIF mezők
-  taken_at DATETIME NULL,
-  camera VARCHAR(128) NULL,
-  lens VARCHAR(128) NULL,
-  focal_length DECIMAL(5,1) NULL,
-  aperture DECIMAL(4,1) NULL,
-  exposure DECIMAL(8,6) NULL,
-  iso SMALLINT UNSIGNED NULL,
+  latitude DOUBLE NULL
+    COMMENT 'GPS latitude (WGS84)',
+  longitude DOUBLE NULL
+    COMMENT 'GPS longitude (WGS84)',
 
+  rotation SMALLINT NULL
+    COMMENT 'Image rotation / orientation',
+  rating SMALLINT NULL
+    COMMENT 'User or source rating value',
 
-  latitude DOUBLE NULL,
-  longitude DOUBLE NULL,
+  title VARCHAR(255) NULL 
+    COMMENT 'Human-readable image title',
+  subject TEXT NULL 
+    COMMENT 'Longer image description or caption',
 
-  rotation SMALLINT NULL,
-  rating SMALLINT NULL,
-  
-  -- emberi megnevezés / leírás
-  title VARCHAR(255) NULL,
-  subject TEXT NULL,
-  
-  -- fókuszpont (crop-aware thumbnails)
-  focus_x FLOAT NULL, -- 0..1
-  focus_y FLOAT NULL, -- 0..1
-  focus_mode ENUM('auto','manual','center','top','bottom') DEFAULT 'auto',
+  focus_x FLOAT NULL
+    COMMENT 'Normalized horizontal focus point (0..1)',
+  focus_y FLOAT NULL
+    COMMENT 'Normalized vertical focus point (0..1)',
+  focus_mode ENUM('auto','manual','center','top','bottom','left','right') DEFAULT 'auto'
+    COMMENT 'Focus point selection mode',
 
-  -- teljes EXIF / XMP dump
-  exif_json JSON NULL,
+  exif_json JSON NULL
+    COMMENT 'EXIF/XMP metadata dump in key-value format',
 
-  -- kép ACL (végső döntés)
-  acl_scope ENUM('public','any_user','user','group','admin') NOT NULL DEFAULT 'public',
-  acl_user_id BIGINT UNSIGNED NULL,
-  acl_group_id BIGINT UNSIGNED NULL,
+  acl_scope ENUM('public','any_user','user','group','admin') NOT NULL DEFAULT 'public'
+    COMMENT 'Final image-level access control scope',
+  acl_user_id BIGINT UNSIGNED NULL
+    COMMENT 'User ID for user-scoped access',
+  acl_group_id BIGINT UNSIGNED NULL
+    COMMENT 'Group ID for group-scoped access',
 
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    COMMENT 'Image record creation timestamp',
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    COMMENT 'Last update timestamp',
 
-  last_seen_sync BIGINT UNSIGNED NULL COMMENT
-  'ID of the last sync_runs entry in which this image was seen',
+  last_seen_sync BIGINT UNSIGNED NULL
+    COMMENT 'Sync run ID in which the image was last observed',
 
   UNIQUE KEY uniq_image_path (path, filename, ext),
   INDEX idx_images_taken_at (taken_at),
@@ -139,19 +164,23 @@ CREATE TABLE IF NOT EXISTS  images (
   INDEX idx_images_gps (latitude, longitude),
   INDEX idx_images_acl_user (acl_user_id),
   INDEX idx_images_acl_group (acl_group_id),
-  INDEX idx_images_last_seen_sync (last_seen_sync),
-) ENGINE=InnoDB;
+  INDEX idx_images_last_seen_sync (last_seen_sync)
+) ENGINE=InnoDB COMMENT='Images with filesystem identity, metadata, and ACL';
 
 -- =========================================================
--- ALBUM <-> IMAGE kapcsolat (materializált rule engine eredmény)
+-- ALBUM <-> IMAGE RELATION
 -- =========================================================
 
-CREATE TABLE IF NOT EXISTS  album_images (
-  album_id BIGINT UNSIGNED NOT NULL,
-  image_id BIGINT UNSIGNED NOT NULL,
+CREATE TABLE IF NOT EXISTS album_images (
+  album_id BIGINT UNSIGNED NOT NULL
+    COMMENT 'Referenced album ID',
+  image_id BIGINT UNSIGNED NOT NULL
+    COMMENT 'Referenced image ID',
 
-  position INT UNSIGNED NULL, -- sort / rank
-  computed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  position INT UNSIGNED NULL 
+    COMMENT 'Optional ordering position inside album',
+  computed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    COMMENT 'Timestamp when album rules were evaluated',
 
   PRIMARY KEY (album_id, image_id),
 
@@ -160,30 +189,38 @@ CREATE TABLE IF NOT EXISTS  album_images (
 
   INDEX idx_album_images_album_pos (album_id, position),
   INDEX idx_album_images_image (image_id)
-  
-) ENGINE=InnoDB;
+) ENGINE=InnoDB COMMENT='Materialized album-to-image assignments';
+
 
 -- =========================================================
--- TAGS (hierarchikus, read-only, Digikam-ból)
+-- TAGS
 -- =========================================================
 
 CREATE TABLE IF NOT EXISTS tags (
-  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  name VARCHAR(100) NOT NULL,
-  parent_id BIGINT NULL,
-  source ENUM('digikam') NOT NULL DEFAULT 'digikam',
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY
+    COMMENT 'Tag unique identifier',
+
+  name VARCHAR(100) NOT NULL
+    COMMENT 'Single segment tag name',
+  parent_id BIGINT NULL
+    COMMENT 'Parent tag ID for hierarchy',
+
+  source ENUM('digikam') NOT NULL DEFAULT 'digikam'
+    COMMENT 'Origin of the tag taxonomy',
 
   UNIQUE KEY uniq_parent_name (parent_id, name),
   INDEX idx_tags_name (name)
-) ENGINE=InnoDB;
+) ENGINE=InnoDB COMMENT='Hierarchical read-only tags imported from digiKam';
 
 -- =========================================================
--- IMAGE <-> TAG kapcsolat
+-- IMAGE <-> TAG RELATION
 -- =========================================================
 
 CREATE TABLE IF NOT EXISTS image_tags (
-  image_id BIGINT UNSIGNED NOT NULL,
-  tag_id BIGINT UNSIGNED NOT NULL,
+  image_id BIGINT UNSIGNED NOT NULL
+    COMMENT 'Referenced image ID',
+  tag_id BIGINT UNSIGNED NOT NULL
+    COMMENT 'Referenced tag ID',
 
   PRIMARY KEY (image_id, tag_id),
 
@@ -191,30 +228,38 @@ CREATE TABLE IF NOT EXISTS image_tags (
   FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE,
 
   INDEX idx_image_tags_tag (tag_id, image_id)
-
-) ENGINE=InnoDB;
+) ENGINE=InnoDB COMMENT='Assignment of tags to images';
 
 -- =========================================================
--- SYNC ADMIN kapcsolat
+-- SYNC RUNS
 -- =========================================================
 
 CREATE TABLE IF NOT EXISTS sync_runs (
-  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  is_active TINYINT NULL DEFAULT 1,
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY
+    COMMENT 'Sync run unique identifier',
 
-  started_at DATETIME NOT NULL,
-  finished_at DATETIME NULL,
+  is_active TINYINT NULL DEFAULT 1
+    COMMENT 'Marks the currently active sync run',
 
-  mode ENUM('full','incremental','partial','dry-run') NOT NULL DEFAULT 'full',
+  started_at DATETIME NOT NULL
+    COMMENT 'Sync start timestamp',
+  finished_at DATETIME NULL
+    COMMENT 'Sync completion timestamp',
 
-  total_seen INT UNSIGNED NOT NULL DEFAULT 0,
-  total_deleted INT UNSIGNED NOT NULL DEFAULT 0,
+  mode ENUM('full','incremental','partial','dry-run') NOT NULL DEFAULT 'full'
+    COMMENT 'Execution mode of the sync run',
 
-  status ENUM('running','finished','failed') NOT NULL DEFAULT 'running',
+  total_seen INT UNSIGNED NOT NULL DEFAULT 0
+    COMMENT 'Number of images observed during sync',
+  total_deleted INT UNSIGNED NOT NULL DEFAULT 0
+    COMMENT 'Number of images removed during sync',
+    
+  status ENUM('running','finished','failed') NOT NULL DEFAULT 'running'
+    COMMENT 'Final execution status of the sync run',
 
-  error TEXT NULL,
+  error TEXT NULL COMMENT 'Optional error details if sync failed',
 
   UNIQUE KEY uniq_sync_active (is_active),
   INDEX idx_sync_runs_started (started_at),
   INDEX idx_sync_runs_status (status)
-) ENGINE=InnoDB;
+) ENGINE=InnoDB COMMENT='Filesystem synchronization runs and diagnostics';

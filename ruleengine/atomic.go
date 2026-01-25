@@ -205,9 +205,9 @@ func compileRatingFilter(f *RatingFilter) (CompiledFilter, error) {
 		log.Logger.Debug().Int("rating", rating).Str("op", string(f.Op)).Int("val", f.Value).Msg("Check rating filter")
 		switch f.Op {
 		case RatingAbove:
-			return *img.Rating > f.Value
+			return rating > f.Value
 		case RatingBelow:
-			return *img.Rating < f.Value
+			return rating < f.Value
 		default:
 			return false
 		}

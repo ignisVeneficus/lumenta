@@ -8,6 +8,7 @@ import (
 
 	"github.com/ignisVeneficus/lumenta/config"
 	"github.com/ignisVeneficus/lumenta/pipeline"
+	"github.com/ignisVeneficus/lumenta/server"
 )
 
 func Run(cfg config.Config) error {
@@ -32,6 +33,7 @@ func Run(cfg config.Config) error {
 
 	case "import":
 		return runImport(cfg, os.Args[2:])
+
 	case "-h", "--help", "help":
 		printGlobalHelp()
 		return nil
@@ -54,6 +56,7 @@ Use "%s <command> --help" for command-specific options.
 }
 
 func runServe(cfg config.Config) error {
+	server.Server(cfg)
 	return nil
 }
 

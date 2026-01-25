@@ -11,7 +11,6 @@ import (
 	"github.com/go-sql-driver/mysql"
 	"github.com/ignisVeneficus/lumenta/logging"
 	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
 )
 
 //go:embed schema.sql
@@ -87,18 +86,15 @@ func NormalizeSQLError(err error) error {
 }
 
 func CreateDatabase(db *sql.DB, ctx context.Context) error {
-	log.Logger.Debug().Msg("Start Create Database")
+	logg := logging.Enter(ctx, "dao.database.create", nil)
 	queries := NewQueries(db)
 	err := queries.CreateDatabase(ctx)
 	if err != nil {
-		log.Logger.Error().Err(err).Msg("Create Database Failed")
+		logging.ExitErr(logg, err)
 		return err
 	}
-	log.Logger.Debug().Msg("End Create Database")
+	logging.Exit(logg, "ok", nil)
 	return nil
-}
-func ptrUint64(v uint64) *uint64 {
-	return &v
 }
 
 type ACLContext struct {
@@ -124,12 +120,20 @@ func (a *ACLContext) MarshalZerologObjectWithLevel(e *zerolog.Event, level zerol
 	}
 }
 
-const aclWhereClause = `
+const aclAlbumWhereClause = `
 (
   a.acl_scope = 'public'
   OR (a.acl_scope = 'any_user' AND ? = TRUE)
   OR (a.acl_scope = 'user' AND a.acl_user_id = ?)
   OR (a.acl_scope = 'admin' AND ? = TRUE)
+)
+`
+const aclImageWhereClause = `
+(
+  i.acl_scope = 'public'
+  OR (i.acl_scope = 'any_user' AND ? = TRUE)
+  OR (i.acl_scope = 'user' AND i.acl_user_id = ?)
+  OR (i.acl_scope = 'admin' AND ? = TRUE)
 )
 `
 
@@ -140,6 +144,18 @@ func wrapNotFound(err error, entity string) error {
 	if errors.Is(err, sql.ErrNoRows) {
 		return GetDataNotFoundError(entity)
 	}
+	return err
+}
+func returnWrapNotFound(logg zerolog.Logger, err error, entity string) error {
+	if err == nil {
+		logging.Exit(logg, "ok", nil)
+		return nil
+	}
+	if errors.Is(err, sql.ErrNoRows) {
+		logging.Exit(logg, "not found", nil)
+		return GetDataNotFoundError(entity)
+	}
+	logging.ExitErr(logg, err)
 	return err
 }
 

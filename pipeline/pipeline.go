@@ -44,6 +44,7 @@ func RunForcedImageSync(ctx context.Context, cfg config.Config, imageIDs []uint6
 }
 
 func RunGlobalSync(ctx context.Context, cfg config.Config, cleanUp bool) error {
+	logg := logging.Enter(ctx, "image.sync.global", map[string]any{"root": cfg.Media.Originals, "cleanup": cleanUp})
 	mode := dbo.SyncModeFull
 	if !cleanUp {
 		mode = dbo.SyncModeIncremental
@@ -52,6 +53,7 @@ func RunGlobalSync(ctx context.Context, cfg config.Config, cleanUp bool) error {
 
 	syncId, err := dao.CreateSyncRun(pipelineCtx.Database, ctx, mode)
 	if err != nil {
+		logging.ExitErr(logg, err)
 		return err
 	}
 	pipelineCtx.SyncId = syncId
@@ -61,8 +63,8 @@ func RunGlobalSync(ctx context.Context, cfg config.Config, cleanUp bool) error {
 	defer cancel()
 	pipelineCtx.Ctx = cancelCtx
 	pipelineCtx.Cancel = cancel
-	log.Logger.Info().Msg("Global Sync Start")
-	log.Logger.Debug().Object("context", logging.WithLevel(log.Logger.GetLevel(), &pipelineCtx)).Msg("with context")
+	logging.Info("image.sync.global", "start", "", "", nil)
+	logging.Inside(logg, map[string]any{"context": pipelineCtx}, "contex.created")
 
 	ch := make(chan WorkItem, 128)
 
@@ -87,20 +89,20 @@ func RunGlobalSync(ctx context.Context, cfg config.Config, cleanUp bool) error {
 		stepDBUpdate,
 	)
 	if err != nil {
-		log.Logger.Error().Err(err).Msg("Global Sync Failed")
+		logging.ExitErr(logg, err)
 		err = dao.CloseSyncRunError(pipelineCtx.Database, ctx, pipelineCtx.SyncId, err.Error())
 		if err != nil {
-			log.Logger.Error().Err(err).Msg("Sync close in database")
+			logging.ExitErr(logg, err)
 		}
 		return err
 	}
 	if cleanUp {
 		err = dao.DeleteImagesNotSeenAll(pipelineCtx.Database, ctx, pipelineCtx.SyncId, 1000)
 		if err != nil {
-			log.Logger.Error().Err(err).Msg("Global Sync Failed")
+			logging.ExitErr(logg, err)
 			err = dao.CloseSyncRunError(pipelineCtx.Database, ctx, pipelineCtx.SyncId, err.Error())
 			if err != nil {
-				log.Logger.Error().Err(err).Msg("Sync close in database")
+				logging.ExitErr(logg, err)
 			}
 			return err
 		}
@@ -108,10 +110,10 @@ func RunGlobalSync(ctx context.Context, cfg config.Config, cleanUp bool) error {
 
 	err = dao.CloseSyncRunSuccess(pipelineCtx.Database, ctx, pipelineCtx.SyncId, 0, 0)
 	if err != nil {
-		log.Logger.Error().Err(err).Msg("Global Sync Failed")
+		logging.ExitErr(logg, err)
 	}
 
-	log.Logger.Info().Msg("Global Sync End")
+	logging.Exit(logg, "ok", nil)
 	return err
 }
 
@@ -128,10 +130,12 @@ func createPipelineContex(cfg config.Config) PipelineContext {
 }
 
 func runPipeline(ctx PipelineContext, input chan WorkItem, workers ...step) error {
+	logg := logging.Enter(ctx.Ctx, "image.sync.pipeline", nil)
 	var err error
 	for _, w := range workers {
 		input, err = w(ctx, input)
 		if err != nil {
+			logging.ExitErr(logg, err)
 			return err
 		}
 	}

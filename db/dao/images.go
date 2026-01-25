@@ -6,6 +6,7 @@ import (
 
 	"github.com/ignisVeneficus/lumenta/db/dbo"
 	"github.com/ignisVeneficus/lumenta/logging"
+	"github.com/ignisVeneficus/lumenta/utils"
 
 	"database/sql"
 
@@ -25,6 +26,9 @@ i.acl_scope, i.acl_user_id, i.acl_group_id,
 i.created_at, i.updated_at, i.last_seen_sync
 `
 const getImageById = `SELECT ` + imageFields + ` FROM images i WHERE i.id=?`
+
+const getImageByIdACL = `SELECT ` + imageFields + ` FROM images i WHERE i.id=? and ` + aclImageWhereClause
+
 const createImage = `
 INSERT INTO images (
   path, filename, ext,
@@ -61,17 +65,17 @@ SELECT ` + imageFields + `FROM images i WHERE i.path = ? AND i.filename = ?`
 const countImagesByAlbums = `
 SELECT COUNT(DISTINCT ai.image_id)
 FROM album_images ai
-JOIN images a ON a.id = ai.image_id
+JOIN images i ON i.id = ai.image_id
 WHERE ai.album_id IN (%s)
-` + aclWhereClause
+` + aclImageWhereClause
 
 const queryImageIDsByAlbumsPage = `
 SELECT ai.image_id
 FROM album_images ai
-JOIN images a ON a.id = ai.image_id
+JOIN images i ON i.id = ai.image_id
 WHERE ai.album_id IN (%s)
 AND ai.image_id > ?
-` + aclWhereClause + `
+` + aclImageWhereClause + `
 GROUP BY ai.image_id
 ORDER BY ai.image_id
 LIMIT ?`
@@ -121,6 +125,13 @@ func parseImage(row *sql.Row) (dbo.Image, error) {
 
 func (q *Queries) GetImageById(ctx context.Context, id uint64) (dbo.Image, error) {
 	row := q.db.QueryRowContext(ctx, getImageById, id)
+	return parseImage(row)
+}
+
+func (q *Queries) GetImageByIdACL(ctx context.Context, id uint64, acl ACLContext) (dbo.Image, error) {
+	params := []any{id}
+	params = append(params, acl.AsParamArray()...)
+	row := q.db.QueryRowContext(ctx, getImageByIdACL, params...)
 	return parseImage(row)
 }
 
@@ -287,6 +298,12 @@ func (q *Queries) UpdateImageSyncId(ctx context.Context, imageId uint64, syncId 
 	return err
 }
 
+//
+// =========================================================
+// Public API functions
+// =========================================================
+//
+
 func BindImageTag(db *sql.DB, ctx context.Context, imageId, tagId uint64) error {
 	log.Logger.Debug().Uint64("image", imageId).Uint64("tag", tagId).Msg("Bind Image Tag")
 	tx, err := GetTx(db, ctx)
@@ -320,7 +337,7 @@ func CreateImage(db *sql.DB, ctx context.Context, i *dbo.Image) (uint64, error) 
 	if err != nil {
 		return 0, err
 	}
-	i.ID = ptrUint64(uint64(id))
+	i.ID = utils.PtrUint64(uint64(id))
 
 	return uint64(id), tx.Commit()
 }
@@ -362,7 +379,7 @@ func CreateOrUpdateImage(db *sql.DB, ctx context.Context, i *dbo.Image) (uint64,
 		if err != nil {
 			return 0, err
 		}
-		i.ID = ptrUint64(uint64(id))
+		i.ID = utils.PtrUint64(uint64(id))
 	} else {
 		if err := q.UpdateImage(ctx, *i); err != nil {
 			return *i.ID, err
@@ -400,11 +417,54 @@ func GetImageById(db *sql.DB, ctx context.Context, id uint64) (dbo.Image, error)
 	i, err := q.GetImageById(ctx, id)
 	return i, wrapNotFound(err, "image")
 }
+func GetImageByIdACL(db *sql.DB, ctx context.Context, id uint64, acl ACLContext) (dbo.Image, error) {
+	logg := logging.Enter(ctx, "dao.image.getById.ACL", map[string]any{
+		"image_id":    id,
+		"acl_context": acl,
+	})
+	q := NewQueries(db)
+	i, err := q.GetImageByIdACL(ctx, id, acl)
+	return i, returnWrapNotFound(logg, err, "image")
+}
+
 func GetImageByIdWTags(db *sql.DB, ctx context.Context, id uint64) (dbo.Image, error) {
 	log.Logger.Debug().Uint64("id", id).Msg("Get image by id")
 
 	q := NewQueries(db)
 	i, err := q.GetImageById(ctx, id)
+	err = wrapNotFound(err, "image")
+	if err != nil {
+		return i, err
+	}
+	tags, err := q.QuertyTagsByImageID(ctx, *i.ID)
+	if err != nil {
+		return i, err
+	}
+	tm := make(map[uint64]*dbo.Tag, len(tags))
+	i.Tags = i.Tags[:0]
+	for idx := range tags {
+		t := &tags[idx]
+		tm[*t.ID] = t
+		t.Children = t.Children[:0]
+	}
+	for idx := range tags {
+		t := &tags[idx]
+		if t.ParentID == nil {
+			i.Tags = append(i.Tags, *t)
+			continue
+		}
+		if p := tm[*t.ParentID]; p != nil {
+			p.Children = append(p.Children, *t)
+		}
+	}
+	return i, nil
+}
+func GetImageByIdACLWTags(db *sql.DB, ctx context.Context, id uint64, acl ACLContext) (dbo.Image, error) {
+	logging.Enter(ctx, "dao.image.getImageById.ACL.Tags", nil)
+	log.Logger.Debug().Uint64("id", id).Msg("Get image With Tags by id with ACL")
+
+	q := NewQueries(db)
+	i, err := q.GetImageByIdACL(ctx, id, acl)
 	err = wrapNotFound(err, "image")
 	if err != nil {
 		return i, err

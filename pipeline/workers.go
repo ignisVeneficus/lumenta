@@ -80,17 +80,17 @@ func walkDirHandler(ctx *PipelineContext, realPath string, d fs.DirEntry, err er
 }
 
 func fSWorker(ctx *PipelineContext) error {
-	log.Logger.Debug().Str("path", ctx.RootPath).Msg("FileSystem parser worker start")
+	logg := logging.Enter(ctx.Ctx, "image.sync.fsWalker", map[string]any{"root": ctx.RootPath})
 
 	err := filepath.WalkDir(ctx.RootPath, func(path string, d fs.DirEntry, err error) error {
 		return walkDirHandler(ctx, path, d, err)
 	})
-	if err == nil {
-		log.Logger.Debug().Str("path", ctx.RootPath).Msg("FileSystem parser worker end")
-	} else {
-		log.Logger.Error().Err(err).Str("path", ctx.RootPath).Msg("FileSystem parser worker died")
+	if err != nil {
+		logging.ExitErr(logg, err)
+		return err
 	}
-	return err
+	logging.Exit(logg, "ok", nil)
+	return nil
 }
 
 func dBLoopupByPathWorker(ctx *PipelineContext) error {

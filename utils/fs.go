@@ -25,8 +25,9 @@ func ComputeFileHash(path string) (string, error) {
 }
 
 func SplitPath(path string) (string, string, string) {
-	dir, name := filepath.Split(path)
-	ext := filepath.Ext(name)
+	dir, file := filepath.Split(path)
+	ext := filepath.Ext(file)
+	name := strings.TrimSuffix(file, ext)
 	return dir, name, ext
 }
 
@@ -35,8 +36,23 @@ func ConcatLocalPath(dir string, name string, ext string) string {
 }
 
 func ConcatGlobalPath(root, dir, name, ext string) string {
-	return filepath.Join(root, dir, name+ext)
+	return filepath.Join(root, dir, name+"."+ext)
 }
+func ConcatGlobalDerivatedPath(root, dir, name, postfix, ext string) string {
+	return filepath.Join(root, dir, name+"-"+postfix+"."+ext)
+}
+
 func NormalizeExt(ext string) string {
 	return strings.TrimPrefix(strings.ToLower(ext), ".")
+}
+
+func FileExists(fileName string) (bool, error) {
+	_, err := os.Stat(fileName)
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	if err == nil {
+		return true, nil
+	}
+	return false, err
 }
