@@ -1,0 +1,17 @@
+{{ define "layout/baseof.html" }}
+<!DOCTYPE html>
+<html>
+  {{ template "partials/head.html" . }}
+<body>
+
+  {{ template "partials/header.html" . }}
+
+  <main class="site-main">
+    {{ block "main" . }}{{ end }}
+  </main>
+
+  {{ template "partials/footer.html" . }}
+
+</body>
+</html>
+{{ end }}

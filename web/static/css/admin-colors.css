@@ -1,0 +1,23 @@
+.theme-admin {
+  /* ============================================================
+     BACKGROUND – PURE ACCENT DERIVATIVES
+     ============================================================ */
+
+  /* darkest – content */
+  --bg-deep:    #0e1324;
+
+  /* mid – context */
+  --bg-context: #141a30;
+
+  /* lightest – header / chrome */
+  --bg-upper:   #1c2440;
+
+  --text-primary:   #e6e9f4;
+  --text-secondary: #b3b9d6;
+
+  --icon-default:   #b3b9d6;
+  --icon-muted:     #8891b8;
+
+  --accent: #e08a3a;
+
+}

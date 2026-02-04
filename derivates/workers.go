@@ -9,15 +9,43 @@ import (
 	"path/filepath"
 
 	"github.com/disintegration/imaging"
-	"github.com/ignisVeneficus/lumenta/config"
+	derivativeConfig "github.com/ignisVeneficus/lumenta/config/derivative"
+	"github.com/ignisVeneficus/lumenta/data"
 	"github.com/ignisVeneficus/lumenta/logging"
 )
 
+func applyTask(ctx context.Context, t Task, img image.Image, focus data.Focus) error {
+	logg := logging.Enter(ctx, "derivates.generic.task", map[string]any{"task": t})
+
+	targetW := t.Mode.MaxWidth
+	targetH := t.Mode.MaxHeight
+
+	var err error
+	switch t.Mode.Mode {
+	case derivativeConfig.DerivateSizeResize:
+		img, err = resizeFit(img, targetW, targetH)
+		if err != nil {
+			logging.ExitErr(logg, err)
+			return err
+		}
+
+	case derivativeConfig.DerivateSizeCrop:
+		img = resizeCrop(img, targetW, targetH, focus)
+
+	default:
+		err = fmt.Errorf("unknown resize mode: %s", t.Mode.Mode)
+		logging.ExitErr(logg, err)
+		return err
+	}
+	if err := writeImage(ctx, img, t.TargetPath); err != nil {
+		logging.ExitErr(logg, err)
+	}
+	logging.Exit(logg, "ok", nil)
+	return nil
+}
+
 func GenerateDerivateStep(j *Job) error {
 	logg := logging.Enter(j.Ctx, "derivates.generic.step", map[string]any{"job": j})
-
-	targetW := j.Mode.MaxWidth
-	targetH := j.Mode.MaxHeight
 
 	img, err := imaging.Open(j.SourcePath, imaging.AutoOrientation(false))
 	if err != nil {
@@ -27,27 +55,15 @@ func GenerateDerivateStep(j *Job) error {
 
 	img = applyRotation(img, j.ImageParams.Rotation)
 
-	switch j.Mode.Mode {
-	case config.DerivateSizeResize:
-		img, err = resizeFit(img, targetW, targetH)
+	j.ImageParams.Focus.Rotate(j.ImageParams.Rotation)
+
+	for _, t := range j.Tasks {
+		err := applyTask(j.Ctx, t, img, j.ImageParams.Focus)
 		if err != nil {
-			logging.ExitErr(logg, err)
-			return err
+			logging.ErrorContinue(logg, err, map[string]any{"task": t.Mode.Name})
 		}
-
-	case config.DerivateSizeCrop:
-		focusX, focusY := resolveFocus(j.ImageParams.FocusX, j.ImageParams.FocusY, j.ImageParams.FocusMode)
-		focusX, focusY = rotateFocus(focusX, focusY, j.ImageParams.Rotation)
-		img = resizeCrop(img, targetW, targetH, focusX, focusY)
-
-	default:
-		err = fmt.Errorf("unknown resize mode: %s", j.Mode.Mode)
-		logging.ExitErr(logg, err)
-		return err
 	}
-	if err := writeImage(j.Ctx, img, j.TargetPath); err != nil {
-		logging.ExitErr(logg, err)
-	}
+
 	logging.Exit(logg, "ok", nil)
 	return nil
 }
@@ -96,49 +112,6 @@ func resizeFit(img image.Image, maxW, maxH int) (image.Image, error) {
 		imaging.Lanczos,
 	), nil
 }
-func resolveFocus(fpx, fpy *float32, mode ImageFocusMode) (fx, fy float32) {
-
-	if fpx != nil && fpy != nil {
-		return *fpx, *fpy
-	}
-	switch mode {
-	case ImageFocusModeTop:
-		return 0.5, 0.0
-	case ImageFocusModeBottom:
-		return 0.5, 1.0
-	case ImageFocusModeLeft:
-		return 0.0, 0.5
-	case ImageFocusModeRight:
-		return 1.0, 0.5
-	case ImageFocusModeCenter:
-		return 0.5, 0.5
-	case ImageFocusModeAuto:
-		return 0.5, 0.5
-	default:
-		return 0.5, 0.5
-	}
-}
-
-/*
-	func autoFocus(img image.Image) (fx, fy float64) {
-		// edge density
-		// face detection
-		// saliency map
-		return 0.5, 0.5
-	}
-*/
-func rotateFocus(fx, fy float32, rotation int16) (nfx, nfy float32) {
-	switch ((rotation % 360) + 360) % 360 {
-	case 90:
-		return 1.0 - fy, fx
-	case 180:
-		return 1.0 - fx, 1.0 - fy
-	case 270:
-		return fy, 1.0 - fx
-	default:
-		return fx, fy
-	}
-}
 
 func resizeCover(img image.Image, targetW, targetH int) image.Image {
 
@@ -156,13 +129,13 @@ func resizeCover(img image.Image, targetW, targetH int) image.Image {
 	return imaging.Resize(img, newW, newH, imaging.Lanczos)
 }
 
-func cropToTarget(img image.Image, targetW, targetH int, fx, fy float64) image.Image {
+func cropToTarget(img image.Image, targetW, targetH int, focus data.Focus) image.Image {
 
 	w := img.Bounds().Dx()
 	h := img.Bounds().Dy()
 
-	cx := int(math.Round(float64(w) * fx))
-	cy := int(math.Round(float64(h) * fy))
+	cx := int(math.Round(float64(w) * float64(focus.FocusX)))
+	cy := int(math.Round(float64(h) * float64(focus.FocusY)))
 
 	x0 := cx - targetW/2
 	y0 := cy - targetH/2
@@ -185,12 +158,12 @@ func cropToTarget(img image.Image, targetW, targetH int, fx, fy float64) image.I
 	return imaging.Crop(img, rect)
 }
 
-func resizeCrop(img image.Image, targetW, targetH int, fx, fy float32) image.Image {
+func resizeCrop(img image.Image, targetW, targetH int, focus data.Focus) image.Image {
 
 	// 1. scale-to-cover
 	img = resizeCover(img, targetW, targetH)
 	// 2. crop to exact size using focus
-	return cropToTarget(img, targetW, targetH, float64(fx), float64(fy))
+	return cropToTarget(img, targetW, targetH, focus)
 }
 
 func writeImage(ctx context.Context, img image.Image, path string) error {

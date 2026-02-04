@@ -19,7 +19,7 @@ i.id, i.path, i.filename, i.ext,
 i.file_size, i.mtime, i.file_hash, i.meta_hash,
 i.title, i.subject,
 i.taken_at, i.camera, i.lens, i.focal_length, i.aperture, i.exposure, i.iso,
-i.latitude, i.longitude, i.rotation, i.rating,
+i.latitude, i.longitude, i.rotation, i.rating, i.width, i.height, i.panorama,
 i.focus_x, i.focus_y, i.focus_mode,
 i.exif_json,
 i.acl_scope, i.acl_user_id, i.acl_group_id,
@@ -35,11 +35,11 @@ INSERT INTO images (
   file_size, mtime, file_hash, meta_hash,
   title, subject,
   taken_at, camera, lens, focal_length, aperture, exposure,iso,
-  latitude, longitude, rotation, rating,
+  latitude, longitude, rotation, rating, width, height, panorama,
   focus_x, focus_y, focus_mode,
   exif_json,
   acl_scope, acl_user_id, acl_group_id, last_seen_sync
-) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
 
 const deleteImage = `DELETE FROM images WHERE id=?`
 
@@ -49,7 +49,7 @@ UPDATE images SET
   file_size=?, mtime=?, file_hash=?, meta_hash=?,
   title=?, subject=?,
   taken_at=?, camera=?, lens=?, focal_length=?, aperture=?, exposure=?, iso=?,
-  latitude=?, longitude=?, rotation=?, rating=?,
+  latitude=?, longitude=?, rotation=?, rating=?, width=?, height=?, panorama=?,
   focus_x=?, focus_y=?, focus_mode=?,
   exif_json=?,
   acl_scope=?, acl_user_id=?, acl_group_id=?, last_seen_sync=?
@@ -109,6 +109,9 @@ func parseImage(row *sql.Row) (dbo.Image, error) {
 		&i.Longitude,
 		&i.Rotation,
 		&i.Rating,
+		&i.Width,
+		&i.Height,
+		&i.Panorama,
 		&i.FocusX,
 		&i.FocusY,
 		&i.FocusMode,
@@ -159,6 +162,9 @@ func (q *Queries) CreateImage(ctx context.Context, i dbo.Image) error {
 		i.Longitude,
 		i.Rotation,
 		i.Rating,
+		i.Width,
+		i.Height,
+		i.Panorama,
 		i.FocusX,
 		i.FocusY,
 		i.FocusMode,
@@ -202,6 +208,9 @@ func (q *Queries) UpdateImage(ctx context.Context, i dbo.Image) error {
 		i.Longitude,
 		i.Rotation,
 		i.Rating,
+		i.Width,
+		i.Height,
+		i.Panorama,
 		i.FocusX,
 		i.FocusY,
 		i.FocusMode,

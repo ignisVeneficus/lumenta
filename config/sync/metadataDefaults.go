@@ -1,4 +1,4 @@
-package config
+package sync
 
 import "github.com/ignisVeneficus/lumenta/data"
 
@@ -160,15 +160,27 @@ func DefaultDBMetadataConfig() MetadataConfig {
 			data.MetaHeight: {
 				Sources: []MetadataSourceConfig{
 					{Ref: "file:ImageHeight"},
+					{Ref: "XMP-tiff:ImageHeight"},
+					{Ref: "exif:PixelYDimension"},
 				},
 				Type: data.MetaInt,
 			},
 			data.MetaWidth: {
 				Sources: []MetadataSourceConfig{
 					{Ref: "file:ImageWidth"},
+					{Ref: "XMP-tiff:ImageWidth"},
+					{Ref: "exif:PixelXDimension"},
 				},
 				Type: data.MetaInt,
 			},
+			/*
+				data.MetaSize: {
+					Sources: []MetadataSourceConfig{
+						{Ref: "Composite:ImageSize"},
+					},
+					Type: data.MetaString,
+				},
+			*/
 		},
 	}
 }

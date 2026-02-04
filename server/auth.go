@@ -2,75 +2,103 @@ package server
 
 import (
 	"github.com/ignisVeneficus/lumenta/auth"
+	authData "github.com/ignisVeneficus/lumenta/auth/data"
 	"github.com/ignisVeneficus/lumenta/config"
+	authConfig "github.com/ignisVeneficus/lumenta/config/auth"
 	"github.com/ignisVeneficus/lumenta/utils"
 
 	"github.com/gin-gonic/gin"
 )
-
-const AuthContextKey = "auth"
 
 type AuthRuntime struct {
 	JWT  *JWTService
 	OIDC auth.OIDCVerifier
 }
 
-func ContextFromToken(token string, jwtSvc *JWTService) auth.ACLContext {
-	ctx := auth.GuestContext()
-
+func ContextFromToken(token string, jwtSvc *JWTService) *authData.ACLContext {
 	if token == "" || jwtSvc == nil {
-		return ctx
+		return nil
 	}
 
 	claims, err := jwtSvc.Verify(token)
 	if err != nil {
-		return ctx
+		return nil
+	}
+	ctx := authData.ACLContext{
+		UserID:   &claims.UserID,
+		UserName: &claims.Subject,
+		Role:     authData.RoleUser,
+		Provider: authData.ProviderJWT,
 	}
 
-	ctx.UserID = &claims.UserID
-	ctx.Role = auth.RoleUser
-	ctx.Provider = auth.ProviderJWT
-
-	return ctx
+	return &ctx
+}
+func createJWTToken(c *gin.Context, jwtSvc *JWTService, acl authData.ACLContext) bool {
+	token, err := jwtSvc.Issue(acl)
+	if err != nil {
+		c.AbortWithStatus(500)
+		return false
+	}
+	c.Header("X-Auth-Token", token)
+	return true
 }
 
-func AuthContextMiddleware(cfg config.AuthConfig, rt AuthRuntime, env config.Environment) gin.HandlerFunc {
+func AuthContextMiddleware(cfg authConfig.AuthConfig, rt AuthRuntime, env config.Environment) gin.HandlerFunc {
 	return func(c *gin.Context) {
 
-		ctx := auth.GuestContext()
+		var ctx *authData.ACLContext
+		var jwtCtx *authData.ACLContext
+		var extCtx *authData.ACLContext
 
 		switch cfg.Mode {
-		case config.AuthModeForward:
-			fwdCtx := auth.ContextFromForwardAuth(c.Request.Header, cfg.Forward)
-			if fwdCtx.Provider != auth.ProviderGuest {
-				ctx = fwdCtx
-			}
-		case config.AuthModeOIDC:
+		case authData.ProviderForward:
+			extCtx = auth.ContextFromForwardAuth(c.Request.Header, cfg.Forward)
+		case authData.ProviderOIDC:
 			if token := auth.BearerToken(c.Request); token != "" {
-				oidcCtx := auth.ContextFromOIDC(c, token, rt.OIDC, cfg.OIDC)
-				if oidcCtx.Provider != auth.ProviderGuest {
-					ctx = oidcCtx
-				}
+				extCtx = auth.ContextFromOIDC(c, token, rt.OIDC, cfg.OIDC)
 			}
 		}
-		if ctx.Provider == auth.ProviderGuest && rt.JWT != nil {
+		if rt.JWT != nil {
 			token := auth.TokenFromRequest(c.Request)
-			jwtCtx := ContextFromToken(token, rt.JWT)
-			c.Set(AuthContextKey, ctx)
-			if jwtCtx.Provider != auth.ProviderGuest {
-				ctx = jwtCtx
+			jwtCtx = ContextFromToken(token, rt.JWT)
+		}
+		if jwtCtx != nil && extCtx != nil {
+			if (*jwtCtx.UserName) != (*extCtx.UserName) {
+				jwtCtx = nil
 			}
+		}
+		switch {
+		//use external and jwt
+		case jwtCtx != nil && extCtx != nil:
+			ctx = extCtx
+			ctx.UserID = jwtCtx.UserID
+		// only external
+		case jwtCtx == nil && extCtx != nil:
+			//TODO db lookup
+			ctx = extCtx
+			if ok := createJWTToken(c, rt.JWT, *ctx); !ok {
+				return
+			}
+
+		//only internal
+		case jwtCtx != nil:
+			ctx = jwtCtx
+			ctx.Role = authData.RoleUser
+		// guest
+		default:
+			ctx = authData.GuestContext()
 		}
 
 		if env == config.EnvDevelopment {
-			ctx = auth.ACLContext{
+			ctx = &authData.ACLContext{
 				UserID:   utils.PtrUint64(uint64(1)),
-				Role:     auth.RoleAdmin,
-				Provider: auth.ProviderDev,
+				UserName: utils.PtrString("dev admin"),
+				Role:     authData.RoleAdmin,
+				Provider: authData.ProviderDev,
 			}
 		}
 
-		c.Set(AuthContextKey, ctx)
+		auth.SetAuthContex(c, *ctx)
 		c.Next()
 	}
 }

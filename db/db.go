@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/ignisVeneficus/lumenta/config"
+	dbConfig "github.com/ignisVeneficus/lumenta/config/database"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/rs/zerolog/log"
@@ -18,7 +19,7 @@ var (
 
 //var connector driver.Connector
 
-func connectToDatabase(config config.DatabaseConfig, multipleQuery bool) *sql.DB {
+func connectToDatabase(config dbConfig.DatabaseConfig, multipleQuery bool) *sql.DB {
 	/*
 		cfg := mysql.Config{
 			User:                 config.User,

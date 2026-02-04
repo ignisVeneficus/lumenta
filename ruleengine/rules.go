@@ -4,40 +4,44 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/rs/zerolog/log"
 	"gopkg.in/yaml.v3"
 )
 
-type FilterGroupOp string
+type RuleGroupOp string
 
 const (
-	OpAll FilterGroupOp = "all" // AND
-	OpAny FilterGroupOp = "any" // OR
+	OpAll RuleGroupOp = "all" // AND
+	OpAny RuleGroupOp = "any" // OR
 )
 
-type FilterGroup struct {
-	Op      FilterGroupOp // all | any
-	Filters []Filter      // legalább 1
+type RuleGroup struct {
+	Op    RuleGroupOp // all | any
+	Rules []Rule
 }
 
-type Filter interface {
+type Rule interface {
 	FilterType() string
 }
 
-var filterRegistry = map[string]func() Filter{
-	"tag":         func() Filter { return &TagFilter{} },
-	"date":        func() Filter { return &DateFilter{} },
-	"name":        func() Filter { return &NameFilter{} },
-	"album":       func() Filter { return &AlbumFilter{} },
-	"rating":      func() Filter { return &RatingFilter{} },
-	"path":        func() Filter { return &PathFilter{} },
-	"extension":   func() Filter { return &ExtensionFilter{} },
-	"notchildren": func() Filter { return &NotInChildAlbumsFilter{} },
+var filterRegistry = map[string]func() Rule{
+	"tag":         func() Rule { return &TagFilter{} },
+	"date":        func() Rule { return &DateFilter{} },
+	"name":        func() Rule { return &NameFilter{} },
+	"album":       func() Rule { return &AlbumFilter{} },
+	"rating":      func() Rule { return &RatingFilter{} },
+	"path":        func() Rule { return &PathFilter{} },
+	"extension":   func() Rule { return &ExtensionFilter{} },
+	"notchildren": func() Rule { return &NotInChildAlbumsFilter{} },
+	"width":       func() Rule { return &WidthFilter{} },
+	"height":      func() Rule { return &HeightFilter{} },
+	"aspect":      func() Rule { return &AspectFilter{} },
 }
 
-func (g *FilterGroup) UnmarshalYAML(value *yaml.Node) error {
-	// 1️⃣ ideiglenes, YAML-barát struktúra
+func (g *RuleGroup) UnmarshalYAML(value *yaml.Node) error {
+	log.Logger.Warn().Int("Line", value.Line).Msg("RuleGroup UnmarshalYAML called")
 	var raw struct {
-		Op    FilterGroupOp    `yaml:"op"`
+		Op    RuleGroupOp      `yaml:"op"`
 		Rules []map[string]any `yaml:"rules"`
 	}
 
@@ -69,15 +73,15 @@ func (g *FilterGroup) UnmarshalYAML(value *yaml.Node) error {
 			return fmt.Errorf("rules[%d]: %w", i, err)
 		}
 
-		g.Filters = append(g.Filters, f)
+		g.Rules = append(g.Rules, f)
 	}
 
 	return nil
 }
 
-func (g *FilterGroup) UnmarshalJSON(data []byte) error {
+func (g *RuleGroup) UnmarshalJSON(data []byte) error {
 	var raw struct {
-		Op    FilterGroupOp    `json:"op"`
+		Op    RuleGroupOp      `json:"op"`
 		Rules []map[string]any `json:"rules"`
 	}
 
@@ -104,21 +108,21 @@ func (g *FilterGroup) UnmarshalJSON(data []byte) error {
 			return fmt.Errorf("rules[%d]: %w", i, err)
 		}
 
-		g.Filters = append(g.Filters, f)
+		g.Rules = append(g.Rules, f)
 	}
 
 	return nil
 }
 
-func (g FilterGroup) MarshalJSON() ([]byte, error) {
+func (g RuleGroup) MarshalJSON() ([]byte, error) {
 	type alias struct {
-		Op      FilterGroupOp `json:"op"`
-		Filters []any         `json:"rules"`
+		Op      RuleGroupOp `json:"op"`
+		Filters []any       `json:"rules"`
 	}
 	out := alias{
 		Op: g.Op,
 	}
-	for _, f := range g.Filters {
+	for _, f := range g.Rules {
 		out.Filters = append(out.Filters, f)
 	}
 	return json.Marshal(out)
@@ -141,16 +145,16 @@ const (
 	DateAfter  DateOp = "after"
 )
 
-type RatingOp string
+type RelationOp string
 
 const (
-	RatingBelow RatingOp = "<"
-	RatingAbove RatingOp = ">"
+	RelationBelow RelationOp = "<"
+	RelationAbove RelationOp = ">"
 )
 
 type TagFilter struct {
 	Type string   `json:"type" yaml:"type"`
-	Mode SetMode  `json:"mode" yaml:"mode"`
+	Op   SetMode  `json:"op" yaml:"op"`
 	Tags []string `json:"tags" yaml:"tags"`
 }
 
@@ -172,12 +176,36 @@ type NameFilter struct {
 func (NameFilter) FilterType() string { return "name" }
 
 type RatingFilter struct {
-	Type  string   `json:"type" yaml:"type"` // "rating"
-	Op    RatingOp `json:"op" yaml:"op"`
-	Value int      `json:"value" yaml:"value"`
+	Type  string     `json:"type" yaml:"type"` // "rating"
+	Op    RelationOp `json:"op" yaml:"op"`
+	Value int        `json:"value" yaml:"value"`
 }
 
 func (RatingFilter) FilterType() string { return "rating" }
+
+type WidthFilter struct {
+	Type  string     `json:"type" yaml:"type"` // "width"
+	Op    RelationOp `json:"op" yaml:"op"`
+	Value int        `json:"value" yaml:"value"`
+}
+
+func (WidthFilter) FilterType() string { return "width" }
+
+type HeightFilter struct {
+	Type  string     `json:"type" yaml:"type"` // "height"
+	Op    RelationOp `json:"op" yaml:"op"`
+	Value int        `json:"value" yaml:"value"`
+}
+
+func (HeightFilter) FilterType() string { return "height" }
+
+type AspectFilter struct {
+	Type  string     `json:"type" yaml:"type"` // "aspect"
+	Op    RelationOp `json:"op" yaml:"op"`
+	Value float64    `json:"value" yaml:"value"`
+}
+
+func (AspectFilter) FilterType() string { return "aspect" }
 
 type PathFilter struct {
 	Type  string   `json:"type" yaml:"type"` // "path"

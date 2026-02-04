@@ -6,10 +6,11 @@ import (
 	"os"
 	"sort"
 
-	"github.com/ignisVeneficus/lumenta/config"
+	syncConfig "github.com/ignisVeneficus/lumenta/config/sync"
 	"github.com/ignisVeneficus/lumenta/data"
 	"github.com/ignisVeneficus/lumenta/db/dbo"
 	"github.com/ignisVeneficus/lumenta/logging"
+	"github.com/ignisVeneficus/lumenta/ruleengine"
 	"github.com/rs/zerolog"
 )
 
@@ -35,12 +36,13 @@ type WorkItem struct {
 	// FILESYSTEM (walk)
 	// =========================================================
 
-	RootPath string      // configured sync root
-	Path     string      // path relative to RootPath without filename
-	RealPath string      // absolute / canonical filesystem path
-	Filename string      // base filename
-	Ext      string      // normalized extension (without dot)
-	Info     os.FileInfo // filesystem stat info
+	RootPath     string      // configured sync root
+	Path         string      // path relative to RootPath without filename
+	RealPath     string      // absolute / canonical filesystem path
+	Filename     string      // base filename
+	MetadataFile string      // metadata filename
+	Ext          string      // normalized extension (without dot)
+	Info         os.FileInfo // filesystem stat info
 
 	// =========================================================
 	// DATABASE PRECHECK (path-based lookup)
@@ -68,6 +70,7 @@ type WorkItem struct {
 	// =========================================================
 
 	Metadata data.Metadata
+	Panorama bool
 
 	// =========================================================
 	// ERROR / DIAGNOSTICS
@@ -128,21 +131,15 @@ type PipelineContext struct {
 	// =========================================================
 
 	RootPath   string
-	PathConfig *[]config.PathFilterConfig
 	AllowedExt map[string]struct{}
 
 	Database *sql.DB
-	Metadata *config.MetadataConfig
-	Filters  []config.PathFilterConfig
+	Metadata *syncConfig.MetadataConfig
+	Filters  []syncConfig.PathFilterConfig
+	Panorama *ruleengine.RuleGroup
 
 	SyncId uint64
-
-	// később:
-	// DB ImageRepository
-	// HashPolicy
-	// FilterGroup
-	// JobManager
-	// Logger
+	Force  bool
 
 	// =========================================================
 	// Channels (may be nil)
@@ -159,15 +156,6 @@ func (pc *PipelineContext) MarshalZerologObjectWithLevel(e *zerolog.Event, level
 		e.Bool("has_in", pc.In != nil).
 			Bool("has_out", pc.Out != nil)
 
-		// Context cancellation state
-		if pc.Ctx != nil {
-			select {
-			case <-pc.Ctx.Done():
-				e.Bool("ctx_done", true)
-			default:
-				e.Bool("ctx_done", false)
-			}
-		}
 		e.Str("root_path", pc.RootPath)
 
 		if len(pc.AllowedExt) > 0 {
@@ -179,4 +167,22 @@ func (pc *PipelineContext) MarshalZerologObjectWithLevel(e *zerolog.Event, level
 			e.Strs("allowed_ext", exts)
 		}
 	}
+}
+
+func createImageFact(job WorkItem) ruleengine.ImageFacts {
+	rating := 0
+	if job.Metadata.GetRating() != nil {
+		rating = int(*job.Metadata.GetRating())
+	}
+	return ruleengine.ImageFacts{
+		Path:     job.Path,
+		Filename: job.Filename,
+		Ext:      job.Ext,
+		TakenAt:  job.Metadata.GetTakenAt(),
+		Rating:   &rating,
+		Tags:     job.Metadata.GetTags(),
+		Width:    job.Metadata.GetWidth(),
+		Height:   job.Metadata.GetHeight(),
+	}
+
 }

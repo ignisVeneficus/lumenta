@@ -38,6 +38,8 @@ func UpdateImageMetadata(i *dbo.Image, metadata data.Metadata) error {
 	i.Longitude = metadata.GetLongitude()
 	i.Lens = metadata.GetLens()
 	i.Rating = metadata.GetRating()
+	i.Width = metadata.GetWidth()
+	i.Height = metadata.GetHeight()
 	i.Rotation = metadata.GetRotation()
 	i.Subject = metadata.GetSubject()
 	i.Title = metadata.GetTitle()

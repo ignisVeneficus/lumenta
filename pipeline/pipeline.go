@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"context"
+	"errors"
 
 	"github.com/ignisVeneficus/lumenta/config"
 	"github.com/ignisVeneficus/lumenta/db"
@@ -44,14 +45,27 @@ func RunForcedImageSync(ctx context.Context, cfg config.Config, imageIDs []uint6
 }
 
 func RunGlobalSync(ctx context.Context, cfg config.Config, cleanUp bool) error {
-	logg := logging.Enter(ctx, "image.sync.global", map[string]any{"root": cfg.Media.Originals, "cleanup": cleanUp})
-	mode := dbo.SyncModeFull
-	if !cleanUp {
-		mode = dbo.SyncModeIncremental
-	}
+	logg := logging.Enter(ctx, "image.sync.global", map[string]any{"root": cfg.Filesystem.Originals, "cleanup": cleanUp})
 	pipelineCtx := createPipelineContex(cfg)
+	metaHash := cfg.Sync.MetadataHash
+	dbMetaHash, err := dao.GetSyncRunLastHash(pipelineCtx.Database, ctx)
+	if err != nil {
+		if errors.Is(err, dao.ErrDataNotFound) {
+			dbMetaHash = ""
+		} else {
+			logging.ExitErr(logg, err)
+			return err
+		}
+	}
+	mode := dbo.SyncModeFull
+	switch {
+	case !cleanUp:
+		mode = dbo.SyncModeIncremental
+	case metaHash != dbMetaHash:
+		pipelineCtx.Force = true
+	}
 
-	syncId, err := dao.CreateSyncRun(pipelineCtx.Database, ctx, mode)
+	syncId, err := dao.CreateSyncRun(pipelineCtx.Database, ctx, mode, metaHash)
 	if err != nil {
 		logging.ExitErr(logg, err)
 		return err
@@ -119,13 +133,14 @@ func RunGlobalSync(ctx context.Context, cfg config.Config, cleanUp bool) error {
 
 func createPipelineContex(cfg config.Config) PipelineContext {
 	return PipelineContext{
-		RootPath:   cfg.Media.Originals,
-		PathConfig: &cfg.Sync.Paths,
+		RootPath:   cfg.Filesystem.Originals,
 		AllowedExt: cfg.Sync.NormalizedExtensions,
 		Filters:    cfg.Sync.Paths,
 
 		Database: db.GetDatabase(),
 		Metadata: &cfg.Sync.MergedMetadata,
+		Panorama: cfg.Sync.Panorama,
+		Force:    false,
 	}
 }
 

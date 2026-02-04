@@ -107,7 +107,6 @@ func ShutdownExiftool() error {
 
 func (p *PersistentExiftool) Read(ctx context.Context, imagePath string) (RawMetadata, error) {
 
-	// 🔑 ha a ctx már tartalmaz deadline-t, azt használjuk
 	if _, ok := ctx.Deadline(); !ok {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, p.timeout)

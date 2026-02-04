@@ -7,27 +7,37 @@ import (
 	"strings"
 
 	"github.com/ignisVeneficus/lumenta/config"
+	metadataConfig "github.com/ignisVeneficus/lumenta/config/sync"
 	"github.com/ignisVeneficus/lumenta/data"
 	"github.com/ignisVeneficus/lumenta/exif"
 	"github.com/ignisVeneficus/lumenta/logging"
-	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
 
-func ExtractMetadata(ctx context.Context, path string) (data.Metadata, error) {
+func ExtractMetadata(ctx context.Context, paths ...string) (data.Metadata, error) {
+	logg := logging.Enter(ctx, "metadata.extract", map[string]any{"source": paths})
 	exiftool, err := exif.GetExiftool(ctx)
 	if err != nil {
-		log.Logger.Error().Err(err).Msg("Faild to get exiftool")
+		logging.ExitErr(logg, err)
 		return nil, err
 	}
-	rawdata, err := exiftool.Read(ctx, path)
-	log.Logger.Trace().Object("rawdata", logging.WithLevel(zerolog.DebugLevel, &rawdata)).Msg("read from exfitool")
-
-	if err != nil {
-		log.Logger.Error().Err(err).Str("path", path).Msg("Faild to read exifdata")
-		return nil, err
+	var metadata data.Metadata
+	for i, path := range paths {
+		rawdata, err := exiftool.Read(ctx, path)
+		if err != nil {
+			logging.ExitErr(logg, err)
+			return nil, err
+		}
+		mtd := resolveMetadata(rawdata)
+		if i == 0 {
+			metadata = mtd
+		} else {
+			for k, d := range mtd {
+				metadata[k] = d
+			}
+		}
 	}
-	metadata := resolveMetadata(rawdata)
+	logging.Exit(logg, "ok", nil)
 	return metadata, nil
 }
 
@@ -43,7 +53,7 @@ func resolveMetadata(raw exif.RawMetadata) data.Metadata {
 	return out
 }
 
-func resolveField(alias string, field config.MetadataFieldConfig, raw exif.RawMetadata) (data.MetadataValue, bool) {
+func resolveField(alias string, field metadataConfig.MetadataFieldConfig, raw exif.RawMetadata) (data.MetadataValue, bool) {
 	log.Logger.Trace().Str("alias", alias).Msg("parsing for alias")
 
 	for _, src := range field.Sources {

@@ -1,0 +1,22 @@
+{{ define "main" }}
+<div id="brand" class="site-brand">
+    <div class="site-brand-inner">
+    {{- if .Site.Logo -}}
+        <div class="brand-logo {{ if .Site.Headline }}large{{ end }}">
+            {{- siteIcon .Site.Logo -}}
+        </div>
+    {{- end -}}
+        <div class="text">
+            <div class="name">
+                {{- .Site.Title -}}
+            </div>
+            {{- with .Site.Headline}}
+            <div class="headline">
+                {{- . -}}
+            </div>
+            {{- end -}}
+        </div>
+    </div>
+</div>
+{{  template "partials/grid.html" . }}
+{{ end }}

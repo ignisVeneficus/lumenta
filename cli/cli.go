@@ -76,14 +76,14 @@ func runSync(cfg config.Config, args []string) error {
 	noCleanUp := fs.Bool("noCleanUp", false, "do not delete images missing from sync result")
 	fs.BoolVar(noCleanUp, "nc", false, "shorthand for -noCleanUp")
 
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
 	cleanUp := true
 	if noCleanUp != nil && (*noCleanUp) == true {
 		cleanUp = false
 	}
 
-	if err := fs.Parse(args); err != nil {
-		return err
-	}
 	err := pipeline.RunGlobalSync(context.Background(), cfg, cleanUp)
 	return err
 }

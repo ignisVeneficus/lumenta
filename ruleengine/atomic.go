@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ignisVeneficus/lumenta/logging"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
 
@@ -17,14 +19,29 @@ type ImageFacts struct {
 
 	TakenAt *time.Time
 	Rating  *int
+	Width   uint32
+	Height  uint32
 
 	// hierarchikus tagek: "Travel/Iceland/Winter"
 	Tags []string
 }
 
+func (i *ImageFacts) MarshalZerologObjectWithLevel(e *zerolog.Event, level zerolog.Level) {
+	if level < zerolog.DebugLevel {
+		e.Str("path", i.Path).
+			Str("filename", i.Filename).
+			Str("ext", i.Ext).
+			Uint32("width", i.Width).
+			Uint32("height", i.Height).
+			Strs("tags", i.Tags)
+		logging.TimeIf(e, "taken", i.TakenAt)
+		logging.IntIf(e, "rating", i.Rating)
+	}
+}
+
 type CompiledFilter func(f ImageFacts) bool
 
-func compileAtomicFilter(flt Filter) (CompiledFilter, error) {
+func compileAtomicFilter(flt Rule) (CompiledFilter, error) {
 	switch f := flt.(type) {
 	case *TagFilter:
 		return compileTagFilter(f)
@@ -42,6 +59,12 @@ func compileAtomicFilter(flt Filter) (CompiledFilter, error) {
 		return nil, fmt.Errorf("album filter is not atomic-image-evaluable")
 	case *NotInChildAlbumsFilter:
 		return nil, fmt.Errorf("notchildren filter is not atomic-image-evaluable")
+	case *WidthFilter:
+		return compileWidthFilter(f)
+	case *HeightFilter:
+		return compileHeightFilter(f)
+	case *AspectFilter:
+		return compileAspectFilter(f)
 	default:
 		return nil, fmt.Errorf("unknown filter type: %T", flt)
 	}
@@ -73,8 +96,9 @@ func compileTagFilter(f *TagFilter) (CompiledFilter, error) {
 				matchCount++
 			}
 		}
+		log.Logger.Debug().Int("found tags", matchCount).Str("mode", string(f.Op)).Msg("")
 
-		switch f.Mode {
+		switch f.Op {
 		case SetAny:
 			return matchCount > 0
 
@@ -196,23 +220,72 @@ func compileNameFilter(f *NameFilter) (CompiledFilter, error) {
 		return re.MatchString(img.Filename)
 	}, nil
 }
+
 func compileRatingFilter(f *RatingFilter) (CompiledFilter, error) {
 	return func(img ImageFacts) bool {
 		rating := 0
 		if img.Rating != nil {
 			rating = *img.Rating
 		}
-		log.Logger.Debug().Int("rating", rating).Str("op", string(f.Op)).Int("val", f.Value).Msg("Check rating filter")
 		switch f.Op {
-		case RatingAbove:
+		case RelationAbove:
 			return rating > f.Value
-		case RatingBelow:
+		case RelationBelow:
 			return rating < f.Value
 		default:
 			return false
 		}
 	}, nil
 }
+
+func compileWidthFilter(f *WidthFilter) (CompiledFilter, error) {
+	return func(img ImageFacts) bool {
+		width := int(img.Width)
+		switch f.Op {
+		case RelationAbove:
+			return width > f.Value
+		case RelationBelow:
+			return width < f.Value
+		default:
+			return false
+		}
+	}, nil
+}
+
+func compileHeightFilter(f *HeightFilter) (CompiledFilter, error) {
+	return func(img ImageFacts) bool {
+		height := int(img.Height)
+		switch f.Op {
+		case RelationAbove:
+			return height > f.Value
+		case RelationBelow:
+			return height < f.Value
+		default:
+			return false
+		}
+	}, nil
+}
+
+func compileAspectFilter(f *AspectFilter) (CompiledFilter, error) {
+	return func(img ImageFacts) bool {
+		h := int(img.Height)
+		w := int(img.Width)
+		if h == 0 {
+			return false
+		}
+		r := float64(w) / float64(h)
+
+		switch f.Op {
+		case RelationAbove:
+			return r > f.Value
+		case RelationBelow:
+			return r < f.Value
+		default:
+			return false
+		}
+	}, nil
+}
+
 func compilePathFilter(f *PathFilter) (CompiledFilter, error) {
 	if len(f.Paths) == 0 {
 		return nil, fmt.Errorf("path filter without paths")
@@ -241,6 +314,7 @@ func compilePathFilter(f *PathFilter) (CompiledFilter, error) {
 		}
 	}, nil
 }
+
 func compileExtensionFilter(f *ExtensionFilter) (CompiledFilter, error) {
 	set := make(map[string]struct{}, len(f.Extensions))
 	for _, e := range f.Extensions {
@@ -260,14 +334,15 @@ func compileExtensionFilter(f *ExtensionFilter) (CompiledFilter, error) {
 		}
 	}, nil
 }
-func CompileGroupFilter(group FilterGroup) (CompiledFilter, error) {
-	if len(group.Filters) == 0 {
+
+func CompileGroupFilter(group RuleGroup) (CompiledFilter, error) {
+	if len(group.Rules) == 0 {
 		return nil, fmt.Errorf("empty filter group")
 	}
 
 	var preds []CompiledFilter
 
-	for _, f := range group.Filters {
+	for _, f := range group.Rules {
 		p, err := compileAtomicFilter(f)
 		if err != nil {
 			return nil, err

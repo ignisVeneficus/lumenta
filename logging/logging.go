@@ -12,7 +12,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/ignisVeneficus/lumenta/config"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"go.mau.fi/zeroconfig"
@@ -384,26 +383,26 @@ func LoadLogging(file string) {
 	f, err := os.Open(file)
 	if err != nil {
 		log.Logger.Fatal().Err(err).
-			Msg(config.LogConfigEnv + " is not readable")
+			Msg(file + " is not readable")
 		panic(err)
 	}
 	data, err := io.ReadAll(f)
 	if err != nil {
 		log.Logger.Fatal().Err(err).
-			Msg(config.LogConfigEnv + " is not readable")
+			Msg(file + " is not readable")
 		panic(err)
 	}
 	var cfg zeroconfig.Config
 	err = yaml.Unmarshal(data, &cfg)
 	if err != nil {
 		log.Logger.Fatal().Err(err).
-			Msg(config.LogConfigEnv + " is not valid yaml")
+			Msg(file + " is not valid yaml")
 		panic(err)
 	}
 	logger, err := cfg.Compile()
 	if err != nil {
 		log.Logger.Fatal().Err(err).
-			Msg(config.LogConfigEnv + " is not valid for zerolog, see go.mau.fi/zeroconfig documentation")
+			Msg(file + " is not valid for zerolog, see go.mau.fi/zeroconfig documentation")
 		panic(err)
 	}
 	log.Logger = *logger

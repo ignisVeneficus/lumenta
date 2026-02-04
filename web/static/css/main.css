@@ -1,0 +1,284 @@
+/* ==========================================================================
+   RESET (minimal, safe)
+   ========================================================================== */
+*, *::before, *::after { box-sizing: border-box; }
+html, body { height: 100%; }
+body { margin: 0; }
+img { max-width: 100%; height: auto; display: block; }
+a { color: inherit; text-decoration: none; }
+button { font: inherit; }
+:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+p{ margin-block: 0 0; }
+figure{ margin:0; margin-block: 0 0;}
+
+body {
+  font-family: var(--font-serif);
+  line-height: var(--line);
+  color: var(--text);
+  background: var(--bg-deep);
+  /*
+  padding-inline: var(--space-page-x);  
+  */
+
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  
+}
+
+/* ==========================================================================
+   LAYOUT WRAPPERS
+   ========================================================================== */
+.site-header{
+  font-size: 1rem;    
+  font-family: var(--font-sans);
+  background: var(--bg-upper);
+  padding: var(--space-4) var(--space-page-x);  
+
+}
+
+.site-main{
+  flex: 1;
+}
+
+.site-footer {
+  font-family: var(--font-sans);
+  background: var(--bg-upper);
+  padding: var(--space-4) var(--space-page-x);  
+}
+
+/* ==========================================================================
+   HEADER
+   ========================================================================== */
+
+.site-header-inner {
+  display: flex;
+  align-items: center;
+}
+
+.site-header-brand{
+  flex: 1 1 auto;
+}
+
+.site-header-brand a {
+  font-weight: 500;         
+  letter-spacing: 0.02em;
+  color: var(--text-primary);
+  text-decoration: none;
+}
+.site-header-nav .nav-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+}
+.site-header-nav a {
+  color: var(--text-secondary);
+  text-decoration: none;
+
+  font-weight: 400;
+}
+.site-header-nav a:hover,
+.site-header-nav a:focus-visible {
+  color: var(--text-primary);
+}
+/* ==========================================================================
+   FOOTER
+   ========================================================================== */
+
+
+.site-footer-inner {
+  display: flex;
+  justify-content: space-between;
+
+  align-items: center;
+  gap: var(--space-4);
+
+  text-align: center;
+  font-size: var(--font-size-ui);
+  color: var(--text-secondary);
+}
+
+/* === Footer elements === */
+.site-footer-copy {
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.site-footer-note {
+  opacity: 0.85;
+}
+
+.site-footer-powered {
+  font-size: var(--font-size-meta);
+  opacity: 0.7;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+}
+
+/* === Links: headerrel azonos logika === */
+.site-footer a {
+  color: var(--text-secondary);
+  text-decoration: none;
+}
+
+.site-footer a:hover {
+  color: var(--text-primary);
+  text-decoration: underline;
+}
+
+
+.site-footer a{
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.site-footer .inline-icon svg {
+    width: 20px;
+    height: 20px;
+    display: table-cell;
+    fill: currentColor;
+}
+
+/* ==========================================================================
+   LOGIN
+   ========================================================================== */
+#login {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-ui);
+  max-width: var(--space-13);
+}
+
+#login .name {
+  color: var(--text-primary);
+  min-width: 0;
+  text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.status {
+  color: var(--icon-default);
+}
+
+.status--guest {
+  color: var(--icon-muted);
+}
+
+.status--admin {
+  color: var(--accent);
+}
+
+/* hover csak guest + user */
+.login-status:hover .status:not(.status--admin) {
+  color: var(--accent);
+}
+
+/* ==========================================================================
+   Brand
+   ========================================================================== */
+.site-brand{
+  background: var(--bg-context);
+  font-size: var(--font-size-brand);
+  padding-top: var(--space-9);     
+  padding-bottom: var(--space-10);
+  padding-left:  var(--space-page-x);
+  padding-right: var(--space-page-x);  
+}
+.site-brand-inner{
+  color: var(--text-primary);
+  display: flex;
+  flex-direction: row;
+  gap: var(--space-4);
+}
+.site-brand .brand-logo{
+    opacity: 0.9;
+}
+.site-brand .brand-logo svg{
+    height: 2.5rem;
+    color: var(--text-secondary)
+}
+.site-brand .brand-logo.large svg{
+    height: var(--space-12);
+}
+
+.site-brand .text{
+  display: flex;
+  flex-direction: column;
+}
+.site-brand .name{
+    font-family: var(--font-serif);
+}
+
+.site-brand .headline {
+  padding-top: var(--space-4);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-tagline);
+  line-height: var(--line-height-normal);
+  color: var(--text-secondary);
+}
+
+/* ==========================================================================
+   Image Grid
+   ========================================================================== */
+
+.imageGrid {
+  padding: var(--space-4) var(--space-page-x); 
+
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  grid-auto-rows: calc((100% / 12) * 4 / 5);
+  grid-auto-rows: calc(var(--col-width) * 4 / 5);
+  grid-auto-flow: row dense; 
+  gap: var(--space-4); /* 16px */
+}
+
+.caption{
+  display: none;
+}
+
+@media (max-width: 1024px) {
+  .imageGrid {
+    grid-template-columns: repeat(6, 1fr);
+    grid-auto-rows: calc((100% / 6) * 4 / 5);
+    grid-auto-rows: calc(var(--col-width) * 4 / 5);
+    gap: var(--space-3); /* 12px */
+  }
+}
+@media (max-width: 600px) {
+  .imageGrid {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2); /* 8px */
+  }
+}
+.tile > a {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.tile img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position:
+    clamp(var(--min-x), calc(var(--fx) * 100%), var(--max-x))
+    clamp(var(--min-y), calc(var(--fy) * 100%), var(--max-y));
+}
+.tile{
+  grid-column: calc(var(--p12x) + 1) / span var(--p12w);
+  grid-row:    calc(var(--p12y) + 1) / span var(--p12h);
+}

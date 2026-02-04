@@ -1,0 +1,18 @@
+ <header class="site-header">
+    <div class="site-header-inner">
+      <div class="site-header-brand">
+        {{- if ne .Page.Role "landing" -}}
+        <a href="/" class="site-header-logo">{{ .Site.Title }}</a>
+        {{- end -}}
+      </div>
+
+      <nav class="site-header-nav">
+        <!-- optional -->
+        <!-- <a href="/albums">Albums</a> -->
+      </nav>
+
+      <div class="site-header-right">
+        {{ template "partials/login.html" .User }}
+      </div>
+    </div>
+  </header>

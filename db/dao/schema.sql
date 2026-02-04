@@ -127,6 +127,13 @@ CREATE TABLE IF NOT EXISTS images (
   rating SMALLINT NULL
     COMMENT 'User or source rating value',
 
+  width INT UNSIGNED NOT NULL
+    COMMENT 'Image width (px)',
+  height INT UNSIGNED NOT NULL
+    COMMENT 'Image height (px)',
+  panorama TINYINT NOT NULL
+    COMMENT '1 if marked panorama',
+
   title VARCHAR(255) NULL 
     COMMENT 'Human-readable image title',
   subject TEXT NULL 
@@ -259,7 +266,11 @@ CREATE TABLE IF NOT EXISTS sync_runs (
 
   error TEXT NULL COMMENT 'Optional error details if sync failed',
 
+  meta_sha CHAR(64) NULL
+    COMMENT 'Hash of the used metadata settings'
+
   UNIQUE KEY uniq_sync_active (is_active),
   INDEX idx_sync_runs_started (started_at),
+  INDEX idx_sync_runs_success (status, started_at),  
   INDEX idx_sync_runs_status (status)
 ) ENGINE=InnoDB COMMENT='Filesystem synchronization runs and diagnostics';

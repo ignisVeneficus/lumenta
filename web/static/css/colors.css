@@ -1,0 +1,72 @@
+:root {
+  /* ============================================================
+     BACKGROUND LEVELS (PURE GRAYS)
+     ------------------------------------------------------------
+     3 discrete depth levels, no gradients
+  ============================================================ */
+
+  /* Upper background: header, brand, map, footer */
+  --bg-upper:   #1e1e1e;
+
+  /* Context background: album context, pagination */
+  --bg-context: #181818;
+
+  /* Deep background: content / masonry grid (darkest) */
+  --bg-deep:    #121212;
+
+
+  /* ============================================================
+     TEXT LEVELS (PURE GRAYS)
+     ------------------------------------------------------------
+     Text colors do NOT change with background level
+  ============================================================ */
+
+  /* Primary text: titles, album names, important info */
+  --text-primary:   #e0e0e0;
+
+  /* Secondary text: descriptions, meta, breadcrumbs */
+  --text-secondary: #a8a8a8;
+
+
+  /* ============================================================
+     ICONS & UI TEXT
+     ------------------------------------------------------------
+     Icons behave like text, not buttons
+  ============================================================ */
+
+  --icon-default:  #a8a8a8;
+  --icon-muted:    #7a7a7a;
+
+
+  /* ============================================================
+     HOVER & INTERACTION (NON-DECORATIVE)
+     ------------------------------------------------------------
+     Hover is state, not emphasis
+  ============================================================ */
+
+  /* Subtle overlay for image / album hover */
+  --hover-overlay: rgba(0, 0, 0, 0.35);
+
+  /* Hovered text / icon color */
+  --hover-text:    #ffffff;
+
+
+  /* ============================================================
+     ACCENT (FUNCTIONAL ONLY)
+     ------------------------------------------------------------
+     Still pure gray environment, accent used sparingly
+  ============================================================ */
+
+  /*--accent:        #5f7cff; / * interaction only */
+  --accent:         #6a78a8;
+  
+
+  /* ============================================================
+     BORDERS & DIVIDERS
+     ------------------------------------------------------------
+     Extremely subtle, structure only
+  ============================================================ */
+
+  --border-subtle:  #2a2a2a;
+
+}

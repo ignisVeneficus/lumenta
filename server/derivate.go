@@ -8,14 +8,16 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/ignisVeneficus/lumenta/auth"
+	authData "github.com/ignisVeneficus/lumenta/auth/data"
 	"github.com/ignisVeneficus/lumenta/config"
+	derivativeConfig "github.com/ignisVeneficus/lumenta/config/derivative"
 	"github.com/ignisVeneficus/lumenta/derivates"
 	"github.com/ignisVeneficus/lumenta/logging"
 )
 
 func DerivativeHandler(cfg config.Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		auth := c.MustGet(AuthContextKey).(auth.ACLContext)
+		auth := c.MustGet(auth.AuthContextKey).(authData.ACLContext)
 		logg := logging.Enter(c, "server.DerivateHandler", map[string]any{
 			"id":   c.Param("id"),
 			"type": c.Param("type"),
@@ -32,7 +34,7 @@ func DerivativeHandler(cfg config.Config) gin.HandlerFunc {
 
 		kind := c.Param("type")
 		derivatesCfx := cfg.Derivatives
-		var found *config.DerivativeConfig
+		var found *derivativeConfig.DerivativeConfig
 		for _, d := range derivatesCfx {
 			if d.Postfix == kind {
 				found = &d
@@ -46,7 +48,7 @@ func DerivativeHandler(cfg config.Config) gin.HandlerFunc {
 			})
 			return
 		}
-		path, err := derivates.GetDerivatesPathWithACL(c, auth, imgID, *found, cfg.Media)
+		path, err := derivates.GetDerivatesPathWithACL(c, auth, imgID, *found, cfg.Filesystem)
 		if err != nil {
 			logging.ExitErr(logg, err)
 			c.AbortWithStatus(http.StatusNotFound)

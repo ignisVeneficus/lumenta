@@ -15,7 +15,6 @@ import (
 	"github.com/ignisVeneficus/lumenta/metadata"
 	"github.com/ignisVeneficus/lumenta/ruleengine"
 	"github.com/ignisVeneficus/lumenta/utils"
-	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
 
@@ -48,15 +47,16 @@ func walkDirHandler(ctx *PipelineContext, realPath string, d fs.DirEntry, err er
 			return nil
 		}
 	}
-
+	metaFile := realPath + ".xmp"
 	fileHash, err := utils.ComputeFileHash(realPath)
 	if err != nil {
 		return nil
 	}
-	metaHash, err := utils.ComputeFileHash(realPath + ".xmp")
+	metaHash, err := utils.ComputeFileHash(metaFile)
 	if err != nil {
 		if os.IsNotExist(err) {
 			metaHash = ""
+			metaFile = ""
 		} else {
 			return err
 		}
@@ -70,6 +70,7 @@ func walkDirHandler(ctx *PipelineContext, realPath string, d fs.DirEntry, err er
 		RootPath:         ctx.RootPath,
 		Path:             path,
 		RealPath:         realPath,
+		MetadataFile:     metaFile,
 		Ext:              normalisedExt,
 		Filename:         filename,
 		Info:             info,
@@ -128,6 +129,10 @@ func dBLoopupByPathWorker(ctx *PipelineContext) error {
 			log.Logger.Error().Str("path", ctx.RootPath).Msg("dBLoopupByPathWorker died")
 			return err
 		}
+		if ctx.Force {
+			job.IsDirty = true
+			job.DirtyReason = dirtyForced
+		}
 		log.Logger.Debug().Str("path", job.RealPath).Msg("dBLoopupByPathWorker finished a job")
 		ctx.Out <- job
 	}
@@ -150,6 +155,8 @@ func dirtyCheckWorker(ctx *PipelineContext) error {
 		log.Logger.Debug().Str("path", job.RealPath).Msg("dirtyCheckWorker get a job")
 
 		if !job.IsDirty {
+			//FIXME: delete
+			log.Logger.Warn().Time("fs", job.Info.ModTime()).Time("db", job.DBImage.MTime).Msg("time diff")
 			for {
 				if job.FileHash != job.DBImage.FileHash {
 					job.IsDirty = true
@@ -181,29 +188,54 @@ func dirtyCheckWorker(ctx *PipelineContext) error {
 	return nil
 }
 func metadataReaderWorker(ctx *PipelineContext) error {
-	log.Logger.Debug().Str("path", ctx.RootPath).Msg("metadataReaderWorker start")
+	logg := logging.Enter(ctx.Ctx, "pipeline.metaReader", map[string]any{"root": ctx.RootPath, "panorama": ctx.Panorama != nil})
 	if ctx.In == nil || ctx.Out == nil {
-		return fmt.Errorf("metadataReaderWorker: In/Out channel is nil")
+		err := fmt.Errorf("metadataReaderWorker: In/Out channel is nil")
+		logging.ExitErr(logg, err)
+		return err
+	}
+	var panoramaCheck ruleengine.CompiledFilter = nil
+	if ctx.Panorama != nil {
+		var err error
+		panoramaCheck, err = ruleengine.CompileGroupFilter(*ctx.Panorama)
+		if err != nil {
+			logging.ErrorContinue(logg, err, map[string]any{"filter": "panorama"})
+			panoramaCheck = nil
+		}
 	}
 	for job := range ctx.In {
+		logg := logging.Enter(ctx.Ctx, "pipeline.metaReader.job", map[string]any{
+			"path":  job.RealPath,
+			"dirty": job.IsDirty,
+		})
 		select {
 		case <-ctx.Ctx.Done():
 			return ctx.Ctx.Err()
 		default:
 		}
-		log.Logger.Debug().Str("path", job.RealPath).Bool("is dirty", job.IsDirty).Msg("metadataReaderWorker get a job")
+		log := "nop"
 		if job.IsDirty {
-			metadata, err := metadata.ExtractMetadata(ctx.Ctx, job.RealPath)
+			log = "ok"
+			path := []string{job.RealPath}
+			if job.MetadataFile != "" {
+				path = append(path, job.MetadataFile)
+			}
+			metadata, err := metadata.ExtractMetadata(ctx.Ctx, path...)
 			if err != nil {
-				log.Logger.Error().Str("path", ctx.RootPath).Msg("metadataReaderWorker cant extract data")
+				logging.ExitErr(logg, err)
 				continue
 			}
 			job.Metadata = metadata
-			log.Logger.Debug().Str("path", job.RealPath).Object("metadata", logging.WithLevel(zerolog.DebugLevel, &job.Metadata)).Msg("metadataReaderWorker finished a job")
+			if panoramaCheck != nil {
+				facts := createImageFact(job)
+				panorama := panoramaCheck(facts)
+				job.Panorama = panorama
+			}
 		}
+		logging.Exit(logg, log, nil)
 		ctx.Out <- job
 	}
-	log.Logger.Debug().Str("path", ctx.RootPath).Msg("metadataReaderWorker end")
+	logging.Exit(logg, "ok", nil)
 	return nil
 }
 func filterWorker(ctx *PipelineContext) error {
@@ -230,18 +262,7 @@ func filterWorker(ctx *PipelineContext) error {
 		default:
 		}
 		log.Logger.Debug().Str("path", job.RealPath).Msg("filterWorker get a job")
-		rating := 0
-		if job.Metadata.GetRating() != nil {
-			rating = int(*job.Metadata.GetRating())
-		}
-		facts := ruleengine.ImageFacts{
-			Path:     job.Path,
-			Filename: job.Filename,
-			Ext:      job.Ext,
-			TakenAt:  job.Metadata.GetTakenAt(),
-			Rating:   &rating,
-			Tags:     job.Metadata.GetTags(),
-		}
+		facts := createImageFact(job)
 		match := true
 		notKey := ""
 		for key, filter := range filters {
@@ -288,6 +309,11 @@ func dBUpdateWorker(ctx *PipelineContext) error {
 			job.DBImage.FileHash = job.FileHash
 			job.DBImage.MetaHash = job.FileMetadataHash
 			job.DBImage.LastSeenSync = &ctx.SyncId
+			if job.Panorama {
+				job.DBImage.Panorama = 1
+			} else {
+				job.DBImage.Panorama = 0
+			}
 			mapper.UpdateImageMetadata(job.DBImage, job.Metadata)
 			updateID, err := dao.CreateOrUpdateImage(ctx.Database, ctx.Ctx, job.DBImage)
 			if err != nil {

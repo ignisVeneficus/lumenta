@@ -30,6 +30,7 @@ const (
 	MetaWidth        = "width"
 	MetaMaker        = "maker"
 	MetaExposureTime = "exposure_time"
+	MetaSize         = "size"
 )
 
 type MetadataType string
@@ -117,6 +118,15 @@ func (m Metadata) getUint16(key string) *uint16 {
 	}
 	return nil
 }
+func (m Metadata) getUint32(key string) *uint32 {
+	if v, ok := m[key]; ok {
+		if i, ok := v.AsInt(); ok {
+			u := uint32(i)
+			return &u
+		}
+	}
+	return nil
+}
 func (m Metadata) getInt8(key string) *int8 {
 	if v, ok := m[key]; ok {
 		if i, ok := v.AsInt(); ok {
@@ -194,6 +204,21 @@ func (m Metadata) GetRotation() *int16 {
 func (m Metadata) GetRating() *uint16 {
 	return m.getUint16(MetaRating)
 }
+func (m Metadata) GetWidth() uint32 {
+	v := m.getUint32(MetaWidth)
+	if v == nil {
+		return 0
+	}
+	return *v
+}
+func (m Metadata) GetHeight() uint32 {
+	v := m.getUint32(MetaHeight)
+	if v == nil {
+		return 0
+	}
+	return *v
+}
+
 func (m Metadata) GetTags() []string {
 	if v, ok := m[MetaTags]; ok {
 		if tags, ok := v.AsList(); ok {
@@ -247,8 +272,20 @@ func (m MetadataValue) AsList() ([]string, bool) {
 	if m.Type != MetaList {
 		return nil, false
 	}
-	v, ok := m.Value.([]string)
-	return v, ok
+	switch v := m.Value.(type) {
+	case []string:
+		return v, true
+	case []interface{}:
+		ret := make([]string, 0, len(v))
+		for _, val := range v {
+			s, ok := val.(string)
+			if ok {
+				ret = append(ret, s)
+			}
+		}
+		return ret, true
+	}
+	return nil, false
 }
 
 func join(a, b *string, spacer string) *string {

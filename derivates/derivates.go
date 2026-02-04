@@ -7,55 +7,54 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/ignisVeneficus/lumenta/config"
+	derivativeConfig "github.com/ignisVeneficus/lumenta/config/derivative"
+	"github.com/ignisVeneficus/lumenta/data"
 	"github.com/ignisVeneficus/lumenta/logging"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
-
-type ImageFocusMode string
 
 var (
 	global     *Service
 	globalOnce sync.Once
 )
 
-const (
-	ImageFocusModeAuto   ImageFocusMode = "auto"
-	ImageFocusModeManual ImageFocusMode = "manual"
-	ImageFocusModeCenter ImageFocusMode = "center"
-	ImageFocusModeTop    ImageFocusMode = "top"
-	ImageFocusModeBottom ImageFocusMode = "bottom"
-	ImageFocusModeLeft   ImageFocusMode = "left"
-	ImageFocusModeRight  ImageFocusMode = "right"
-)
-
 type Key string
 
 type ImageParams struct {
-	FocusMode ImageFocusMode
-	FocusX    *float32
-	FocusY    *float32
-	Rotation  int16
+	Focus    data.Focus
+	Rotation int16
 }
 
 func (i *ImageParams) MarshalZerologObjectWithLevel(e *zerolog.Event, level zerolog.Level) {
 	if level <= zerolog.DebugLevel {
-		e.Str("focus_mod", string(i.FocusMode)).
-			Int16("rotation", i.Rotation)
-		logging.Float32If(e, "focus_x", i.FocusX)
-		logging.Float32If(e, "focus_y", i.FocusY)
+		e.Str("focus_mod", string(i.Focus.FocusMode)).
+			Int16("rotation", i.Rotation).
+			Float32("focus_x", i.Focus.FocusX).
+			Float32("focus_y", i.Focus.FocusY)
 	}
+}
+
+type Task struct {
+	Mode       derivativeConfig.DerivativeConfig
+	TargetPath string
+}
+
+func (t *Task) MarshalZerologObjectWithLevel(e *zerolog.Event, level zerolog.Level) {
+	if level <= zerolog.DebugLevel {
+		e.Str("derivate", t.Mode.Name).
+			Str("path", t.TargetPath)
+	}
+
 }
 
 type Job struct {
 	Key Key
 
-	Image uint64
-	Mode  config.DerivativeConfig
-
+	Image      uint64
 	SourcePath string
-	TargetPath string
+
+	Tasks []Task
 
 	ImageParams ImageParams
 	Ctx         context.Context
@@ -66,9 +65,12 @@ type Job struct {
 func (j *Job) MarshalZerologObjectWithLevel(e *zerolog.Event, level zerolog.Level) {
 	if level <= zerolog.DebugLevel {
 		e.Str("key", string(j.Key)).
-			Uint64("image_id", j.Image).
-			Str("derivate", j.Mode.Name).
-			Str("path", j.TargetPath)
+			Uint64("image_id", j.Image)
+		a := zerolog.Arr()
+		for i := range j.Tasks {
+			a.Object(logging.WithLevel(level, &j.Tasks[i]))
+		}
+		e.Array("tasks", a)
 	}
 }
 

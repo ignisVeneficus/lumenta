@@ -25,6 +25,10 @@ Albums are defined using logical rule trees that can combine conditions such as:
 - explicit exclusions
 - exclusion of images that appear in child albums
 
+The rule model and examples shown here reflect the **current working design** of the project.
+They should be considered **illustrative rather than final**, as rule syntax and semantics may evolve
+while core abstractions are still being validated.
+
 Rules are evaluated deterministically and can be expressed in YAML or JSON.
 
 ### Bottom-up evaluation
@@ -153,10 +157,37 @@ Exact schemas and examples will be documented once the configuration stabilizes.
 
 ## Development status
 
-- Early development
-- Architecture and core abstractions are still evolving
-- Breaking changes are expected
-- No backward compatibility guarantees yet
+This project is in **early development**.
+The focus so far has been on validating core architecture, data flow, and abstractions rather than on feature completeness.
+
+The following areas are **implemented or actively being worked on**, and should be considered usable but still evolving:
+
+### Data ingestion and backend core
+
+The full filesystem-to-database ingestion path is in place and under active refinement:
+
+- Database schema and access layer, with a strong focus on the `images` domain model
+- Filesystem scanning and sync pipeline
+- Deterministic import using a rule engine–driven model
+- Configuration loading and structured configuration validation
+
+Together, these form the backbone of the system: the authoritative **filesystem → database** data flow.
+
+### Web backend and presentation layer
+
+The server-side web foundation is present and functional:
+
+- Web server framework and request routing
+- User handling and access control foundations
+- Image grid rendering and basic gallery presentation
+
+![First preview](./doc/img/preview1.png)
+
+
+These components establish the baseline for browsing and interacting with the indexed photo collection,
+while higher-level UI features and polish are expected to evolve over time.
+
+Breaking changes are expected, and no backward compatibility guarantees are provided at this stage.
 
 This repository should be considered experimental.
 
@@ -165,28 +196,3 @@ This repository should be considered experimental.
 
 ```bash
 go build ./...
-```
-
-## Running (example)
-
-```bash
-./lumenta --config ./config.yaml
-```
-
-Note: CLI flags, configuration structure, and runtime behavior are subject to change.
-
-
-## Contributing
-
-This is currently a personal project.
-
-If you intend to experiment or contribute:
-
-- focus on architectural clarity
-- keep changes small and well-isolated
-- do not introduce manual album curation paths
-- prefer explicit, deterministic behavior over convenience
-
-## License
-
-License information will be added at a later stage, once the project structure stabilizes.

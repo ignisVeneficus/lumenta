@@ -202,6 +202,11 @@ type Image struct {
 	Rotation *int16
 	Rating   *uint16
 
+	Width  uint32
+	Height uint32
+
+	Panorama int8
+
 	FocusX    *float32
 	FocusY    *float32
 	FocusMode ImageFocusMode
@@ -235,7 +240,11 @@ func (i *Image) MarshalZerologObjectWithLevel(e *zerolog.Event, level zerolog.Le
 		e.Str("file_hash", i.FileHash).
 			Str("meta_hash", i.MetaHash).
 			Time("created_at", i.CreatedAt).
-			Time("updated_at", i.UpdatedAt)
+			Time("updated_at", i.UpdatedAt).
+			Uint32("width", i.Width).
+			Uint32("height", i.Height).
+			Int8("panorama", i.Panorama)
+
 		logging.Uint16If(e, "rating", i.Rating)
 		logging.TimeIf(e, "taken_at", i.TakenAt)
 		logging.StrIf(e, "camera", i.Camera)
