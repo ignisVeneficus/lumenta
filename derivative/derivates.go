@@ -1,4 +1,4 @@
-package derivates
+package derivative
 
 import (
 	"container/list"
@@ -42,7 +42,7 @@ type Task struct {
 
 func (t *Task) MarshalZerologObjectWithLevel(e *zerolog.Event, level zerolog.Level) {
 	if level <= zerolog.DebugLevel {
-		e.Str("derivate", t.Mode.Name).
+		e.Str("derivative", t.Mode.Name).
 			Str("path", t.TargetPath)
 	}
 
@@ -96,7 +96,7 @@ type Service struct {
 }
 
 var (
-	ErrClosed    = errors.New("derivate service is closed")
+	ErrClosed    = errors.New("derivative service is closed")
 	ErrDuplicate = errors.New("job already queued/in-flight")
 )
 
@@ -110,13 +110,13 @@ func NewService(step Step, workers int) *Service {
 		step:    step,
 		workers: workers,
 	}
-	log.Logger.Info().Int("workers", workers).Msg("image derivate service created")
+	log.Logger.Info().Int("workers", workers).Msg("image derivative service created")
 	s.cond = sync.NewCond(&s.mu)
 	return s
 }
 
 func (s *Service) Submit(j Job) (bool, error) {
-	logg := logging.Enter(j.Ctx, "derivate.Service.Submit", map[string]any{"job": j})
+	logg := logging.Enter(j.Ctx, "derivative.Service.Submit", map[string]any{"job": j})
 	if j.Key == "" {
 		err := fmt.Errorf("missing job key")
 		logging.ExitErr(logg, err)
@@ -166,14 +166,14 @@ func (s *Service) Run(ctx context.Context) {
 }
 
 func (s *Service) workerLoop(ctx context.Context, workerID int) {
-	logging.Enter(ctx, "service.derivate.workerloop", map[string]any{"worker Id": workerID})
+	logging.Enter(ctx, "service.derivative.workerloop", map[string]any{"worker Id": workerID})
 	for {
 		j := s.pop(ctx)
 		if j == nil {
-			logging.Error(nil, "service.derivate.loop", "error", "job is nil", nil)
+			logging.Error(nil, "service.derivative.loop", "error", "job is nil", nil)
 			return
 		}
-		logg := logging.Enter(j.Ctx, "service.derivate.loop", map[string]any{"worker Id": workerID})
+		logg := logging.Enter(j.Ctx, "service.derivative.loop", map[string]any{"worker Id": workerID})
 
 		res := "ok"
 		err := s.execute(j)
@@ -224,23 +224,23 @@ func (s *Service) execute(j *Job) error {
 }
 
 func Init(ctx context.Context, workers int) {
-	logging.Info("service.derivate", "init", "ok", "", nil)
+	logging.Info("service.derivative", "init", "ok", "", nil)
 	globalOnce.Do(func() {
-		global = NewService(GenerateDerivateStep, workers)
+		global = NewService(GenerateDerivativeStep, workers)
 		go global.Run(ctx)
 	})
 }
 
 func Get() *Service {
 	if global == nil {
-		log.Logger.Panic().Str(logging.FieldFunc, "service.derivate.get").Str(logging.FieldEvent, "not initialized").Msg("")
-		panic("derivate service not initialized")
+		log.Logger.Panic().Str(logging.FieldFunc, "service.derivative.get").Str(logging.FieldEvent, "not initialized").Msg("")
+		panic("derivative service not initialized")
 	}
 	return global
 }
 
 func Shutdown() {
-	logging.Info("service.derivate", "shutdown", "ok", "", nil)
+	logging.Info("service.derivative", "shutdown", "ok", "", nil)
 	if global != nil {
 		global.Close()
 	}

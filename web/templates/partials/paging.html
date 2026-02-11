@@ -1,0 +1,26 @@
+{{- if gt .MaxPage 1 -}}
+<div class="pagination">
+    <div class="wrapper">
+        <div class="pagesButtons">
+            {{- if gt .ActPage 1 -}}
+            <a href="{{ pagingFirst .}}" class="action firstButton formButton barButton"><div class="icon fa-solid fa-angles-left" title="First page"></div></a>
+            <a href="{{ pagingPrev .}}"  class="action prevButton formButton barButton"><div class="icon fa-solid fa-angle-left" title="Previous page"></div></a>
+            {{- else -}}
+            <span class="action disabled firstButton formButton barButton"><div class="icon fa-solid fa-angles-left" title="First page"></div></span>
+            <span class="action disabled prevButton formButton barButton"><div class=" icon fa-solid fa-angle-left" title="Previous page"></div></span>
+            {{- end -}}
+            <div class ="pageText text">Page:</div>
+            <input type="text" name="page" value="{{.ActPage }}"/>
+            <button class="action formButton barButton jump"><div class="icon fa-solid fa-angle-down" title="Goto that page"></div></button>
+            <div class="text maxPage">of {{.MaxPage }}</div>
+            {{- if lt .ActPage .MaxPage -}}
+            <a href="{{ pagingNext .}}" class="action nextButton formButton barButton"><div class="icon fa-solid fa-angle-right" title="Next page"></div></a>
+            <a href="{{ pagingLast .}}" class="action lastButton formButton barButton"><div class="icon fa-solid fa-angles-right" title="Last page"></div></a>
+            {{- else -}}
+            <span class="action disabled nextButton formButton barButton"><div class="icon fa-solid fa-angle-right" title="Next page"></div></span>
+            <span class="action disabled lastButton formButton barButton"><div class="icon fa-solid fa-angles-right" title="Last page"></div></span>
+            {{- end -}}
+        </div>
+    </div>
+</div>
+{{- end -}}

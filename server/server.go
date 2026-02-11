@@ -5,25 +5,25 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	authData "github.com/ignisVeneficus/lumenta/auth/data"
 	"github.com/ignisVeneficus/lumenta/config"
+	"github.com/ignisVeneficus/lumenta/server/routes"
 	"github.com/ignisVeneficus/lumenta/tpl"
-	"github.com/ignisVeneficus/lumenta/tpl/pages"
+	"github.com/ignisVeneficus/lumenta/tpl/pages/admin"
+	"github.com/ignisVeneficus/lumenta/tpl/pages/public"
 )
 
 var StaticRoot string = "web/static"
 
 func Server(cfg config.Config) {
-	cfx := context.Background()
+	ctx := context.Background()
 	gin.SetMode(gin.ReleaseMode)
 
 	if cfg.Env == config.EnvDevelopment {
 		gin.SetMode(gin.DebugMode)
 	}
 
-	runtimeCfg := AuthRuntime{
-		JWT: NewJWTService(cfg.Auth.JWT.Secret),
-	}
-	templatreResolver, err := tpl.NewTemplateResolver(cfx, "", tpl.DefaultFuncMap())
+	templatreResolver, err := tpl.NewTemplateResolver(ctx, "", tpl.DefaultFuncMap())
 	if err != nil {
 		panic(err)
 	}
@@ -34,7 +34,7 @@ func Server(cfg config.Config) {
 		RequestID(),
 		Logger(),
 		gin.Recovery(),
-		AuthContextMiddleware(cfg.Auth, runtimeCfg, cfg.Env),
+		AuthContextMiddleware(ctx, cfg.Auth, cfg.Env),
 	)
 
 	r.GET("/static/*filepath", func(c *gin.Context) {
@@ -44,23 +44,36 @@ func Server(cfg config.Config) {
 		c.FileFromFS(c.Param("filepath"), http.Dir(StaticRoot))
 	})
 
-	web := r.Group("/")
+	publicGrp := r.Group("/")
 	{
 
-		web.GET("/", pages.MainPage(templatreResolver, cfg))
+		publicGrp.GET("/", public.MainPage(templatreResolver, cfg))
 		/*
 			web.GET("/album/:id", AlbumHandler)
 			web.GET("/album/:aid/img/:iid", ImageHandler)
 		*/
-		web.GET("/img/:id/:type", DerivativeHandler(cfg))
+
+		/// "/img/:id/:type"
+		publicGrp.GET(routes.GetImageDerivativePath(), DerivativeHandler(cfg))
 	}
-	/*
-		admin := r.Group("/admin")
-		admin.Use(RequireRole(RoleAdmin))
-		{
-			admin.GET("/", AdminDashboard)
-		}
-	*/
+	adminGrp := r.Group("/admin")
+	adminGrp.Use(RequireRole(authData.RoleAdmin))
+	{
+		adminGrp.GET("/", admin.MainPage(templatreResolver, cfg))
+		adminGrp.GET(routes.GetAdminFsPath(), admin.FSPage(templatreResolver, cfg))
+		/*
+			filesystem: /fs/
+			Albums /album/:id
+			Albums /album/new
+
+			Albums list		GET /admin/albums
+			New album form	GET /admin/albums/new
+			save new album	POST /admin/albums
+			Album edit		GET /admin/albums/:id
+			Album edit		POST /admin/albums/:id
+		*/
+	}
+
 	r.Run(cfg.Server.Addr)
 
 }

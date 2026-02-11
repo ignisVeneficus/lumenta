@@ -13,8 +13,8 @@ figure{ margin:0; margin-block: 0 0;}
 
 body {
   font-family: var(--font-serif);
-  line-height: var(--line);
-  color: var(--text);
+  line-height: var(--line-height-normal);
+  color: var(--text-primary);
   background: var(--bg-deep);
   /*
   padding-inline: var(--space-page-x);  
@@ -26,15 +26,21 @@ body {
   align-items: stretch;
   
 }
+/* ==========================================================================
+   ICON DEFAULT
+   ========================================================================== */
+.accent{
+  color: var(--accent);
+
+}
 
 /* ==========================================================================
    LAYOUT WRAPPERS
    ========================================================================== */
 .site-header{
-  font-size: 1rem;    
   font-family: var(--font-sans);
   background: var(--bg-upper);
-  padding: var(--space-4) var(--space-page-x);  
+  padding: var(--space-3) var(--space-page-x);  
 
 }
 
@@ -43,9 +49,15 @@ body {
 }
 
 .site-footer {
+  font-size: var(--font-size-ui);
   font-family: var(--font-sans);
   background: var(--bg-upper);
   padding: var(--space-4) var(--space-page-x);  
+}
+
+.content{
+  padding-left: var(--space-page-x); 
+  padding-right: var(--space-page-x);   
 }
 
 /* ==========================================================================
@@ -67,21 +79,21 @@ body {
   color: var(--text-primary);
   text-decoration: none;
 }
-.site-header-nav .nav-list {
+.site-header-nav{
   list-style: none;
   margin: 0;
   padding: 0;
 
   display: flex;
   align-items: center;
-  gap: var(--space-6);
+  gap: 0;
+  padding-right: var(--space-4);
 }
 .site-header-nav a {
   color: var(--text-secondary);
   text-decoration: none;
-
-  font-weight: 400;
 }
+
 .site-header-nav a:hover,
 .site-header-nav a:focus-visible {
   color: var(--text-primary);
@@ -99,7 +111,6 @@ body {
   gap: var(--space-4);
 
   text-align: center;
-  font-size: var(--font-size-ui);
   color: var(--text-secondary);
 }
 
@@ -184,101 +195,228 @@ body {
 .login-status:hover .status:not(.status--admin) {
   color: var(--accent);
 }
-
 /* ==========================================================================
-   Brand
+   ACTIONS
    ========================================================================== */
-.site-brand{
-  background: var(--bg-context);
-  font-size: var(--font-size-brand);
-  padding-top: var(--space-9);     
-  padding-bottom: var(--space-10);
-  padding-left:  var(--space-page-x);
-  padding-right: var(--space-page-x);  
-}
-.site-brand-inner{
-  color: var(--text-primary);
-  display: flex;
-  flex-direction: row;
-  gap: var(--space-4);
-}
-.site-brand .brand-logo{
-    opacity: 0.9;
-}
-.site-brand .brand-logo svg{
-    height: 2.5rem;
-    color: var(--text-secondary)
-}
-.site-brand .brand-logo.large svg{
-    height: var(--space-12);
-}
 
-.site-brand .text{
-  display: flex;
-  flex-direction: column;
-}
-.site-brand .name{
-    font-family: var(--font-serif);
-}
+.action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 
-.site-brand .headline {
-  padding-top: var(--space-4);
-  font-family: var(--font-sans);
-  font-size: var(--font-size-tagline);
-  line-height: var(--line-height-normal);
+  height: 32px;                  /* KANONIKUS */
+  min-width: 32px;
+
+  padding: var(--space-2);       /* 8px */
+  border-radius: 0;
+
   color: var(--text-secondary);
+  background: transparent;
+}
+
+.action:hover,
+.action:focus-visible {
+  color: var(--text-primary);
+  background: rgba(255,255,255,0.04);
+}
+
+.action.disabled {
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+
+/* ==========================================================================
+   COMMON PAGINATION
+   ========================================================================== */
+
+.pagination{
+    display:flex;
+    justify-content:center
+}
+.pagination .pagesButtons{
+  display:flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: flex-start;
+  gap: 0;
+}
+.pagination .wrapper{
+  display:flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+ 	justify-content: space-between;
+  gap: 0.5rem;
+}
+.pagination input{
+  height: 32px;
+  /*
+	border-width: 0px;
+	border-radius: 0px;
+  border: none;
+  background: transparent;
+  */
+  font-size: inherit;
+  width: 3ch;
+  text-align: center;
+  color: inherit;
+
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.15);
+
+}
+.pagination button{
+  border: none;
+  background: transparent;
+  padding: 0 8px;
+}
+.pagination .text{
+  display: inline-flex;
+  align-items: center;
+
+  height: 32px;
+}
+.pagination .maxPage{
+}
+.pagination .pageText{
+  padding-right: var(--space-2);
+}
+.formButton {
+  padding: var(--space-2);  
 }
 
 /* ==========================================================================
-   Image Grid
+   COMMON CARD GRID LAYOUT
    ========================================================================== */
 
-.imageGrid {
-  padding: var(--space-4) var(--space-page-x); 
+.card-grid-wrapper{
+  padding: var(--space-4) 0;
+  color: var(--text-primary);
+}
 
+.card-grid{
   display: grid;
-  grid-template-columns: repeat(12, 1fr);
-  grid-auto-rows: calc((100% / 12) * 4 / 5);
-  grid-auto-rows: calc(var(--col-width) * 4 / 5);
-  grid-auto-flow: row dense; 
+  grid-template-columns: repeat(6, 1fr);
   gap: var(--space-4); /* 16px */
+  padding-bottom: var(--space-4);
 }
-
-.caption{
-  display: none;
-}
-
 @media (max-width: 1024px) {
-  .imageGrid {
-    grid-template-columns: repeat(6, 1fr);
+  .card-grid {
+    grid-template-columns: repeat(3, 1fr);
     grid-auto-rows: calc((100% / 6) * 4 / 5);
     grid-auto-rows: calc(var(--col-width) * 4 / 5);
     gap: var(--space-3); /* 12px */
   }
 }
 @media (max-width: 600px) {
-  .imageGrid {
+  .card-grid {
     display: flex;
     flex-direction: column;
     gap: var(--space-2); /* 8px */
   }
 }
-.tile > a {
-  display: block;
-  width: 100%;
-  height: 100%;
+/* ==========================================================================
+   COMMON CARD ITEM
+   ========================================================================== */
+
+.card{
+  background-color: var(--bg-context);
+  display: flex;
+  flex-direction: column;
+
 }
 
-.tile img {
-  display: block;
+.card .media{
+  position: relative;
+  display: inline-block;    
+  aspect-ratio: 5 / 4;
+  overflow: hidden;
+  flex: 0 0 auto;
+}
+
+.card .media img{
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position:
-    clamp(var(--min-x), calc(var(--fx) * 100%), var(--max-x))
-    clamp(var(--min-y), calc(var(--fy) * 100%), var(--max-y));
 }
-.tile{
-  grid-column: calc(var(--p12x) + 1) / span var(--p12w);
-  grid-row:    calc(var(--p12y) + 1) / span var(--p12h);
+.card .meta{
+  flex: 0 0 auto;
+  height: var(--space-12);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+}
+.card .meta .name,
+.card .meta .info {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.card .meta .name {
+  font-size: var(--font-size-section);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-tight);
+}
+.card .meta .description {
+  font-size: var(--font-size-ui);
+  line-height: var(--line-height-normal);
+  min-height: calc(2 * 1em * var(--line-height-normal));
+
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+
+  overflow: hidden;
+}
+.card .meta .info {
+  font-size: var(--font-size-meta);
+  line-height: var(--line-height-normal);
+  opacity: 0.7;
+}
+
+/* ==========================================================================
+   COMMON CARD ITEM
+   ========================================================================== */
+
+.breadcrumbs {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+
+  font-size: var(--font-size-sm);
+  font-family: var(--font-sans);
+
+  gap: var(--space-2);
+  
+  background: var(--bg-context);
+
+  padding-left: var(--space-page-x); 
+  padding-right: var(--space-page-x);   
+}
+
+.breadcrumb {
+  text-decoration: none;
+  color: var(--text-secondary);
+  padding-top: var(--space-1);
+  padding-bottom: var(--space-1);  
+}
+
+.breadcrumb:hover {
+  color: var(--color-text);
+}
+
+.breadcrumb:last-of-type {
+  color: var(--color-text);
+  font-weight: 500;
+  pointer-events: none;
+  text-decoration: none;
+}
+.breadcrumb .sep {
+  display: flex;
+  align-items: center;
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+  opacity: 0.7;
 }

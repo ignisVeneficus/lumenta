@@ -4,7 +4,7 @@
         <figure class="tile {{ gridTileRole . }}" {{ gridRectToVar . }}>
             <a>
                 <img
-                    src="{{ gridTileImg .ImgId }}"
+                    src="{{ imagePath .ImgId "w1024" }}"
                     srcset="{{ gridTileImgList .ImgId 640 1024 1600 2400 }}"
                     sizes="
                       (max-width: 600px) 100vw,

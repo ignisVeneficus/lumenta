@@ -1,34 +1,33 @@
 package tpl
 
 import (
-	"encoding/json"
 	"fmt"
 	"html/template"
 	"os"
 	"path/filepath"
-	"strings"
 
+	"github.com/ignisVeneficus/lumenta/server/routes"
 	"github.com/ignisVeneficus/lumenta/tpl/functions"
 )
 
 func DefaultFuncMap() template.FuncMap {
 	return template.FuncMap{
-		// debug
-		"dump": func(v any) string {
-			b, _ := json.MarshalIndent(v, "", "  ")
-			return string(b)
-		},
 		"icon":            Icon,
 		"siteIcon":        SiteIcon,
-		"gridTileImgList": TileImgList,
-		"gridTileImg":     TileImg,
-		"toPercent":       ToPercent,
+		"gridTileImgList": functions.TileImgList,
 		"gridRectToVar":   functions.RectsToStyleVars,
 		"gridTileRole":    functions.TileRole,
+		"toPercent":       ToPercent,
 
-		// később:
-		// "asset": AssetFunc,
-		// "url":   URLFunc,
+		"linkAdmin": func() template.URL {
+			return template.URL(routes.CreateAdminRootPath())
+		},
+		"pagingFirst": functions.PagingFirst,
+		"pagingPrev":  functions.PagingPrev,
+		"pagingNext":  functions.PagingNext,
+		"pagingLast":  functions.PagingLast,
+
+		"imagePath": ImagePath,
 	}
 }
 
@@ -84,23 +83,6 @@ func SiteIcon(path string) template.HTML {
 	return template.HTML(svg)
 }
 
-var ImgSrc = "/img/%d/%s"
-
-func genImgSrc(id uint64, derivate string) string {
-	return fmt.Sprintf(ImgSrc, id, derivate)
-}
-
-func genImgSrcToList(id uint64, width int) string {
-	derivate := fmt.Sprintf("w%d", width)
-	return fmt.Sprintf("%s %dw", genImgSrc(id, derivate), width)
-}
-func TileImgList(imgID uint64, widths ...int) template.Srcset {
-	var parts []string
-	for _, w := range widths {
-		parts = append(parts, genImgSrcToList(imgID, w))
-	}
-	return template.Srcset(strings.Join(parts, ", "))
-}
-func TileImg(imgID uint64) template.HTML {
-	return template.HTML(genImgSrc(imgID, "w1024"))
+func ImagePath(imageId uint64, derivative string) template.URL {
+	return template.URL(routes.CreateDerivativePath(imageId, derivative))
 }

@@ -1,4 +1,4 @@
-package derivates
+package derivative
 
 import (
 	"context"
@@ -20,15 +20,15 @@ func createDBOACL(acl authData.ACLContext) dao.ACLContext {
 	}
 }
 
-func GetDerivatesPathWithACL(ctx context.Context, acl authData.ACLContext, imageId uint64, cfg derivativeConfig.DerivativeConfig, roots fsConfig.FilesystemConfig) (string, error) {
-	logg := logging.Enter(ctx, "middleware.getDerivates", map[string]any{"image_id": imageId, "derivate": cfg.Name})
+func GetDerivativesPathWithACL(ctx context.Context, acl authData.ACLContext, imageId uint64, cfg derivativeConfig.DerivativeConfig, roots fsConfig.FilesystemConfig) (string, error) {
+	logg := logging.Enter(ctx, "middleware.getderivatives", map[string]any{"image_id": imageId, "derivative": cfg.Name})
 	db := db.GetDatabase()
 	image, err := dao.GetImageByIdACL(db, context.Background(), imageId, createDBOACL(acl))
 	if err != nil {
 		logging.ExitErr(logg, err)
 		return "", err
 	}
-	outPath := utils.ConcatGlobalDerivatedPath(roots.Derivatives, image.Path, image.Filename, cfg.Postfix, "jpg")
+	outPath := utils.ConcatGlobalDerivativePath(roots.Derivatives, image.Path, image.Filename, cfg.Postfix, "jpg")
 
 	ok, err := utils.FileExists(outPath)
 	if ok {

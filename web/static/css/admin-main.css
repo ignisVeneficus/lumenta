@@ -1,0 +1,35 @@
+
+.images .card .description[data="Public"]{
+
+}
+.images .card .description[data="Users"]::before,
+.acl-label[data-acl^="User:"]::before {
+  content: "\f023";
+  font: var(--fa-family);
+  display: inline-block;
+  text-rendering: auto;
+  -webkit-font-smoothing: antialiased;
+  font-weight: var(--fa-style);
+  margin-right: var(--space-2);
+}
+
+.fs .section,
+.images .section{
+  margin-top: var(--space-7);      /* 32px */
+  margin-bottom: var(--space-4);   /* 16px */  
+}
+.section .title{
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+
+  font-family: var(--font-sans);
+  font-size: var(--font-size-section);   /* 20px */
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-tight);
+
+  margin: 0;
+}
+.title-icon{
+    color: var(--text-secondary);
+}

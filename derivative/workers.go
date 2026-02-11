@@ -1,4 +1,4 @@
-package derivates
+package derivative
 
 import (
 	"context"
@@ -15,21 +15,21 @@ import (
 )
 
 func applyTask(ctx context.Context, t Task, img image.Image, focus data.Focus) error {
-	logg := logging.Enter(ctx, "derivates.generic.task", map[string]any{"task": t})
+	logg := logging.Enter(ctx, "derivative.generic.task", map[string]any{"task": t})
 
 	targetW := t.Mode.MaxWidth
 	targetH := t.Mode.MaxHeight
 
 	var err error
 	switch t.Mode.Mode {
-	case derivativeConfig.DerivateSizeResize:
+	case derivativeConfig.DerivativeSizeResize:
 		img, err = resizeFit(img, targetW, targetH)
 		if err != nil {
 			logging.ExitErr(logg, err)
 			return err
 		}
 
-	case derivativeConfig.DerivateSizeCrop:
+	case derivativeConfig.DerivativeSizeCrop:
 		img = resizeCrop(img, targetW, targetH, focus)
 
 	default:
@@ -44,8 +44,8 @@ func applyTask(ctx context.Context, t Task, img image.Image, focus data.Focus) e
 	return nil
 }
 
-func GenerateDerivateStep(j *Job) error {
-	logg := logging.Enter(j.Ctx, "derivates.generic.step", map[string]any{"job": j})
+func GenerateDerivativeStep(j *Job) error {
+	logg := logging.Enter(j.Ctx, "derivative.generic.step", map[string]any{"job": j})
 
 	img, err := imaging.Open(j.SourcePath, imaging.AutoOrientation(false))
 	if err != nil {
@@ -71,11 +71,13 @@ func GenerateDerivateStep(j *Job) error {
 func applyRotation(img image.Image, deg int16) image.Image {
 	switch ((deg % 360) + 360) % 360 {
 	case 90:
-		return imaging.Rotate90(img)
+		// EXIF: Rotate 90 CW → imaging: Rotate270
+		return imaging.Rotate270(img)
 	case 180:
 		return imaging.Rotate180(img)
 	case 270:
-		return imaging.Rotate270(img)
+		// EXIF: Rotate 270 CW → imaging: Rotate90
+		return imaging.Rotate90(img)
 	default:
 		return img
 	}
@@ -167,7 +169,7 @@ func resizeCrop(img image.Image, targetW, targetH int, focus data.Focus) image.I
 }
 
 func writeImage(ctx context.Context, img image.Image, path string) error {
-	logg := logging.Enter(ctx, "derivates.generic.step.write", map[string]any{"path": path})
+	logg := logging.Enter(ctx, "derivative.generic.step.write", map[string]any{"path": path})
 
 	tmp := path + ".tmp"
 

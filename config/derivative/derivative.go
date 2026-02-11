@@ -1,18 +1,18 @@
 package derivative
 
-type DerivateSizeMode string
+type DerivativeSizeMode string
 
 type DerivativesConfig []DerivativeConfig
 
 var (
-	DerivateSizeCrop   DerivateSizeMode = "crop"
-	DerivateSizeResize DerivateSizeMode = "fit"
+	DerivativeSizeCrop   DerivativeSizeMode = "crop"
+	DerivativeSizeResize DerivativeSizeMode = "fit"
 )
 
 type DerivativeConfig struct {
-	Name      string           `yaml:"name"`
-	Postfix   string           `yaml:"postfix"`
-	MaxWidth  int              `yaml:"max_width"`
-	MaxHeight int              `yaml:"max_height"`
-	Mode      DerivateSizeMode `yaml:"mode"` // crop | fit
+	Name      string             `yaml:"name"`
+	Postfix   string             `yaml:"postfix"`
+	MaxWidth  int                `yaml:"max_width"`
+	MaxHeight int                `yaml:"max_height"`
+	Mode      DerivativeSizeMode `yaml:"mode"` // crop | fit
 }

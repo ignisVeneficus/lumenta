@@ -6,7 +6,7 @@ import (
 
 	"github.com/ignisVeneficus/lumenta/cli"
 	"github.com/ignisVeneficus/lumenta/config"
-	"github.com/ignisVeneficus/lumenta/derivates"
+	"github.com/ignisVeneficus/lumenta/derivative"
 	"github.com/ignisVeneficus/lumenta/exif"
 	"github.com/ignisVeneficus/lumenta/logging"
 	"github.com/rs/zerolog/log"
@@ -27,8 +27,8 @@ func main() {
 	}
 	config.SetGlobal(cfg)
 
-	derivates.Init(context.Background(), 10)
-	defer derivates.Shutdown()
+	derivative.Init(context.Background(), 10)
+	defer derivative.Shutdown()
 	defer exif.ShutdownExiftool()
 
 	err = cli.Run(*cfg)

@@ -1,0 +1,13 @@
+<!-- buttons -->
+<!-- TODO temp, delete it-->
+<a href="{{ linkAdmin }}" class="action button admin-button">
+    <div class="icon fa-solid fa-gear accent" aria-label="Admin main"></div>
+</a>
+<a href="{{ linkAdmin }}" class="action button admin-button">
+    <div class="icon fa-solid fa-gear accent" aria-label="Admin main"></div>
+</a>
+{{- if eq .User.Role "admin" -}}
+<a href="{{ linkAdmin }}" class="action button admin-button accent">
+    <div class="icon fa-solid fa-gear accent" aria-label="Admin main"></div>
+</a>
+{{- end -}}

@@ -1,0 +1,24 @@
+{{ define "main" }}
+{{- with .Breadcrumbs }}
+    {{- template "partials/breadcrumbs.html" . -}}
+{{- end -}}
+<div class="content">
+    <div class="fs">
+        <div class="section"><div class="title"><span class="title-icon fa-solid fa-folder"></span>Directories</div></div>
+        {{- if .Dirs.Cards -}}
+            {{- template "partials/card-grid.html" .Dirs -}}
+        {{- else -}}
+        <div class="not-found">No subdirectories</div>
+        {{- end -}}
+    </div>
+    <div class="images">
+        <div class="section"><div class="title"><span class="title-icon fa-solid fa-image"></span>Images</div></div>
+        {{- if .Images.Cards -}}
+            {{- template "partials/card-grid.html" .Images -}}
+        {{- else -}}
+        <div class="not-found">No images</div>
+        {{- end -}}
+
+    </div>
+</div>
+{{ end }}

@@ -2,6 +2,8 @@ package auth
 
 import (
 	"errors"
+	"net/http"
+	"strings"
 
 	"golang.org/x/crypto/bcrypt"
 )
@@ -33,4 +35,26 @@ func VerifyPassword(hash, plain string) bool {
 	}
 	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(plain))
 	return err == nil
+}
+
+func TokenForOIDC(r *http.Request) string {
+	// Authorization: Bearer <token>
+	if h := r.Header.Get("Authorization"); h != "" {
+		if strings.HasPrefix(h, "Bearer ") {
+			return strings.TrimPrefix(h, "Bearer ")
+		}
+	}
+	return ""
+}
+
+func TokenForJWT(r *http.Request) string {
+	if h := r.Header.Get("X-Auth-Token"); h != "" {
+		return h
+	}
+	// Cookie: access_token=<token>
+	if c, err := r.Cookie("access_token"); err == nil {
+		return c.Value
+	}
+
+	return ""
 }

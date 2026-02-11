@@ -7,6 +7,22 @@ import (
 
 type ACLRole string
 
+func (r ACLRole) Compare(role ACLRole) int {
+	if r == role {
+		return 0
+	}
+	switch r {
+	case RoleGuest:
+		return -1
+	case RoleAdmin:
+		return 1
+	}
+	if role == RoleGuest {
+		return 1
+	}
+	return -1
+}
+
 const (
 	RoleGuest ACLRole = "guest"
 	RoleUser  ACLRole = "user"

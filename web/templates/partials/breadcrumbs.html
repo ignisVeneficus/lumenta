@@ -1,0 +1,6 @@
+<div class="breadcrumbs">
+{{ range $i, $v := . }}
+  {{ if gt $i 0 }}<span class="sep fa-solid fa-chevron-right"></span>{{ end }}
+  <a class="breadcrumb" href="{{$v.Link}}">{{$v.Label}}</a>
+{{ end }}
+</div>

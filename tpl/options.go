@@ -1,5 +1,6 @@
 package tpl
 
+/*
 type Option[T any] struct {
 	Name  string
 	Value T
@@ -14,3 +15,4 @@ func Get[T any](opts []Option[T], name string) (T, bool) {
 	}
 	return zero, false
 }
+*/

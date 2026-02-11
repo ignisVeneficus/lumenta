@@ -22,13 +22,21 @@
      Hierarchy:
      Image > Brand title > Section title > UI > Meta
   ============================================================ */
+  --font-size-xs: 0.75rem;   /* 12px – meta, caption, footnote */
+  --font-size-sm: 0.875rem;  /* 14px – secondary UI text */
+  --font-size-md: 1rem;      /* 16px – base body, primary UI */
+  --font-size-lg: 1.125rem;  /* 18px – lead, emphasized text */
+  --font-size-xl: 1.25rem;   /* 20px – section headings */
+  --font-size-2xl: 1.5rem;   /* 24px – page titles */
+  --font-size-3xl: 2rem;     /* 32px – hero headings */
+  --font-size-4xl: 3rem;     /* 48px – rare, landing only */  
 
-  --font-size-brand: 4rem;        /* homepage title only */
-  --font-size-tagline: 1.3rem;
+  --font-size-size-brand: 4rem;        /* homepage title only */
 
-  --font-size-section: 1.15rem;
-  --font-size-ui: 0.95rem;
-  --font-size-meta: 0.8rem;
+  --font-size-tagline: var(--font-size-lg);  /* 18px */
+  --font-size-section: var(--font-size-xl);  /* 20px */
+  --font-size-ui: var(--font-size-md);       /* 16px */
+  --font-size-meta: var(--font-size-sm);     /* 14px */
 
   --line-height-tight: 1.2;
   --line-height-normal: 1.5;

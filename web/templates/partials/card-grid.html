@@ -1,0 +1,17 @@
+<div class="card-grid-wrapper">
+    <div class="card-grid">
+        {{- range $card:= .Cards -}}
+        <a class="card" href="{{$card.URL}}">
+            <div class="media">
+                <img src="{{imagePath $card.Image "w640"}}"/>
+            </div>
+            <div class="meta">
+                <div class="name">{{$card.Name}}</div>
+                <div class="description" data="{{$card.Description}}">{{$card.Description}}</div>
+                <div class="info">{{$card.Info}}</div>
+            </div>
+        </a>
+        {{- end -}}
+    </div>
+    {{- template "partials/paging.html" .Paging -}}
+</div>

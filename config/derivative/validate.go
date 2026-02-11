@@ -34,7 +34,7 @@ func (d DerivativeConfig) validate(v *validate.ValidationErrors, path string) st
 	validate.RequireString(v, path+"/name", d.Name)
 
 	switch {
-	case (d.MaxWidth <= 0 || d.MaxHeight <= 0) && d.Mode == DerivateSizeCrop:
+	case (d.MaxWidth <= 0 || d.MaxHeight <= 0) && d.Mode == DerivativeSizeCrop:
 		err := errors.New("invalid dimensions")
 		validate.LogConfigError(path+"/size", map[string]int{
 			"width":  d.MaxWidth,

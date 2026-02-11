@@ -11,13 +11,13 @@ server:
 
   # HTTP timeout configuration
   timeouts:
-    # Maximum duration for reading the entire request
+    # Request read timeout
     read: 10s
 
-    # Maximum duration before timing out writes of the response
+    # Response write timeout
     write: 30s
 
-    # Maximum amount of time to wait for the next request
+    # Keep-alive idle timeout
     idle: 60s
 
 
@@ -25,150 +25,120 @@ server:
 # Database connection settings (MariaDB / MySQL)
 # ---------------------------------------------------------
 database:
-  # Database server hostname or IP address
+  # Database host name or IP address
   host: "localhost"
 
-  # Database port
+  # Database port number
   port: 3306
 
   # Database name
   name: "lumenta"
 
-  # Database user
+  # Database user name
   user: "lumenta"
 
-  # Database password (prefer overriding via ENV)
+  # Database password (prefer environment override)
   password: "secret"
 
 
 # ---------------------------------------------------------
-# Media storage paths
+# Filesystem configuration
 # ---------------------------------------------------------
-media:
-  # Read-only filesystem path for original images
-  # (e.g. NAS mount or archival photo storage)
+filesystem:
+  # Read-only originals directory path
   originals: "/mnt/photos/originals"
 
-  # Writable cache directory for generated derivatives
+  # Writable derivatives cache directory path
   derivatives: "/var/lib/lumenta/derivatives"
 
 
 # ---------------------------------------------------------
-# Gallery rendering and template configuration
-# ---------------------------------------------------------
-gallery:
-  templates:
-    # Optional directory for custom templates
-    custom: "/etc/lumenta/templates"
-
-
-# ---------------------------------------------------------
-# Album-related settings
-# ---------------------------------------------------------
-albums:
-  rebuild:
-    # Number of images processed in one rebuild batch
-    batch_size: 500
-
-    # Number of parallel workers during album rebuild
-    parallelism: 4
-
-
-# ---------------------------------------------------------
-# Authentication and authorization configuration for admin
+# Authentication / authorization
 # ---------------------------------------------------------
 auth:
-  # Authentication mode:
-  # - "forward" : reverse-proxy header based authentication
-  # - "oidc"    : OpenID Connect
+  # Authentication mode
+  # - forward : reverse-proxy header based authentication
+  # - oidc    : OpenID Connect authentication
   mode: "forward"
 
-  # -------------------------------------------------------
-  # Forward authentication (e.g. Traefik / Authelia)
-  # -------------------------------------------------------
+  # Forward authentication settings
   forward:
-    # HTTP header containing the authenticated username
+    # HTTP header containing the authenticated user name
     user_header: "X-Forwarded-User"
 
-    # HTTP header containing user group information
+    # HTTP header containing group membership information
     groups_header: "X-Forwarded-Groups"
 
-    # List of trusted proxy CIDR ranges
+    # Trusted proxy CIDR ranges
     trusted_proxy_cidr:
       - "127.0.0.1/32"
       - "192.168.0.0/16"
 
-  # -------------------------------------------------------
-  # OpenID Connect configuration (used when mode: oidc)
-  # -------------------------------------------------------
+    # Admin role or group name granting admin access (same semantics as OIDC)
+    admin_role: "admin"
+
+  # OpenID Connect settings
   oidc:
     # OIDC issuer URL
     issuer: "https://auth.example.com"
 
-    # OIDC client ID registered at the provider
+    # Registered OIDC client identifier
     client_id: "lumenta"
 
-    # Role or group name that grants admin privileges
+    # Role or group name granting admin access
     admin_role: "admin"
 
+  # JWT authentication settings
+  jwt:
+    # Secret string used for JWT token signing
+    secret: "change-me"
+
 
 # ---------------------------------------------------------
-# Image derivative (thumbnail / preview) definitions
+# Image derivative definitions
 # ---------------------------------------------------------
 derivatives:
-  # Square thumbnail derivative
+  # Square thumbnail derivative definition
   - name: "square"
-    # Filename postfix (e.g. image-square.jpg)
+
+    # Filename postfix
     postfix: "-sq"
-    # Maximum width in pixels
+
+    # Maximum output width in pixels
     max_width: 300
-    # Maximum height in pixels
+
+    # Maximum output height in pixels
     max_height: 300
-    # Resize mode:
-    # - crop : crop to exact dimensions
-    # - fit  : fit within bounds, preserve aspect ratio
+
+    # Resize mode (crop | fit)
     mode: "crop"
 
-  # Large preview image
+  # Large preview derivative definition
   - name: "large"
+
+    # Filename postfix
     postfix: "-lg"
+
+    # Maximum output width in pixels
     max_width: 1920
+
+    # Maximum output height in pixels
     max_height: 1080
+
+    # Resize mode (crop | fit)
     mode: "fit"
 
 
 # ---------------------------------------------------------
-# Filesystem synchronization settings
+# Filesystem synchronization
 # ---------------------------------------------------------
 sync:
-  # -------------------------------------------------------
-  # Conditional inclusion rules based on relative path prefixes
-  #
-  # Each rule defines a RELATIVE PATH PREFIX.
-  # The prefix is matched against the image path
-  # relative to media.originals.
-  #
-  # Example:
-  #   media.originals = /mnt/photos
-  #   image file      = /mnt/photos/children/2023/img001.jpg
-  #   relative path   = children/2023/img001.jpg
-  #
-  # A rule with path: "children/" MATCHES because the
-  # relative path BEGINS WITH the given prefix.
-  #
-  # Only images that pass the associated filter are
-  # inserted into the database.
-  #
-  # NOTE: This is ONLY about inclusion/exclusion into the DB.
-  # -------------------------------------------------------
+  # Path-based inclusion rules
   paths:
-    - # Relative path prefix (must match from the beginning)
+    - # Relative filesystem path prefix
       path: "children/"
 
-      # Filter evaluated ONLY if the prefix matches
-      #
-      # If the filter evaluates to FALSE, the image is ignored
-      # completely and will NOT be inserted into the database.
+      # Filter applied to matching paths
       filters:
         op: "any"
         rules:
@@ -176,9 +146,10 @@ sync:
             op: ">"
             value: 1
 
-    - # Another rule for a different subtree
+    - # Relative filesystem path prefix
       path: "travel/"
 
+      # Filter applied to matching paths
       filters:
         op: "any"
         rules:
@@ -186,10 +157,7 @@ sync:
             op: ">="
             value: 2020
 
-  # -------------------------------------------------------
-  # Allowed file extensions (lowercase, without dot)
-  # Files outside this list are ignored by the sync walker.
-  # -------------------------------------------------------
+  # Allowed file extensions
   extensions:
     - "jpg"
     - "jpeg"
@@ -198,98 +166,118 @@ sync:
     - "tiff"
     - "heic"
 
-  # -------------------------------------------------------
-  # Metadata configuration
-  #
-  # This section declares which metadata fields should be
-  # available in the system and under which logical names
-  # (aliases).
-  #
-  # Built-in defaults exist for common technical, GPS and
-  # descriptive metadata fields.
-  #
-  # If a field alias is redefined here, it COMPLETELY
-  # OVERRIDES the built-in definition with the same name
-  # (sources and type).
-  #
-  # If the user wants "camera" to come from a custom XMP
-  # field, they simply redefine "camera" in the config.  
-  #
-  # Metadata sources:
-  # - EXIF   : embedded camera metadata
-  # - IPTC  : embedded editorial metadata
-  # - XMP   : embedded or sidecar metadata
-  #
-  # Extraction is performed using exiftool, therefore
-  # source references MUST use exiftool tag names.
-  #
-  # the Built-in defaults:
-  # taken_at (datetime): "composite:DateTimeCreated"; "xmp-exif:DateTimeOriginal"; "exififd:DateTimeOriginal"; "exififd:createdate"; "exif:DateTimeOriginal"; "exif:CreateDate"
-  # camera (string): "ifd0:model"; "exif:Model"
-  # maker (string): "ifd0:make"
-  # lens (string): "composite:LensID"; "exififd:LensModel"; "exififd:LensInfo"; "xmp-aux:Lens"
-  # focal_length (float, unit=mm): "exififd:FocalLength"
-  # aperture (float, unit=f): "composite:aperture"; "exififd:fnumber"; "exififd:aperturevalue"
-  # iso (int, unit=ISO): "exififd:ISO"; "exif:ISO"
-  # exposure_time (string, unit=s): "Composite:ShutterSpeed"; "exififd:ExposureTime"
-  # latitude (string): "Composite:GPSLatitude"; "exif:GPSLatitude"
-  # longitude (string): "composite:GPSLongitude"; "exif:GPSLongitude"
-  # rotation (string): "ifd0:orientation"; "exif:Orientation"
-  # rating (int): "xmp-xmp:Rating"
-  # title (string): "xmp-dc:title"; "iptc:objectName"
-  # subject (string): "xmp-dc:description"; "iptc:caption"
-  # tags (list): "xmp-digikam:tagslist"; "xmp-lr:hierarchicalsubject"; "iptc:Keywords"; "xmp-dc:subject"
-  # height (int): "file:ImageHeight"
-  # width (int): "file:ImageWidth"  
-  # -------------------------------------------------------
+  # Metadata field declarations
   metadata:
     fields:
-      # -----------------------------------------------
       # Capture timestamp
-      # -----------------------------------------------
       taken_at:
-        # Target data type
+        # Metadata value type
         type: datetime
-        # Metadata sources in priority order
-        sources:
-          - exif:DateTimeOriginal
-          - xmp:CreateDate
 
-      # -----------------------------------------------
+        # Metadata source references
+        sources:
+          - ref: "exif:DateTimeOriginal"
+          - ref: "xmp:CreateDate"
+
       # Camera model
-      # -----------------------------------------------
       camera:
         type: string
         sources:
-          - exif:Model
+          - ref: "exif:Model"
 
-      # -----------------------------------------------
       # ISO sensitivity value
-      # -----------------------------------------------
       iso:
         type: int
         sources:
-          - exif:ISO
+          - ref: "exif:ISO"
 
-      # -----------------------------------------------
-      # GPS coordinates
-      # -----------------------------------------------
+      # GPS latitude coordinate
       latitude:
         type: float
         sources:
-          - exif:GPSLatitude
+          - ref: "exif:GPSLatitude"
 
+      # GPS longitude coordinate
       longitude:
         type: float
         sources:
-          - exif:GPSLongitude
+          - ref: "exif:GPSLongitude"
 
-  # -------------------------------------------------------
   # Exiftool integration
-  # -------------------------------------------------------
   exiftool:
     # Path to the exiftool binary
     path: "/usr/bin/exiftool"
 
-    # Maximum execution time per exiftool invocation
+    # Maximum execution timeout
     timeout: 5s
+
+  # Rules defining whether an image is classified as panorama
+  panorama:
+
+
+# ---------------------------------------------------------
+# Site metadata and public information
+# ---------------------------------------------------------
+site:
+  # Website title
+  title: "Lumenta"
+
+  # Website author name
+  author: ""
+
+  # Base URL of the website
+  baseUrl: "https://example.com"
+
+  # Website description
+  description: ""
+
+  # Website headline text
+  headline: ""
+
+  # Path or URL to logo image
+  logo-image: ""
+
+  # Footer information
+  footer:
+    # Footer note text
+    note: ""
+
+    # Copyright year or range
+    copyright_date: ""
+
+
+# ---------------------------------------------------------
+# Presentation and visual appearance
+# ---------------------------------------------------------
+presentation:
+  # Root directory for user-provided template overrides and theme handling
+  templates: "/etc/lumenta/templates"
+
+  # Image grid rules by viewport width, role and aspect ratio
+  # - First level key   : grid width in columns (e.g. 12-column grid)
+  # - Second level key  : image role within the layout (normal | large | hero)
+  # - Third level key   : image aspect classification (normal | landscape | tall | panorama)
+  # - w, h              : number of grid cells occupied horizontally and vertically
+  grid:
+    # Grid configuration for a 12-column layout
+    12:
+      # Hero images (high-importance, visually dominant)
+      hero:
+        landscape: { w: 6, h: 4 }
+        panorama:  { w: 6, h: 4 }
+        tall:      { w: 4, h: 6 }
+        # Normal images (default grid items)
+      normal:    { w: 4, h: 4 }
+
+      # Large images (emphasized but not hero)
+      large:
+        landscape: { w: 5, h: 3 }
+        panorama:  { w: 6, h: 3 }
+        tall:      { w: 3, h: 5 }
+        normal:    { w: 3, h: 3 }
+
+      normal:
+        landscape: { w: 4, h: 2 }
+        panorama:  { w: 6, h: 2 }
+        tall:      { w: 2, h: 4 }
+        normal:    { w: 2, h: 2 }

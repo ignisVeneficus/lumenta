@@ -28,7 +28,7 @@ func SplitPath(path string) (string, string, string) {
 	dir, file := filepath.Split(path)
 	ext := filepath.Ext(file)
 	name := strings.TrimSuffix(file, ext)
-	return dir, name, ext
+	return strings.TrimSuffix(dir, "/"), name, ext
 }
 
 func ConcatLocalPath(dir string, name string, ext string) string {
@@ -38,7 +38,7 @@ func ConcatLocalPath(dir string, name string, ext string) string {
 func ConcatGlobalPath(root, dir, name, ext string) string {
 	return filepath.Join(root, dir, name+"."+ext)
 }
-func ConcatGlobalDerivatedPath(root, dir, name, postfix, ext string) string {
+func ConcatGlobalDerivativePath(root, dir, name, postfix, ext string) string {
 	return filepath.Join(root, dir, name+"-"+postfix+"."+ext)
 }
 

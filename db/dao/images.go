@@ -3,6 +3,7 @@ package dao
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/ignisVeneficus/lumenta/db/dbo"
 	"github.com/ignisVeneficus/lumenta/logging"
@@ -85,6 +86,24 @@ LIMIT ?`
 
 const updateImageSyncId = `UPDATE images SET last_seen_sync=? WHERE id=?`
 
+const queryImagesWLastSyncWUserByPathPaged = "SELECT " + imageFields + " , sr.finished_at, u.username FROM images AS i LEFT JOIN sync_runs AS sr ON i.last_seen_sync=sr.id LEFT JOIN users AS u ON u.id=i.acl_user_id WHERE i.path = ? ORDER BY i.filename, i.ext LIMIT ?,?"
+const countImagesByPath = "SELECT count(*) FROM images AS i WHERE i.path = ?"
+
+const getImageIdByPathFirstHash = "SELECT i.id FROM images AS i WHERE (i.path = ? OR i.path like CONCAT(?,'/%')) ORDER BY i.file_hash LIMIT 1"
+
+const queryImagePathByParentPathInner = `
+SELECT DISTINCT
+  SUBSTRING_INDEX(path, '/', ? + 1) AS child_path
+FROM images
+WHERE
+  SUBSTRING_INDEX(path, '/', ?) = ?
+  AND path <> ?
+`
+const queryImagePathByParentPathPaged = queryImagePathByParentPathInner + " LIMIT ?,?"
+const countImagePathByParentPath = "SELECT COUNT(*) AS total FROM (" + queryImagePathByParentPathInner + ") t"
+
+const countImageByParentPath = "SELECT count(*) FROM images AS i WHERE i.path = ? OR i.path like CONCAT(?,'/%') "
+
 func parseImage(row *sql.Row) (dbo.Image, error) {
 	var i dbo.Image
 	err := row.Scan(
@@ -124,6 +143,54 @@ func parseImage(row *sql.Row) (dbo.Image, error) {
 		&i.LastSeenSync,
 	)
 	return i, err
+}
+
+func parseImages(rows *sql.Rows) ([]dbo.Image, error) {
+	out := make([]dbo.Image, 0)
+	for rows.Next() {
+		var i dbo.Image
+		err := rows.Scan(
+			&i.ID,
+			&i.Path,
+			&i.Filename,
+			&i.Ext,
+			&i.FileSize,
+			&i.MTime,
+			&i.FileHash,
+			&i.MetaHash,
+			&i.Title,
+			&i.Subject,
+			&i.TakenAt,
+			&i.Camera,
+			&i.Lens,
+			&i.FocalLength,
+			&i.Aperture,
+			&i.Exposure,
+			&i.ISO,
+			&i.Latitude,
+			&i.Longitude,
+			&i.Rotation,
+			&i.Rating,
+			&i.Width,
+			&i.Height,
+			&i.Panorama,
+			&i.FocusX,
+			&i.FocusY,
+			&i.FocusMode,
+			&i.ExifJSON,
+			&i.ACLScope,
+			&i.ACLUserID,
+			&i.ACLGroupID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.LastSeenSync,
+		)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, i)
+	}
+	return out, rows.Err()
 }
 
 func (q *Queries) GetImageById(ctx context.Context, id uint64) (dbo.Image, error) {
@@ -305,6 +372,116 @@ func (q *Queries) DeleteImagesNotSeen(ctx context.Context, syncID uint64, limit 
 func (q *Queries) UpdateImageSyncId(ctx context.Context, imageId uint64, syncId uint64) error {
 	_, err := q.db.ExecContext(ctx, updateImageSyncId, syncId, imageId)
 	return err
+}
+
+func (q *Queries) QueryImageWLastSyncByWUserPathPaged(ctx context.Context, path string, from, qty uint64) ([]dbo.ImageWLastSyncWUser, error) {
+	rows, err := q.db.QueryContext(ctx, queryImagesWLastSyncWUserByPathPaged, path, from, qty)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make([]dbo.ImageWLastSyncWUser, 0)
+	for rows.Next() {
+		var i dbo.ImageWLastSyncWUser
+		err := rows.Scan(
+			&i.ID,
+			&i.Path,
+			&i.Filename,
+			&i.Ext,
+			&i.FileSize,
+			&i.MTime,
+			&i.FileHash,
+			&i.MetaHash,
+			&i.Title,
+			&i.Subject,
+			&i.TakenAt,
+			&i.Camera,
+			&i.Lens,
+			&i.FocalLength,
+			&i.Aperture,
+			&i.Exposure,
+			&i.ISO,
+			&i.Latitude,
+			&i.Longitude,
+			&i.Rotation,
+			&i.Rating,
+			&i.Width,
+			&i.Height,
+			&i.Panorama,
+			&i.FocusX,
+			&i.FocusY,
+			&i.FocusMode,
+			&i.ExifJSON,
+			&i.ACLScope,
+			&i.ACLUserID,
+			&i.ACLGroupID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.LastSeenSync,
+			&i.LastSyncDate,
+			&i.User,
+		)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, i)
+	}
+	return out, rows.Err()
+}
+func (q *Queries) CountImagesByPath(ctx context.Context, path string) (uint64, error) {
+	row := q.db.QueryRowContext(ctx, countImagesByPath, path)
+	var count uint64
+	err := row.Scan(&count)
+	return count, err
+}
+
+func (q *Queries) GetImageIdByPathFirstHash(ctx context.Context, path string) (uint64, error) {
+	row := q.db.QueryRowContext(ctx, getImageIdByPathFirstHash, path, path)
+	var id uint64
+	err := row.Scan(&id)
+	return id, err
+}
+
+func (q *Queries) QueryImagePathByParentPathPaged(ctx context.Context, parentPath string, from, qty uint64) ([]string, error) {
+	depth := 0
+	if parentPath != "" {
+		depth = strings.Count(parentPath, "/") + 1
+	}
+	rows, err := q.db.QueryContext(ctx, queryImagePathByParentPathPaged, depth, depth, parentPath, parentPath, from, qty)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make([]string, 0, 8)
+	for rows.Next() {
+		var p string
+		if err := rows.Scan(&p); err != nil {
+			return nil, err
+		}
+		out = append(out, p)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+func (q *Queries) countImagePathByParentPath(ctx context.Context, parentPath string) (uint64, error) {
+	depth := 0
+	if parentPath != "" {
+		depth = strings.Count(parentPath, "/") + 1
+	}
+	row := q.db.QueryRowContext(ctx, countImagePathByParentPath, depth, depth, parentPath, parentPath)
+	var count uint64
+	err := row.Scan(&count)
+	return count, err
+}
+
+func (q *Queries) CountImageByParentPath(ctx context.Context, parentPath string) (uint64, error) {
+
+	row := q.db.QueryRowContext(ctx, countImageByParentPath, parentPath, parentPath)
+	var count uint64
+	err := row.Scan(&count)
+	return count, err
 }
 
 //
@@ -623,4 +800,93 @@ func UpdateImageSyncId(db *sql.DB, ctx context.Context, imageID uint64, syncID u
 		return err
 	}
 	return tx.Commit()
+}
+
+func QueryImageWLastSyncWUserByPathPaged(db *sql.DB, ctx context.Context, path string, from, qty uint64) ([]dbo.ImageWLastSyncWUser, error) {
+
+	logg := logging.Enter(ctx, "dao.image.queryImagesWLastSyncWUserByPathPaged", map[string]any{
+		"path": path,
+		"from": from,
+		"qty":  qty,
+	})
+
+	q := NewQueries(db)
+
+	images, err := q.QueryImageWLastSyncByWUserPathPaged(ctx, path, from, qty)
+	if err != nil {
+		logging.ExitErr(logg, err)
+		return nil, err
+	}
+
+	logging.Exit(logg, "ok", map[string]any{
+		"found": len(images),
+	})
+
+	return images, nil
+}
+func CountImagesByPath(db *sql.DB, ctx context.Context, path string) (uint64, error) {
+	logg := logging.Enter(ctx, "dao.image.CountByPath", map[string]any{
+		"path": path,
+	})
+	q := NewQueries(db)
+	qty, err := q.CountImagesByPath(ctx, path)
+	if err != nil {
+		logging.ExitErr(logg, err)
+		return 0, err
+	}
+	logging.Exit(logg, "ok", map[string]any{"return": qty})
+	return qty, nil
+}
+
+func GetImageByPathFirstHash(db *sql.DB, ctx context.Context, path string) (uint64, error) {
+	logg := logging.Enter(ctx, "dao.image.getByPathFirstHash", map[string]any{
+		"path": path,
+	})
+	q := NewQueries(db)
+	i, err := q.GetImageIdByPathFirstHash(ctx, path)
+	return i, returnWrapNotFound(logg, err, "image")
+}
+
+func QueryImagePathByParentPathPaged(db *sql.DB, ctx context.Context, parentPath string, from, qty uint64) ([]string, error) {
+	logg := logging.Enter(ctx, "dao.image.queryPathByParentPathPaged", map[string]any{
+		"parentPpath": parentPath,
+		"from":        from,
+		"qty":         qty,
+	})
+	q := NewQueries(db)
+	paths, err := q.QueryImagePathByParentPathPaged(ctx, parentPath, from, qty)
+	if err != nil {
+		logging.ExitErr(logg, err)
+		return nil, err
+	}
+	logging.Exit(logg, "ok", map[string]any{
+		"found": len(paths),
+	})
+	return paths, nil
+}
+func CountImagePathByParentPath(db *sql.DB, ctx context.Context, parentPath string) (uint64, error) {
+	logg := logging.Enter(ctx, "dao.image.CountPathByParentPath", map[string]any{
+		"parentPath": parentPath,
+	})
+	q := NewQueries(db)
+	qty, err := q.countImagePathByParentPath(ctx, parentPath)
+	if err != nil {
+		logging.ExitErr(logg, err)
+		return 0, err
+	}
+	logging.Exit(logg, "ok", map[string]any{"return": qty})
+	return qty, nil
+}
+func CountImageByParentPath(db *sql.DB, ctx context.Context, parentPath string) (uint64, error) {
+	logg := logging.Enter(ctx, "dao.image.CountByParentPath", map[string]any{
+		"parentPath": parentPath,
+	})
+	q := NewQueries(db)
+	qty, err := q.CountImageByParentPath(ctx, parentPath)
+	if err != nil {
+		logging.ExitErr(logg, err)
+		return 0, err
+	}
+	logging.Exit(logg, "ok", map[string]any{"return": qty})
+	return qty, nil
 }

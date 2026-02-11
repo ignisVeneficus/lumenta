@@ -5,6 +5,7 @@ import (
 	"html/template"
 	"strings"
 
+	"github.com/ignisVeneficus/lumenta/server/routes"
 	gridData "github.com/ignisVeneficus/lumenta/tpl/grid/data"
 )
 
@@ -36,4 +37,20 @@ func TileRole(img gridData.GridImage) string {
 	}
 	return strings.Join(ret, " ")
 
+}
+
+func genImgSrc(id uint64, width int) string {
+	derivative := fmt.Sprintf("w%d", width)
+	return fmt.Sprintf("%s %dw", routes.CreateDerivativePath(id, derivative), width)
+}
+func TileImgList(imgID uint64, widths ...int) template.Srcset {
+	var parts []string
+	for _, w := range widths {
+		parts = append(parts, genImgSrc(imgID, w))
+	}
+	return template.Srcset(strings.Join(parts, ", "))
+}
+
+func TileImg(imgID uint64, width int) template.HTML {
+	return template.HTML(genImgSrc(imgID, width))
 }

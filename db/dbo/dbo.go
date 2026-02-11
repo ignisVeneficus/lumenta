@@ -277,3 +277,9 @@ func (t *Tag) MarshalZerologObjectWithLevel(e *zerolog.Event, level zerolog.Leve
 		logging.Uint64If(e, "parent_id", t.ParentID)
 	}
 }
+
+type ImageWLastSyncWUser struct {
+	Image
+	LastSyncDate *time.Time
+	User         *string
+}
