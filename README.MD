@@ -1,159 +1,135 @@
 # Lumenta
 
-Lumenta is a self-hosted photo library and gallery backend written in Go.  
-Its primary goal is to provide a clean, automation-first alternative to traditional photo gallery systems.
+**Lumenta is an automation-first, self-hosted photo library engine for photographers who think in archives, not uploads.**
 
-The project focuses on deterministic data ingestion, rule-based album generation, and long-term maintainability for large photo collections.
+It is not just a gallery.
+It is a deterministic indexing core with a presentation layer on top — built around a simple promise:
 
-There is currently no test phase or stable release. The project is in an early, architecture-focused development stage.
+> Configure it once. Feed it images. Let it organize itself.
 
-## Core principles
+Lumenta continuously reads your structured photo archive, evaluates rules, materializes albums, and exposes a clean web layer — without asking you to manually curate anything twice.
 
-### No manual album curation
+Designed for large collections and long-term ownership, Lumenta treats your photo library as a structured, evolving system — not a pile of files waiting to be uploaded.
 
-Albums are not managed by hand.  
-All album–image relationships are generated exclusively by a rule engine and stored as materialized relations.
-
-If an image appears in an album, it is because it matches the album’s rules.
-
-### Rule-based albums
-
-Albums are defined using logical rule trees that can combine conditions such as:
-
-- tags (any / all / none)
-- time-based conditions (year, date ranges)
-- explicit exclusions
-- exclusion of images that appear in child albums
-
-The rule model and examples shown here reflect the **current working design** of the project.
-They should be considered **illustrative rather than final**, as rule syntax and semantics may evolve
-while core abstractions are still being validated.
-
-Rules are evaluated deterministically and can be expressed in YAML or JSON.
-
-### Bottom-up evaluation
-
-Album evaluation is performed from leaf albums toward the root.  
-This enables correct handling of exclusions and parent–child relationships without ambiguity.
-
-### Read-only tag model
-
-Tags are imported from external tools (for example, digiKam) and treated as a controlled vocabulary.
-
-- Tags are hierarchical and represented by their path structure.
-- Tags are not edited inside Lumenta.
-- The only supported tag mutation is cleanup of orphaned tags (tags without images and without children).
-
-## Metadata Processing and Usage
-
-This system provides a **flexible metadata extraction framework** that allows both
-default and user-defined metadata to be extracted from images and displayed on the website.
-
-Metadata values are resolved using **aliases**, which represent stable, logical identifiers
-independent of the underlying EXIF, IPTC, or XMP field names.  
-Users may redefine or override these aliases in the configuration to customize metadata
-extraction without changing the database schema or application code.
-
-Below is the **default metadata configuration**, which can be redefined by alias
-reconfiguration.
+For photographers, this means control.
+For engineers, this means determinism.
+For both, it means automation without chaos.
 
 ---
 
-## Default Metadata Mapping
+## Where Lumenta fits in a photographer’s workflow
 
-| Alias | Description | Type | Sources (priority order) | Notes |
-|------|-------------|------|--------------------------|-------|
-| `taken_at` | Capture date and time | datetime | `composite:DateTimeCreated`; `xmp-exif:DateTimeOriginal`; `exififd:DateTimeOriginal`; `exififd:createdate`; `exif:DateTimeOriginal`; `exif:CreateDate` | |
-| `camera` | Camera model | string | `ifd0:model`; `exif:Model` | |
-| `maker` | Camera manufacturer | string | `ifd0:make` | |
-| `lens` | Lens identification | string | `composite:LensID`; `exififd:LensModel`; `exififd:LensInfo`; `xmp-aux:Lens` | |
-| `focal_length` | Focal length | float (mm) | `exififd:FocalLength` | |
-| `aperture` | Aperture (f-number) | float (f) | `composite:aperture`; `exififd:fnumber`; `exififd:aperturevalue` | |
-| `iso` | ISO sensitivity | int (ISO) | `exififd:ISO`; `exif:ISO` | |
-| `exposure_time` | Exposure duration | string (s) | `Composite:ShutterSpeed`; `exififd:ExposureTime` | Special case: kept as string to preserve fractional format |
-| `latitude` | GPS latitude | string | `Composite:GPSLatitude`; `exif:GPSLatitude` | Special case: preserves hemisphere and formatting |
-| `longitude` | GPS longitude | string | `composite:GPSLongitude`; `exif:GPSLongitude` | Special case: preserves hemisphere and formatting |
-| `rotation` | Image orientation | string | `ifd0:orientation`; `exif:Orientation` | Special case: mapped later to rotation logic |
-| `rating` | User rating | int | `xmp-xmp:Rating` | |
-| `title` | Image title | string | `xmp-dc:title`; `iptc:objectName` | |
-| `subject` | Image description / caption | string | `xmp-dc:description`; `iptc:caption` | |
-| `tags` | Keywords and hierarchical tags | list | `xmp-digikam:tagslist`; `xmp-lr:hierarchicalsubject`; `iptc:Keywords`; `xmp-dc:subject` | Special case: normalized into tag structure |
-| `height` | Image height | int | `file:ImageHeight` | |
-| `width` | Image width | int | `file:ImageWidth` | |
+Lumenta is designed to sit **after your editing and tagging workflow**.
 
+Typical workflow:
 
+1. Shoot
+2. Import into your photo management tool (e.g. Lightroom, digiKam, etc.)
+3. Rate, tag, and organize
+4. Export or sync to your structured archive
+5. Let **Lumenta read that archive automatically**
 
-### Filesystem as source of truth
+You do not upload photos into Lumenta.
+You point it at your existing filesystem-based archive, and it builds the web presentation layer from there.
 
-The filesystem is the authoritative source for media files.
+For photographers, this means:
 
-A sync pipeline walks the configured root directory and reconciles filesystem state with the database using fingerprints and hashes.
+- No duplicated upload step
+- No secondary manual album maintenance
+- No divergence between your editing tool and your web gallery
+- Your existing hierarchical tags remain meaningful
 
-### Lazy derivatives
+Configure it once. Feed it images. It does the rest.
 
-Image derivatives (thumbnails, previews, web sizes) are generated on demand and cached on the filesystem.
+---
 
-No derivatives are generated eagerly unless explicitly requested.
+## Why Lumenta is not “just another photo album”
 
+Lumenta is intentionally opinionated.
 
-## High-level architecture
+- **Single owner model** – this is not a multi-user upload platform.
+- No collaborative image uploads.
+- No group editing.
+- Users exist only with different read-level access (e.g. guest, authenticated user).
 
-### Components
+The archive belongs to one photographer.
+Access levels control visibility — not authorship.
 
-- **Filesystem walker**  
-  Discovers files under the configured root and produces work items.
+---
 
-- **Sync pipeline**  
-  A worker-based pipeline responsible for:
-  - path discovery
-  - database lookup
-  - change detection
-  - hashing
-  - metadata extraction
-  - database upserts
-  - relationship updates
+## Filesystem-first design
 
-- **Rule engine**  
-  Evaluates album definitions and produces materialized album–image mappings.
+The filesystem is the source of truth.
 
-- **Database (MariaDB / MySQL-compatible)**  
-  Stores canonical image records, metadata, tags, albums, and materialized relations.
+- Images stay where you manage them.
+- No re-upload required.
+- No proprietary storage layer.
+- Your directory structure remains meaningful.
 
-## Data model overview
+Lumenta scans the configured root directory and builds its internal model from that structure.
 
-Key concepts in the database design:
+---
 
-- `images`  
-  Canonical representation of a media file.
+## Rule-based automation
 
-- `tags`  
-  Hierarchical tags with parent references and uniqueness enforced per parent.
+Automation is central.
 
-- `image_tags`  
-  Many-to-many mapping between images and tags.
+Rules are used to define:
 
-- `albums`  
-  Album tree structure.
+- Which images should be indexed
+- What qualifies as special formats (e.g. panorama detection)
+- Planned: default ACL rules based on metadata or structure
+- Album population logic
 
-- `album_images`  
-  Materialized output of the rule engine.
+Albums are not curated manually.
+They are generated deterministically from rule definitions.
 
-The schema is expected to evolve as the project matures.
+The current rule model reflects the working design and may evolve while abstractions are being refined.
 
-## Configuration
+---
 
-Configuration is intended to be loaded from YAML (and optionally JSON) into a single configuration structure.
+## Metadata and hierarchical tags
 
-Typical configuration areas include:
+Lumenta provides a flexible, configurable metadata system.
 
-- server settings (address, timeouts)
-- database connection and pooling
-- media root paths
-- album rule definitions
-- derivative definitions and cache locations
-- sync pipeline settings (workers, batching)
+- Metadata definitions are configurable.
+- Extraction and synchronization are rule-driven.
+- Hierarchical tags are supported and preserved.
 
-Exact schemas and examples will be documented once the configuration stabilizes.
+Hierarchical tagging — still uncommon in many web galleries — is treated as a first-class concept.
+
+The goal is not to re-edit metadata in the web layer, but to faithfully represent and leverage the structure already created in your photo workflow.
+
+---
+
+## Strong configuration model
+
+The entire system is configuration-driven.
+
+- Indexing behavior
+- Rule logic
+- Metadata mapping
+- Album generation
+- Derivative behavior
+- Access defaults
+
+The design philosophy is simple:
+
+> Configure once. Feed it images. Let it run.
+
+---
+
+## Presentation layer and extensibility
+
+The web layer is template-based.
+
+- Pages are rendered using configurable templates.
+- The structure allows for future theme support.
+- The goal is visual flexibility without breaking deterministic backend logic.
+
+![First preview](./doc/img/preview1.png)
+
+---
 
 ## Development status
 
