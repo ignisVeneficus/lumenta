@@ -1,0 +1,112 @@
+{{ define "main" }}
+<div class="breadcrumbs-wrapper">
+{{- with .Breadcrumbs }}
+    {{- template "partials/breadcrumbs.html" . -}}
+{{- end -}}
+</div>
+
+<div class="admin-layout image-page">
+    {{- template "partials/admin/action-rail.html" . -}}
+    <!-- TODO: rebuild for grid -->
+    <div class="content">
+        <div class="column column-1">
+            <div class="image-panel panel panel-pos" style="--p12x: 0; --p12y:0; --p12w:3;--p12h:3">
+                <div class="image-preview" style="--ratio: {{.Image.ClampedAspect}};">
+                    <img
+                        src="{{ imagePath .Image.ID "s800" }}"
+                        loading="lazy"
+                        decoding="async"
+                    >
+
+                    <div class="media-box" style="--fx: {{.Image.ComputedFocus.FocusX}};--fy: {{.Image.ComputedFocus.FocusY}}; --real-ratio: {{.Image.CalculatedAspect}};">
+                        {{template "partials/admin/reticle.html" }}
+                    </div>
+                </div>
+            </div>
+            <div class="image-subject-panel panel panel-pos" style="--p12x: 0; --p12y:3; --p12w:3;--p12h:2">
+                <div class="image-title">{{ .Image.Title }}</div>
+                <div class="image-title">{{ .Image.Subject }}</div>
+            </div>
+            <div class="image-fs-panel panel panel-pos" style="--p12x: 0; --p12y:3; --p12w:3;--p12h:2">
+                <div class="title">Filesystem Info</div>
+                <div class="image-fs-info">
+                    <div class="image-path">{{.Image.Path}}/{{.Image.Filename}}.{{.Image.Ext}}</div>
+                    {{- if .Image.MetaHash -}}
+                    <div class="image-meta has-sidecard">Sidecar file detected.</div>
+                    {{- else -}}
+                    <div class="image-meta has-not-sidecard">No sidecar file detected.</div>
+                    {{- end -}}
+                </div>
+            </div>
+            <div class="image-date-panel panel panel-pos" style="--p12x: 0; --p12y:5; --p12w:3;--p12h:2">
+                <div class="title">Lifecycle</div>
+                <div class="data-table">
+                    <label>File created:</label>
+                    <div class="image-time mtime">{{ formatTime .Image.MTime}}</div>
+                    <label>Data created:</label>
+                    <div class="image-time created">{{ formatTime .Image.CreatedAt}}</div>
+                    <label>Data updated:</label>
+                    <div class="image-time updated">{{ formatTime .Image.UpdatedAt}}</div>
+                    <label>Last synced:</label>
+                    {{- if .Image.Sync.Status -}}
+                    <div class="image-time synced status-{{.Image.Sync.Status}}">{{ formatTime .Image.Sync.StartedAt}}</div>
+                    {{- else -}}
+                    <div class="image-time synced status-failed">Never</div>
+                    {{- end -}}
+                </div>
+            </div>
+            <div class="image-grid-panel panel panel-pos" style="--p12x: 0; --p12y:7; --p12w:3;--p12h:2">
+                <div class="title">Display</div>
+                <div class="grid-panel data-table">
+                    <label>Image size:</label>
+                    <div class="image-grid aspect">{{ .Image.Width }} &times; {{ .Image.Height }}</div>
+                    <label>Image aspect Ratio:</label>
+                    <div class="image-grid aspect">{{ .Image.CalculatedAspectString }}</div>
+                    <label>Aspect Ratio in grid:</label>
+                    <div class="image-grid type">
+                        {{- if eq .Image.Aspect "normal" -}}
+                        Square
+                        {{- end -}}
+                        {{- if eq .Image.Aspect "tall" -}}
+                        Portrait
+                        {{- end -}}
+                        {{- if eq .Image.Aspect "landscape" -}}
+                        Landscape
+                        {{- end -}}
+                        {{- if eq .Image.Aspect "panorama" -}}
+                        Panorama
+                        {{- end -}}
+                    </div>
+
+                </div>
+            </div>
+        </div>
+        <div class="column column-2">
+            <div class="image-state-panel panel panel-pos" style="--p12x: 3; --p12y:0; --p12w:3;--p12h:1">
+                <div class="title">ACL Settings</div>           
+                {{ template "partials/admin/acl-settings.html" .}}
+            </div>
+            <div class="image-focus-panel panel panel-pos" style="--p12x: 3; --p12y:1; --p12w:3;--p12h:1">
+                <div class="title">ACL Settings</div>           
+                {{ template "partials/admin/focus-settings.html" .}}
+            </div>
+            <div class="image-action-panel panel panel-pos">
+                <div class="title">Actions</div>
+            </div>
+            <div class="image-metadatas-panel panel panel-pos">
+                <div class="title">Matadatas</div>           
+            </div>
+        </div>
+        <div class="colum colum-3">
+            <div class="tag-tree-panel panel panel-size" style="--p12w: 6; --p12h:8;">
+                <div class="title">Tags</div>
+                <div class="tag-tree-box">
+                    {{ template "partials/tag-tree.html" .Image.Tags }}
+                </div>
+
+            </div>
+        </div>
+
+    <div>
+</div>
+{{ end }}

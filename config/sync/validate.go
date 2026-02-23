@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 
+	authData "github.com/ignisVeneficus/lumenta/auth/data"
 	"github.com/ignisVeneficus/lumenta/config/validate"
 	"github.com/ignisVeneficus/lumenta/data"
 	"github.com/ignisVeneficus/lumenta/ruleengine"
@@ -36,7 +37,7 @@ func (s *SyncConfig) Validate(v *validate.ValidationErrors, path string) {
 
 func (p *PathFilterConfig) validate(v *validate.ValidationErrors, basePath string, idx int) {
 	path := fmt.Sprintf("%s/paths[%d]", basePath, idx)
-	validate.RequireString(v, path+"/path", p.Path)
+	validate.RequireString(v, path+"/root", p.Root)
 
 	validateFilterGroup(&p.Filters, v, path+"/filters")
 }
@@ -121,4 +122,24 @@ func (c *ExiftoolConfig) validate(v *validate.ValidationErrors, path string) {
 		validate.LogConfigError(path+"/path", c.Path, err)
 		v.Add(err)
 	}
+}
+
+func (ac *ACLRules) validate(v *validate.ValidationErrors, path string) {
+	for i, r := range *ac {
+		r.validate(v, path, i)
+	}
+}
+func (acr *ACLRule) validate(v *validate.ValidationErrors, basePath string, idx int) {
+	path := fmt.Sprintf("%s/[%d]", basePath, idx)
+	validate.RequireString(v, path+"/role", string(acr.Role))
+	if !authData.IsValidRole(acr.Role) {
+		err := fmt.Errorf("meta_acl: invalid role level")
+		validate.LogConfigError(path+"/role", acr.Role, err)
+		v.Add(err)
+	}
+	for i, rule := range acr.Rules {
+		rulePath := fmt.Sprintf("%s/rule[%d]", path, i)
+		validateFilterGroup(rule, v, rulePath)
+	}
+
 }

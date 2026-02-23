@@ -52,13 +52,14 @@ type PersistentExiftool struct {
 	stdout  *bufio.Reader
 	mu      sync.Mutex
 	timeout time.Duration
+	seq     uint64
 }
 
-func GetExiftool(ctx context.Context) (*PersistentExiftool, error) {
+func GetExiftool() (*PersistentExiftool, error) {
 	once.Do(func() {
 		cfg := config.Global().Sync.Exiftool
 		instance, initErr = newPersistentExiftool(
-			ctx,
+			context.Background(),
 			cfg.ResolvedPath,
 			cfg.Timeout,
 		)
@@ -122,11 +123,12 @@ func (p *PersistentExiftool) Read(ctx context.Context, imagePath string) (RawMet
 	default:
 	}
 
-	if err := p.sendCommand(imagePath); err != nil {
+	id, err := p.sendCommand(imagePath)
+	if err != nil {
 		return nil, err
 	}
 
-	data, err := p.readResponse(ctx)
+	data, err := p.readResponse(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -137,15 +139,18 @@ func (p *PersistentExiftool) Read(ctx context.Context, imagePath string) (RawMet
 	}
 	return raw, nil
 }
-func (p *PersistentExiftool) sendCommand(imagePath string) error {
+func (p *PersistentExiftool) sendCommand(imagePath string) (uint64, error) {
+	p.seq++
+	id := p.seq
 	_, err := fmt.Fprintf(p.stdin,
-		"-j\n-G1\n-struct\n-a\n%s\n-execute\n",
-		imagePath,
+		"-j\n-G1\n-struct\n-a\n%s\n-execute%d\n",
+		imagePath, id,
 	)
-	return err
+	return id, err
 }
-func (p *PersistentExiftool) readResponse(ctx context.Context) ([]byte, error) {
+func (p *PersistentExiftool) readResponse(ctx context.Context, id uint64) ([]byte, error) {
 	var buf bytes.Buffer
+	ready := fmt.Sprintf("{ready%d}", id)
 
 	for {
 		select {
@@ -159,7 +164,7 @@ func (p *PersistentExiftool) readResponse(ctx context.Context) ([]byte, error) {
 			return nil, err
 		}
 
-		if strings.TrimSpace(line) == "{ready}" {
+		if strings.TrimSpace(line) == ready {
 			break
 		}
 

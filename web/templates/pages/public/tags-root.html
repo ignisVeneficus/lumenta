@@ -1,0 +1,10 @@
+{{ define "main" }}
+<div class="breadcrumbs-wrapper">
+{{- with .Breadcrumbs }}
+    {{- template "partials/breadcrumbs.html" . -}}
+{{- end -}}
+</div>
+<div class="content">
+    {{  template "partials/tag-tree-count.html" .TagsTree }}
+</div>
+{{ end }}

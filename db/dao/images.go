@@ -2,6 +2,7 @@ package dao
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -16,7 +17,7 @@ import (
 )
 
 const imageFields = `
-i.id, i.path, i.filename, i.ext,
+i.id, i.root, i.path, i.filename, i.ext,
 i.file_size, i.mtime, i.file_hash, i.meta_hash,
 i.title, i.subject,
 i.taken_at, i.camera, i.lens, i.focal_length, i.aperture, i.exposure, i.iso,
@@ -26,13 +27,17 @@ i.exif_json,
 i.acl_scope, i.acl_user_id, i.acl_group_id,
 i.created_at, i.updated_at, i.last_seen_sync
 `
+
+const defaultImageOrderForwald = ` ORDER BY order_date ASC, filename ASC, id ASC`
+const defaultImageOrderBackward = ` ORDER BY order_date DESC, filename DESC, id DESC`
+
 const getImageById = `SELECT ` + imageFields + ` FROM images i WHERE i.id=?`
 
 const getImageByIdACL = `SELECT ` + imageFields + ` FROM images i WHERE i.id=? and ` + aclImageWhereClause
 
 const createImage = `
 INSERT INTO images (
-  path, filename, ext,
+  root, path, filename, ext,
   file_size, mtime, file_hash, meta_hash,
   title, subject,
   taken_at, camera, lens, focal_length, aperture, exposure,iso,
@@ -40,13 +45,13 @@ INSERT INTO images (
   focus_x, focus_y, focus_mode,
   exif_json,
   acl_scope, acl_user_id, acl_group_id, last_seen_sync
-) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
 
 const deleteImage = `DELETE FROM images WHERE id=?`
 
 const updateImage = `
 UPDATE images SET
-  path=?, filename=?, ext=?,
+  root=?, path=?, filename=?, ext=?,
   file_size=?, mtime=?, file_hash=?, meta_hash=?,
   title=?, subject=?,
   taken_at=?, camera=?, lens=?, focal_length=?, aperture=?, exposure=?, iso=?,
@@ -61,7 +66,7 @@ const breakImageTag = `DELETE FROM image_tags WHERE image_id = ? AND tag_id = ?`
 const breakImageAllTag = `DELETE FROM image_tags WHERE image_id = ?`
 
 const getImageByPath = `
-SELECT ` + imageFields + `FROM images i WHERE i.path = ? AND i.filename = ?`
+SELECT ` + imageFields + `FROM images i WHERE i.root=? AND i.path = ? AND i.filename = ?`
 
 const countImagesByAlbums = `
 SELECT COUNT(DISTINCT ai.image_id)
@@ -86,28 +91,44 @@ LIMIT ?`
 
 const updateImageSyncId = `UPDATE images SET last_seen_sync=? WHERE id=?`
 
-const queryImagesWLastSyncWUserByPathPaged = "SELECT " + imageFields + " , sr.finished_at, u.username FROM images AS i LEFT JOIN sync_runs AS sr ON i.last_seen_sync=sr.id LEFT JOIN users AS u ON u.id=i.acl_user_id WHERE i.path = ? ORDER BY i.filename, i.ext LIMIT ?,?"
-const countImagesByPath = "SELECT count(*) FROM images AS i WHERE i.path = ?"
+const queryImagesWLastSyncWUserByPathPaged = `SELECT ` + imageFields + ` , sr.finished_at, u.username FROM images AS i LEFT JOIN sync_runs AS sr ON i.last_seen_sync=sr.id LEFT JOIN users AS u ON u.id=i.acl_user_id WHERE i.root=? AND i.path = ? ORDER BY i.filename, i.ext LIMIT ?,?`
+const countImagesByPath = `SELECT count(*) FROM images AS i WHERE i.root = ? AND i.path = ?`
 
-const getImageIdByPathFirstHash = "SELECT i.id FROM images AS i WHERE (i.path = ? OR i.path like CONCAT(?,'/%')) ORDER BY i.file_hash LIMIT 1"
+const getImageIdByPathFirstHash = `SELECT i.id FROM images AS i WHERE i.root = ? AND (i.path = ? OR i.path like CONCAT(?,'/%')) ORDER BY i.file_hash LIMIT 1`
+const getImageIdByRootFirstHash = `SELECT i.id FROM images AS i WHERE i.root = ? ORDER BY i.file_hash LIMIT 1`
 
 const queryImagePathByParentPathInner = `
 SELECT DISTINCT
   SUBSTRING_INDEX(path, '/', ? + 1) AS child_path
 FROM images
 WHERE
-  SUBSTRING_INDEX(path, '/', ?) = ?
+  root = ?
+  AND SUBSTRING_INDEX(path, '/', ?) = ?
   AND path <> ?
 `
-const queryImagePathByParentPathPaged = queryImagePathByParentPathInner + " LIMIT ?,?"
-const countImagePathByParentPath = "SELECT COUNT(*) AS total FROM (" + queryImagePathByParentPathInner + ") t"
+const queryImagePathByParentPathPaged = queryImagePathByParentPathInner + ` LIMIT ?,?`
+const countImagePathByParentPath = `SELECT COUNT(*) AS total FROM (` + queryImagePathByParentPathInner + `) t`
 
-const countImageByParentPath = "SELECT count(*) FROM images AS i WHERE i.path = ? OR i.path like CONCAT(?,'/%') "
+const countImageByParentPath = `SELECT count(*) FROM images AS i WHERE i.root= ? AND i.path = ? OR i.path like CONCAT(?,'/%') `
+const countImageByRoot = `SELECT count(*) FROM images AS i WHERE i.root= ?`
+
+const imageByTagACLWhere = ` FROM images AS i JOIN image_tags AS it ON i.id = it.image_id WHERE it.tag_id = ? AND ` + aclImageWhereClause
+const queryImageByTagACLPaged = `SELECT ` + imageFields + imageByTagACLWhere + defaultImageOrderForwald + ` LIMIT ?, ? `
+const countImageByTagACL = `SELECT COUNT(*) ` + imageByTagACLWhere
+
+const getImageIdByTagACLFirstHash = `SELECT i.id ` + imageByTagACLWhere + ` ORDER BY i.file_hash LIMIT 1 `
+
+const countImageRoots = `SELECT COUNT(DISTINCT i.root) AS root_count FROM images i`
+const queryImageRoots = `SELECT DISTINCT i.root FROM images i order by i.root`
+
+// TODO: finish it
+const queryImageByTagACLAround = ""
 
 func parseImage(row *sql.Row) (dbo.Image, error) {
 	var i dbo.Image
 	err := row.Scan(
 		&i.ID,
+		&i.Root,
 		&i.Path,
 		&i.Filename,
 		&i.Ext,
@@ -145,12 +166,13 @@ func parseImage(row *sql.Row) (dbo.Image, error) {
 	return i, err
 }
 
-func parseImages(rows *sql.Rows) ([]dbo.Image, error) {
+func parseImageRows(rows *sql.Rows) ([]dbo.Image, error) {
 	out := make([]dbo.Image, 0)
 	for rows.Next() {
 		var i dbo.Image
 		err := rows.Scan(
 			&i.ID,
+			&i.Root,
 			&i.Path,
 			&i.Filename,
 			&i.Ext,
@@ -209,6 +231,7 @@ func (q *Queries) CreateImage(ctx context.Context, i dbo.Image) error {
 	_, err := q.db.ExecContext(
 		ctx,
 		createImage,
+		i.Root,
 		i.Path,
 		i.Filename,
 		i.Ext,
@@ -255,6 +278,7 @@ func (q *Queries) UpdateImage(ctx context.Context, i dbo.Image) error {
 	_, err := q.db.ExecContext(
 		ctx,
 		updateImage,
+		i.Root,
 		i.Path,
 		i.Filename,
 		i.Ext,
@@ -305,8 +329,8 @@ func (q *Queries) BreakImageAllTag(ctx context.Context, imageId uint64) error {
 	return err
 }
 
-func (q *Queries) GetImageByPath(ctx context.Context, path, filename string) (dbo.Image, error) {
-	row := q.db.QueryRowContext(ctx, getImageByPath, path, filename)
+func (q *Queries) GetImageByPath(ctx context.Context, root, path, filename string) (dbo.Image, error) {
+	row := q.db.QueryRowContext(ctx, getImageByPath, root, path, filename)
 	return parseImage(row)
 }
 
@@ -374,8 +398,8 @@ func (q *Queries) UpdateImageSyncId(ctx context.Context, imageId uint64, syncId 
 	return err
 }
 
-func (q *Queries) QueryImageWLastSyncByWUserPathPaged(ctx context.Context, path string, from, qty uint64) ([]dbo.ImageWLastSyncWUser, error) {
-	rows, err := q.db.QueryContext(ctx, queryImagesWLastSyncWUserByPathPaged, path, from, qty)
+func (q *Queries) QueryImageWLastSyncByWUserPathPaged(ctx context.Context, root, path string, from, qty uint64) ([]dbo.ImageWLastSyncWUser, error) {
+	rows, err := q.db.QueryContext(ctx, queryImagesWLastSyncWUserByPathPaged, root, path, from, qty)
 	if err != nil {
 		return nil, err
 	}
@@ -385,6 +409,7 @@ func (q *Queries) QueryImageWLastSyncByWUserPathPaged(ctx context.Context, path 
 		var i dbo.ImageWLastSyncWUser
 		err := rows.Scan(
 			&i.ID,
+			&i.Root,
 			&i.Path,
 			&i.Filename,
 			&i.Ext,
@@ -428,26 +453,32 @@ func (q *Queries) QueryImageWLastSyncByWUserPathPaged(ctx context.Context, path 
 	}
 	return out, rows.Err()
 }
-func (q *Queries) CountImagesByPath(ctx context.Context, path string) (uint64, error) {
-	row := q.db.QueryRowContext(ctx, countImagesByPath, path)
+func (q *Queries) CountImagesByPath(ctx context.Context, root, path string) (uint64, error) {
+	row := q.db.QueryRowContext(ctx, countImagesByPath, root, path)
 	var count uint64
 	err := row.Scan(&count)
 	return count, err
 }
 
-func (q *Queries) GetImageIdByPathFirstHash(ctx context.Context, path string) (uint64, error) {
-	row := q.db.QueryRowContext(ctx, getImageIdByPathFirstHash, path, path)
+func (q *Queries) GetImageIdByPathFirstHash(ctx context.Context, root, path string) (uint64, error) {
+	row := q.db.QueryRowContext(ctx, getImageIdByPathFirstHash, root, path, path)
+	var id uint64
+	err := row.Scan(&id)
+	return id, err
+}
+func (q *Queries) GetImageIdByRootFirstHash(ctx context.Context, root string) (uint64, error) {
+	row := q.db.QueryRowContext(ctx, getImageIdByRootFirstHash, root)
 	var id uint64
 	err := row.Scan(&id)
 	return id, err
 }
 
-func (q *Queries) QueryImagePathByParentPathPaged(ctx context.Context, parentPath string, from, qty uint64) ([]string, error) {
+func (q *Queries) QueryImagePathByParentPathPaged(ctx context.Context, root, parentPath string, from, qty uint64) ([]string, error) {
 	depth := 0
 	if parentPath != "" {
 		depth = strings.Count(parentPath, "/") + 1
 	}
-	rows, err := q.db.QueryContext(ctx, queryImagePathByParentPathPaged, depth, depth, parentPath, parentPath, from, qty)
+	rows, err := q.db.QueryContext(ctx, queryImagePathByParentPathPaged, depth, root, depth, parentPath, parentPath, from, qty)
 	if err != nil {
 		return nil, err
 	}
@@ -465,23 +496,86 @@ func (q *Queries) QueryImagePathByParentPathPaged(ctx context.Context, parentPat
 	}
 	return out, nil
 }
-func (q *Queries) countImagePathByParentPath(ctx context.Context, parentPath string) (uint64, error) {
+func (q *Queries) countImagePathByParentPath(ctx context.Context, root, parentPath string) (uint64, error) {
 	depth := 0
 	if parentPath != "" {
 		depth = strings.Count(parentPath, "/") + 1
 	}
-	row := q.db.QueryRowContext(ctx, countImagePathByParentPath, depth, depth, parentPath, parentPath)
+	row := q.db.QueryRowContext(ctx, countImagePathByParentPath, depth, root, depth, parentPath, parentPath)
 	var count uint64
 	err := row.Scan(&count)
 	return count, err
 }
 
-func (q *Queries) CountImageByParentPath(ctx context.Context, parentPath string) (uint64, error) {
-
-	row := q.db.QueryRowContext(ctx, countImageByParentPath, parentPath, parentPath)
+func (q *Queries) CountImageByParentPath(ctx context.Context, root, parentPath string) (uint64, error) {
+	row := q.db.QueryRowContext(ctx, countImageByParentPath, root, parentPath, parentPath)
 	var count uint64
 	err := row.Scan(&count)
 	return count, err
+}
+func (q *Queries) CountImageByRoot(ctx context.Context, root string) (uint64, error) {
+	row := q.db.QueryRowContext(ctx, countImageByRoot, root)
+	var count uint64
+	err := row.Scan(&count)
+	return count, err
+}
+func (q *Queries) QueryImageByTagACLPaged(ctx context.Context, tagId uint64, acl ACLContext, from, qty uint64) ([]dbo.Image, error) {
+	params := []any{tagId}
+	params = append(params, acl.AsParamArray()...)
+	params = append(params, from)
+	params = append(params, qty)
+	rows, err := q.db.QueryContext(ctx, queryImageByTagACLPaged, params...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	images, err := parseImageRows(rows)
+	return images, err
+}
+
+func (q *Queries) CountImageByTagACL(ctx context.Context, tagId uint64, acl ACLContext) (uint64, error) {
+	params := []any{tagId}
+	params = append(params, acl.AsParamArray()...)
+	row := q.db.QueryRowContext(ctx, countImageByTagACL, params...)
+	var count uint64
+	err := row.Scan(&count)
+	return count, err
+}
+
+func (q *Queries) GetImageIdByTagACLFirstHash(ctx context.Context, tagId uint64, acl ACLContext) (uint64, error) {
+	params := []any{tagId}
+	params = append(params, acl.AsParamArray()...)
+	row := q.db.QueryRowContext(ctx, getImageIdByTagACLFirstHash, params...)
+	var id uint64
+	err := row.Scan(&id)
+	return id, err
+}
+
+func (q *Queries) CountImageRoots(ctx context.Context) (uint64, error) {
+	row := q.db.QueryRowContext(ctx, countImageRoots)
+	var count uint64
+	err := row.Scan(&count)
+	return count, err
+}
+
+func (q *Queries) QueryImageRoots(ctx context.Context) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, queryImageRoots)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make([]string, 0, 8)
+	for rows.Next() {
+		var p string
+		if err := rows.Scan(&p); err != nil {
+			return nil, err
+		}
+		out = append(out, p)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 //
@@ -548,10 +642,15 @@ func UpdateImage(db *sql.DB, ctx context.Context, i dbo.Image) error {
 	return tx.Commit()
 }
 func CreateOrUpdateImage(db *sql.DB, ctx context.Context, i *dbo.Image) (uint64, error) {
-	log.Logger.Debug().Str("path", i.Path).Str("filename", i.Filename).Str("ext", i.Ext).Msg("Create Or Update Image")
+	logg := logging.Enter(ctx, "dao.image.createOrUpdate", map[string]any{
+		"path":     i.Path,
+		"filename": i.Filename,
+		"ext":      i.Ext,
+	})
 
 	tx, err := GetTx(db, ctx)
 	if err != nil {
+		logging.ExitErr(logg, err)
 		return 0, err
 	}
 	defer tx.Rollback()
@@ -559,25 +658,29 @@ func CreateOrUpdateImage(db *sql.DB, ctx context.Context, i *dbo.Image) (uint64,
 	q := NewQueries(tx)
 	if i.ID == nil {
 		if err := q.CreateImage(ctx, *i); err != nil {
+			logging.ExitErr(logg, err)
 			return 0, err
 		}
 		id, err := q.GetLastId(ctx)
 		if err != nil {
+			logging.ExitErr(logg, err)
 			return 0, err
 		}
 		i.ID = utils.PtrUint64(uint64(id))
 	} else {
 		if err := q.UpdateImage(ctx, *i); err != nil {
+			logging.ExitErr(logg, err)
 			return *i.ID, err
 		}
 	}
 	q.BreakImageAllTag(ctx, *i.ID)
 	for _, tag := range i.Tags {
-		if err := writeTagTree(q, ctx, tag, *i.ID); err != nil {
+		if err := writeTagTree(q, ctx, *tag, *i.ID); err != nil {
+			logging.ExitErr(logg, err)
 			return *i.ID, err
 		}
 	}
-	return *i.ID, tx.Commit()
+	return *i.ID, logging.Return(logg, tx.Commit())
 }
 
 func DeleteImage(db *sql.DB, ctx context.Context, id uint64) error {
@@ -614,76 +717,52 @@ func GetImageByIdACL(db *sql.DB, ctx context.Context, id uint64, acl ACLContext)
 }
 
 func GetImageByIdWTags(db *sql.DB, ctx context.Context, id uint64) (dbo.Image, error) {
-	log.Logger.Debug().Uint64("id", id).Msg("Get image by id")
-
+	logg := logging.Enter(ctx, "dao.image.getImageById.Tags", nil)
 	q := NewQueries(db)
 	i, err := q.GetImageById(ctx, id)
 	err = wrapNotFound(err, "image")
 	if err != nil {
+		logging.ExitErr(logg, err)
 		return i, err
 	}
-	tags, err := q.QuertyTagsByImageID(ctx, *i.ID)
+	tags, err := q.QueryTagsByImageID(ctx, *i.ID)
 	if err != nil {
+		logging.ExitErr(logg, err)
 		return i, err
 	}
-	tm := make(map[uint64]*dbo.Tag, len(tags))
-	i.Tags = i.Tags[:0]
-	for idx := range tags {
-		t := &tags[idx]
-		tm[*t.ID] = t
-		t.Children = t.Children[:0]
-	}
-	for idx := range tags {
-		t := &tags[idx]
-		if t.ParentID == nil {
-			i.Tags = append(i.Tags, *t)
-			continue
-		}
-		if p := tm[*t.ParentID]; p != nil {
-			p.Children = append(p.Children, *t)
-		}
-	}
+	i.AddTags(tags)
+	logging.Exit(logg, "Ok", nil)
 	return i, nil
 }
 func GetImageByIdACLWTags(db *sql.DB, ctx context.Context, id uint64, acl ACLContext) (dbo.Image, error) {
-	logging.Enter(ctx, "dao.image.getImageById.ACL.Tags", nil)
-	log.Logger.Debug().Uint64("id", id).Msg("Get image With Tags by id with ACL")
+	logg := logging.Enter(ctx, "dao.image.getImageById.ACL.Tags", nil)
 
 	q := NewQueries(db)
 	i, err := q.GetImageByIdACL(ctx, id, acl)
 	err = wrapNotFound(err, "image")
 	if err != nil {
+		logging.ExitErr(logg, err)
 		return i, err
 	}
-	tags, err := q.QuertyTagsByImageID(ctx, *i.ID)
+	tags, err := q.QueryTagsByImageID(ctx, *i.ID)
 	if err != nil {
+		logging.ExitErr(logg, err)
 		return i, err
 	}
-	tm := make(map[uint64]*dbo.Tag, len(tags))
-	i.Tags = i.Tags[:0]
-	for idx := range tags {
-		t := &tags[idx]
-		tm[*t.ID] = t
-		t.Children = t.Children[:0]
-	}
-	for idx := range tags {
-		t := &tags[idx]
-		if t.ParentID == nil {
-			i.Tags = append(i.Tags, *t)
-			continue
-		}
-		if p := tm[*t.ParentID]; p != nil {
-			p.Children = append(p.Children, *t)
-		}
-	}
+	i.AddTags(tags)
+	logging.Exit(logg, "Ok", nil)
 	return i, nil
 }
 
-func GetImageByPath(db *sql.DB, ctx context.Context, path, filename string) (dbo.Image, error) {
-	log.Logger.Debug().Str("path", path).Str("filename", filename).Msg("Get image by path")
+func GetImageByPath(db *sql.DB, ctx context.Context, root, path, filename string) (dbo.Image, error) {
+	logg := logging.Enter(ctx, "dao.image.get.byPath", map[string]any{
+		"root":     root,
+		"path":     path,
+		"filename": filename,
+	})
 	q := NewQueries(db)
-	i, err := q.GetImageByPath(ctx, path, filename)
-	return i, wrapNotFound(err, "image")
+	i, err := q.GetImageByPath(ctx, root, path, filename)
+	return i, returnWrapNotFound(logg, err, "image")
 }
 
 func CountImagesByAlbums(db *sql.DB, ctx context.Context, albumIDs []uint64, acl ACLContext) (uint64, error) {
@@ -725,28 +804,43 @@ func BindImageTags(db *sql.DB, ctx context.Context, imageID uint64, tagIDs []uin
 }
 
 func writeTagTree(q *Queries, ctx context.Context, rootTag dbo.Tag, imageId uint64) error {
+	logg := logging.Enter(ctx, "dao.Image.writeTagTree", map[string]any{"root": rootTag})
 	stack := []*dbo.Tag{&rootTag}
 	for len(stack) > 0 {
 		tag := stack[len(stack)-1]
 		stack = stack[:len(stack)-1]
+		var id uint64
 		if tag.ID == nil {
-			id, err := CreateTagTx(q, ctx, *tag)
-			if err != nil {
+			t, err := q.GetTagByParentAndName(ctx, tag.ParentID, tag.Name)
+			err = wrapNotFound(err, "tag")
+			switch {
+			case err == nil:
+				id = *t.ID
+			case !errors.Is(err, ErrDataNotFound):
+				logging.ExitErrParams(logg, err, map[string]any{"reason": "sql-error"})
 				return err
-			}
-			if err := q.BindImageTag(ctx, imageId, id); err != nil {
-				return err
-			}
-			for i := len(tag.Children) - 1; i >= 0; i-- {
-				c := &tag.Children[i]
-				if c.ID != nil && c.ParentID != nil {
-					continue
+			default:
+				id, err = CreateTagTx(q, ctx, *tag)
+				if err != nil {
+					logging.ExitErr(logg, err)
+					return err
 				}
-				c.ParentID = &id
-				stack = append(stack, c)
 			}
 		}
+		if err := q.BindImageTag(ctx, imageId, id); err != nil {
+			logging.ExitErr(logg, err)
+			return err
+		}
+		for i := len(tag.Children) - 1; i >= 0; i-- {
+			c := tag.Children[i]
+			if c.ParentID == nil {
+				c.ParentID = &id
+			}
+			stack = append(stack, c)
+		}
+
 	}
+	logging.Exit(logg, "ok", nil)
 	return nil
 }
 
@@ -802,9 +896,10 @@ func UpdateImageSyncId(db *sql.DB, ctx context.Context, imageID uint64, syncID u
 	return tx.Commit()
 }
 
-func QueryImageWLastSyncWUserByPathPaged(db *sql.DB, ctx context.Context, path string, from, qty uint64) ([]dbo.ImageWLastSyncWUser, error) {
+func QueryImageWLastSyncWUserByPathPaged(db *sql.DB, ctx context.Context, root, path string, from, qty uint64) ([]dbo.ImageWLastSyncWUser, error) {
 
 	logg := logging.Enter(ctx, "dao.image.queryImagesWLastSyncWUserByPathPaged", map[string]any{
+		"root": root,
 		"path": path,
 		"from": from,
 		"qty":  qty,
@@ -812,7 +907,7 @@ func QueryImageWLastSyncWUserByPathPaged(db *sql.DB, ctx context.Context, path s
 
 	q := NewQueries(db)
 
-	images, err := q.QueryImageWLastSyncByWUserPathPaged(ctx, path, from, qty)
+	images, err := q.QueryImageWLastSyncByWUserPathPaged(ctx, root, path, from, qty)
 	if err != nil {
 		logging.ExitErr(logg, err)
 		return nil, err
@@ -824,12 +919,12 @@ func QueryImageWLastSyncWUserByPathPaged(db *sql.DB, ctx context.Context, path s
 
 	return images, nil
 }
-func CountImagesByPath(db *sql.DB, ctx context.Context, path string) (uint64, error) {
-	logg := logging.Enter(ctx, "dao.image.CountByPath", map[string]any{
+func CountImagesByPath(db *sql.DB, ctx context.Context, root, path string) (uint64, error) {
+	logg := logging.Enter(ctx, "dao.image.count.ByPath", map[string]any{
 		"path": path,
 	})
 	q := NewQueries(db)
-	qty, err := q.CountImagesByPath(ctx, path)
+	qty, err := q.CountImagesByPath(ctx, root, path)
 	if err != nil {
 		logging.ExitErr(logg, err)
 		return 0, err
@@ -838,23 +933,33 @@ func CountImagesByPath(db *sql.DB, ctx context.Context, path string) (uint64, er
 	return qty, nil
 }
 
-func GetImageByPathFirstHash(db *sql.DB, ctx context.Context, path string) (uint64, error) {
-	logg := logging.Enter(ctx, "dao.image.getByPathFirstHash", map[string]any{
+func GetImageIdByPathFirstHash(db *sql.DB, ctx context.Context, root, path string) (uint64, error) {
+	logg := logging.Enter(ctx, "dao.image.get.id.byPath.firstHash", map[string]any{
+		"root": root,
 		"path": path,
 	})
 	q := NewQueries(db)
-	i, err := q.GetImageIdByPathFirstHash(ctx, path)
+	i, err := q.GetImageIdByPathFirstHash(ctx, root, path)
 	return i, returnWrapNotFound(logg, err, "image")
 }
 
-func QueryImagePathByParentPathPaged(db *sql.DB, ctx context.Context, parentPath string, from, qty uint64) ([]string, error) {
-	logg := logging.Enter(ctx, "dao.image.queryPathByParentPathPaged", map[string]any{
+func GetImageIdByRootFirstHash(db *sql.DB, ctx context.Context, root string) (uint64, error) {
+	logg := logging.Enter(ctx, "dao.image.get.id.byRoot.firstHash", map[string]any{
+		"root": root,
+	})
+	q := NewQueries(db)
+	i, err := q.GetImageIdByRootFirstHash(ctx, root)
+	return i, returnWrapNotFound(logg, err, "image")
+}
+
+func QueryImagePathByParentPathPaged(db *sql.DB, ctx context.Context, root, parentPath string, from, qty uint64) ([]string, error) {
+	logg := logging.Enter(ctx, "dao.image.query.path.byParentPath.paged", map[string]any{
 		"parentPpath": parentPath,
 		"from":        from,
 		"qty":         qty,
 	})
 	q := NewQueries(db)
-	paths, err := q.QueryImagePathByParentPathPaged(ctx, parentPath, from, qty)
+	paths, err := q.QueryImagePathByParentPathPaged(ctx, root, parentPath, from, qty)
 	if err != nil {
 		logging.ExitErr(logg, err)
 		return nil, err
@@ -864,12 +969,12 @@ func QueryImagePathByParentPathPaged(db *sql.DB, ctx context.Context, parentPath
 	})
 	return paths, nil
 }
-func CountImagePathByParentPath(db *sql.DB, ctx context.Context, parentPath string) (uint64, error) {
-	logg := logging.Enter(ctx, "dao.image.CountPathByParentPath", map[string]any{
+func CountImagePathByParentPath(db *sql.DB, ctx context.Context, root, parentPath string) (uint64, error) {
+	logg := logging.Enter(ctx, "dao.image.count.path.byParentPath", map[string]any{
 		"parentPath": parentPath,
 	})
 	q := NewQueries(db)
-	qty, err := q.countImagePathByParentPath(ctx, parentPath)
+	qty, err := q.countImagePathByParentPath(ctx, root, parentPath)
 	if err != nil {
 		logging.ExitErr(logg, err)
 		return 0, err
@@ -877,16 +982,110 @@ func CountImagePathByParentPath(db *sql.DB, ctx context.Context, parentPath stri
 	logging.Exit(logg, "ok", map[string]any{"return": qty})
 	return qty, nil
 }
-func CountImageByParentPath(db *sql.DB, ctx context.Context, parentPath string) (uint64, error) {
-	logg := logging.Enter(ctx, "dao.image.CountByParentPath", map[string]any{
+func CountImageByParentPath(db *sql.DB, ctx context.Context, root, parentPath string) (uint64, error) {
+	logg := logging.Enter(ctx, "dao.image.count.byParentPath", map[string]any{
+		"root":       root,
 		"parentPath": parentPath,
 	})
 	q := NewQueries(db)
-	qty, err := q.CountImageByParentPath(ctx, parentPath)
+	qty, err := q.CountImageByParentPath(ctx, root, parentPath)
 	if err != nil {
 		logging.ExitErr(logg, err)
 		return 0, err
 	}
 	logging.Exit(logg, "ok", map[string]any{"return": qty})
 	return qty, nil
+}
+func CountImageByRoot(db *sql.DB, ctx context.Context, root string) (uint64, error) {
+	logg := logging.Enter(ctx, "dao.image.count.byRoot", map[string]any{
+		"root": root,
+	})
+	q := NewQueries(db)
+	qty, err := q.CountImageByRoot(ctx, root)
+	if err != nil {
+		logging.ExitErr(logg, err)
+		return 0, err
+	}
+	logging.Exit(logg, "ok", map[string]any{"return": qty})
+	return qty, nil
+}
+
+func QueryImageByTagACLPaged(db *sql.DB, ctx context.Context, tag uint64, acl ACLContext, from, qty uint64) ([]dbo.Image, error) {
+	logg := logging.Enter(ctx, "dao.image.query.byTag.byACL.paged", map[string]any{
+		"tag":  tag,
+		"acl":  acl,
+		"from": from,
+		"qty":  qty,
+	})
+	q := NewQueries(db)
+	images, err := q.QueryImageByTagACLPaged(ctx, tag, acl, from, qty)
+	if err != nil {
+		logging.ExitErr(logg, err)
+		return nil, err
+	}
+	for i, img := range images {
+		tags, err := q.QueryTagsByImageID(ctx, *img.ID)
+		if err != nil {
+			logging.ExitErr(logg, err)
+			return images, err
+		}
+		img.AddTags(tags)
+		images[i] = img
+	}
+
+	logging.Exit(logg, "ok", map[string]any{
+		"found": len(images),
+	})
+	return images, nil
+}
+func CountImageByTagACL(db *sql.DB, ctx context.Context, tag uint64, acl ACLContext) (uint64, error) {
+	logg := logging.Enter(ctx, "dao.image.count.byTag.byAcl", map[string]any{
+		"tag": tag,
+		"acl": acl,
+	})
+	q := NewQueries(db)
+	qty, err := q.CountImageByTagACL(ctx, tag, acl)
+	if err != nil {
+		logging.ExitErr(logg, err)
+		return 0, err
+	}
+	logging.Exit(logg, "ok", map[string]any{"return": qty})
+	return qty, nil
+}
+
+func GetImageIdByTagACLFirstHash(db *sql.DB, ctx context.Context, tag uint64, acl ACLContext) (uint64, error) {
+	logg := logging.Enter(ctx, "dao.image.get.byTag.byACL.firstHash", map[string]any{
+		"tag": tag,
+		"acl": acl,
+	})
+	q := NewQueries(db)
+	i, err := q.GetImageIdByTagACLFirstHash(ctx, tag, acl)
+	return i, returnWrapNotFound(logg, err, "image")
+}
+
+func CountImageRoots(db *sql.DB, ctx context.Context) (uint64, error) {
+	logg := logging.Enter(ctx, "dao.image.count.roots", nil)
+	q := NewQueries(db)
+	qty, err := q.CountImageRoots(ctx)
+	if err != nil {
+		logging.ExitErr(logg, err)
+		return 0, err
+	}
+	logging.Exit(logg, "ok", map[string]any{"return": qty})
+	return qty, nil
+
+}
+
+func QueryImageRoots(db *sql.DB, ctx context.Context) ([]string, error) {
+	logg := logging.Enter(ctx, "dao.image.query.roots", nil)
+	q := NewQueries(db)
+	paths, err := q.QueryImageRoots(ctx)
+	if err != nil {
+		logging.ExitErr(logg, err)
+		return nil, err
+	}
+	logging.Exit(logg, "ok", map[string]any{
+		"found": len(paths),
+	})
+	return paths, nil
 }

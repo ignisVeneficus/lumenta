@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -35,6 +36,7 @@ func Server(cfg config.Config) {
 		Logger(),
 		gin.Recovery(),
 		AuthContextMiddleware(ctx, cfg.Auth, cfg.Env),
+		SiteAccessMiddleware(cfg.Auth.GuestEnabled),
 	)
 
 	r.GET("/static/*filepath", func(c *gin.Context) {
@@ -52,6 +54,8 @@ func Server(cfg config.Config) {
 			web.GET("/album/:id", AlbumHandler)
 			web.GET("/album/:aid/img/:iid", ImageHandler)
 		*/
+		publicGrp.GET(routes.GetTagsRootPath(), public.TagsRootPage(templatreResolver, cfg))
+		publicGrp.GET(routes.GetTagPath(), public.TagPage(templatreResolver, cfg))
 
 		/// "/img/:id/:type"
 		publicGrp.GET(routes.GetImageDerivativePath(), DerivativeHandler(cfg))
@@ -61,6 +65,8 @@ func Server(cfg config.Config) {
 	{
 		adminGrp.GET("/", admin.MainPage(templatreResolver, cfg))
 		adminGrp.GET(routes.GetAdminFsPath(), admin.FSPage(templatreResolver, cfg))
+
+		adminGrp.GET(routes.GetAdminImgPath(), admin.ImagePage(templatreResolver, cfg))
 		/*
 			filesystem: /fs/
 			Albums /album/:id
@@ -72,6 +78,21 @@ func Server(cfg config.Config) {
 			Album edit		GET /admin/albums/:id
 			Album edit		POST /admin/albums/:id
 		*/
+	}
+
+	srv := &http.Server{
+		Addr:    cfg.Server.Addr,
+		Handler: r,
+
+		ReadTimeout:       cfg.Server.Timeouts.Read,
+		ReadHeaderTimeout: cfg.Server.Timeouts.Header,
+		WriteTimeout:      cfg.Server.Timeouts.Write,
+		IdleTimeout:       cfg.Server.Timeouts.Idle,
+		//MaxHeaderBytes: cfg.Server.MaxHeaderBytes, // opcionális
+	}
+
+	if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		// log fatal
 	}
 
 	r.Run(cfg.Server.Addr)

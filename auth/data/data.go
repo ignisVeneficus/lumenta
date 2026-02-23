@@ -1,6 +1,9 @@
 package data
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/ignisVeneficus/lumenta/logging"
 	"github.com/rs/zerolog"
 )
@@ -28,6 +31,27 @@ const (
 	RoleUser  ACLRole = "user"
 	RoleAdmin ACLRole = "admin"
 )
+
+func ParseRole(s string) (ACLRole, error) {
+	switch strings.ToLower(s) {
+	case "guest":
+		return RoleGuest, nil
+	case "user":
+		return RoleUser, nil
+	case "admin":
+		return RoleAdmin, nil
+	default:
+		return "", fmt.Errorf("invalid role: %s", s)
+	}
+}
+func IsValidRole(s ACLRole) bool {
+	switch strings.ToLower(string(s)) {
+	case string(RoleGuest), string(RoleUser), string(RoleAdmin):
+		return true
+	default:
+		return false
+	}
+}
 
 type AuthProvider string
 

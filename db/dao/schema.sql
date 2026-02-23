@@ -86,7 +86,9 @@ CREATE TABLE IF NOT EXISTS albums (
 CREATE TABLE IF NOT EXISTS images (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY
     COMMENT 'Image unique identifier',
-  path VARCHAR(384) NOT NULL
+  root VARCHAR(50) NOT NULL
+    COMMENT 'Name of the configured root',
+  path VARCHAR(600) NOT NULL
     COMMENT 'Directory path relative to configured root',
   filename VARCHAR(64) NOT NULL
     COMMENT 'Filename without extension',
@@ -164,7 +166,12 @@ CREATE TABLE IF NOT EXISTS images (
   last_seen_sync BIGINT UNSIGNED NULL
     COMMENT 'Sync run ID in which the image was last observed',
 
-  UNIQUE KEY uniq_image_path (path, filename, ext),
+  COLUMN order_date DATETIME
+    AS (COALESCE(taken_at, '1000-01-01 00:00:00'))
+    STORED
+    COMMENT 'Navigation sort key (taken_at fallback date_available). Non-NULL. Used in ORDER BY (order_date, filename, id).'
+
+  UNIQUE KEY uniq_image_path (root, path, filename, ext),
   INDEX idx_images_taken_at (taken_at),
   INDEX idx_images_camera (camera),
   INDEX idx_images_lens (lens),
@@ -172,6 +179,7 @@ CREATE TABLE IF NOT EXISTS images (
   INDEX idx_images_acl_user (acl_user_id),
   INDEX idx_images_acl_group (acl_group_id),
   INDEX idx_images_last_seen_sync (last_seen_sync)
+  INDEX idx_images_order ON images (order_date, filename, id);
 ) ENGINE=InnoDB COMMENT='Images with filesystem identity, metadata, and ACL';
 
 -- =========================================================
@@ -246,7 +254,7 @@ CREATE TABLE IF NOT EXISTS sync_runs (
     COMMENT 'Sync run unique identifier',
 
   is_active TINYINT NULL DEFAULT 1
-    COMMENT 'Marks the currently active sync run',
+    COMMENT '1 = currently active run, NULL = historical run (unique index ensures only one active)'
 
   started_at DATETIME NOT NULL
     COMMENT 'Sync start timestamp',
@@ -266,7 +274,7 @@ CREATE TABLE IF NOT EXISTS sync_runs (
 
   error TEXT NULL COMMENT 'Optional error details if sync failed',
 
-  meta_sha CHAR(64) NULL
+  meta_hash CHAR(64) NULL
     COMMENT 'Hash of the used metadata settings'
 
   UNIQUE KEY uniq_sync_active (is_active),

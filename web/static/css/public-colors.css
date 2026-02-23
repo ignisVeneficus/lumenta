@@ -6,60 +6,27 @@
   ============================================================ */
 
   /* Upper background: header, brand, map, footer */
-  --bg-upper:   #1e1e1e;
+  --bg-upper:  var(--gray-bg-light);
 
   /* Context background: album context, pagination */
-  --bg-context: #181818;
+  --bg-context: var(--gray-bg-middle);
 
   /* Deep background: content / masonry grid (darkest) */
-  --bg-deep:    #121212;
-
-
-  /* ============================================================
-     TEXT LEVELS (PURE GRAYS)
-     ------------------------------------------------------------
-     Text colors do NOT change with background level
-  ============================================================ */
-
-  /* Primary text: titles, album names, important info */
-  --text-primary:   #e0e0e0;
-
-  /* Secondary text: descriptions, meta, breadcrumbs */
-  --text-secondary: #a8a8a8;
-
+  --bg-deep:   var(--gray-bg-dark);
 
   /* ============================================================
-     ICONS & UI TEXT
-     ------------------------------------------------------------
-     Icons behave like text, not buttons
+     ICONS
   ============================================================ */
 
-  --icon-default:  #a8a8a8;
-  --icon-muted:    #7a7a7a;
+  --icon-primary:  var(--color1-text-middle);
+  --icon-hover:    var(--color1-text-light);
+  --icon-muted:   var(--color1-text-dark);
 
+  --icon2-primary:  var(--color2-text-middle);
+  --icon2-hover:    var(--color2-text-light);
+  --icon2-muted:   var(--color2-text-dark);
 
-  /* ============================================================
-     HOVER & INTERACTION (NON-DECORATIVE)
-     ------------------------------------------------------------
-     Hover is state, not emphasis
-  ============================================================ */
-
-  /* Subtle overlay for image / album hover */
-  --hover-overlay: rgba(0, 0, 0, 0.35);
-
-  /* Hovered text / icon color */
-  --hover-text:    #ffffff;
-
-
-  /* ============================================================
-     ACCENT (FUNCTIONAL ONLY)
-     ------------------------------------------------------------
-     Still pure gray environment, accent used sparingly
-  ============================================================ */
-
-  /*--accent:        #5f7cff; / * interaction only */
-  --accent:         #6a78a8;
-  
+  --text-accent:  var(--color1-text-middle);
 
   /* ============================================================
      BORDERS & DIVIDERS

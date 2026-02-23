@@ -1,6 +1,17 @@
 <div class="breadcrumbs">
-{{ range $i, $v := . }}
-  {{ if gt $i 0 }}<span class="sep fa-solid fa-chevron-right"></span>{{ end }}
-  <a class="breadcrumb" href="{{$v.Link}}">{{$v.Label}}</a>
+    <a class="breadcrumb" href="/" title="Go to Home"><span class="fa-solid fa-house"></span></a>
+{{- $p:= "page" -}}
+{{- range $i, $v := . -}}
+    {{- if eq $v.Type $p -}}
+        <span class="sep fa-solid fa-angle-right"></span>
+    {{- else -}}
+        <span class="sep fa-solid fa-angles-right"></span>
+    {{- end -}}
+    {{- if $v.Link -}}
+        <a class="breadcrumb" href="{{$v.Link}}" title="{{$v.Title}}">{{$v.Label}}</a>
+    {{- else -}}
+        <span class="breadcrumb">{{$v.Label}}</a>
+    {{- end -}}
+    {{- $p = $v.Type -}}
 {{ end }}
 </div>

@@ -140,3 +140,32 @@ func stepDBUpdate(ctx PipelineContext, in chan WorkItem) (chan WorkItem, error) 
 
 	return out, nil
 }
+
+func stepACL(ctx PipelineContext, in chan WorkItem) (chan WorkItem, error) {
+	if len(ctx.ACLRules) == 0 {
+		return in, nil
+	}
+
+	out := make(chan WorkItem, 128)
+
+	go func() {
+		defer close(out)
+
+		pc := ctx
+		pc.In = in
+		pc.Out = out
+
+		if err := aclWorker(&pc); err != nil {
+
+			log.Logger.Error().
+				Object("pipeline", logging.WithLevel(zerolog.DebugLevel, &pc)).
+				Err(err).
+				Msg("acl worker failed")
+
+			ctx.Cancel()
+			return
+		}
+	}()
+
+	return out, nil
+}

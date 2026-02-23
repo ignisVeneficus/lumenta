@@ -65,3 +65,12 @@ func Logger() gin.HandlerFunc {
 		logEvent.Msg("")
 	}
 }
+
+func BrowserCache() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// API alapértelmezés: user-specifikus
+		c.Header("Cache-Control", "private")
+		c.Header("Vary", "Authorization")
+		c.Next()
+	}
+}

@@ -3,6 +3,8 @@ package presentation
 import (
 	"fmt"
 
+	authData "github.com/ignisVeneficus/lumenta/auth/data"
+
 	"github.com/ignisVeneficus/lumenta/config/validate"
 	gridData "github.com/ignisVeneficus/lumenta/tpl/grid/data"
 )
@@ -10,6 +12,7 @@ import (
 func (p *PresentationConfig) Validate(v *validate.ValidationErrors, path string) {
 	validate.CheckDir(path+"/templates", p.Templates, false, v)
 	p.Grid.validate(v, path+"/grid")
+	p.MetadataACL.validate(v, path+"/metadata_acl")
 }
 
 func validateSpan(s gridData.Span, v *validate.ValidationErrors, path string) {
@@ -63,7 +66,6 @@ func (g RoleConfig) validate(v *validate.ValidationErrors, path string) {
 		aspects.validate(v, rolePath)
 	}
 
-	// hiányzó role-ok
 	for _, req := range requiredRoles {
 		if !seen[req] {
 			err := validate.ErrRequired(path + "/" + req)
@@ -87,4 +89,14 @@ func (g GridConfig) validate(v *validate.ValidationErrors, path string) {
 		validate.RequireIntMin(v, gridPath, gridWidth, 1)
 		roles.validate(v, gridPath)
 	}
+}
+func (m MetadataACLConfig) validate(v *validate.ValidationErrors, path string) {
+	for role := range m {
+		if !authData.IsValidRole(role) {
+			err := fmt.Errorf("meta_acl: invalid role level")
+			validate.LogConfigError(path, role, err)
+			v.Add(err)
+		}
+	}
+
 }

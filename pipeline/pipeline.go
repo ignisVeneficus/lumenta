@@ -100,6 +100,7 @@ func RunGlobalSync(ctx context.Context, cfg config.Config, cleanUp bool) error {
 		stepDirtyCheck,
 		stepMetadataRead,
 		stepFilter,
+		stepACL,
 		stepDBUpdate,
 	)
 	if err != nil {
@@ -133,9 +134,11 @@ func RunGlobalSync(ctx context.Context, cfg config.Config, cleanUp bool) error {
 
 func createPipelineContex(cfg config.Config) PipelineContext {
 	return PipelineContext{
-		RootPath:   cfg.Filesystem.Originals,
-		AllowedExt: cfg.Sync.NormalizedExtensions,
-		Filters:    cfg.Sync.Paths,
+		RootPath:    cfg.Filesystem.Originals,
+		AllowedExt:  cfg.Sync.NormalizedExtensions,
+		Filters:     cfg.Sync.Paths,
+		ACLRules:    cfg.Sync.ACLRules,
+		ACLOverride: cfg.Sync.ACLOverride,
 
 		Database: db.GetDatabase(),
 		Metadata: &cfg.Sync.MergedMetadata,

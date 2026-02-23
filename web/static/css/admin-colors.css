@@ -4,20 +4,35 @@
      ============================================================ */
 
   /* darkest – content */
-  --bg-deep:    #0e1324;
+  --bg-deep:   var(--color1-bg-dark);
+
+  /* action rail, only admin */
+  --bg-workspace: var(--color1-bg-middle);
 
   /* mid – context */
-  --bg-context: #141a30;
+  --bg-context: var(--color1-bg-light);
 
   /* lightest – header / chrome */
-  --bg-upper:   #1c2440;
+  --bg-upper:   var(--color1-bg-lighter);
 
-  --text-primary:   #e6e9f4;
-  --text-secondary: #b3b9d6;
+  /* ============================================================
+     ICONS
+  ============================================================ */
 
-  --icon-default:   #b3b9d6;
-  --icon-muted:     #8891b8;
+  --icon-primary:  var(--color2-text-middle);
+  --icon-hover:    var(--color2-text-light);
+  --icon-muted:   var(--color2-text-dark);
 
-  --accent: #e08a3a;
+  --icon2-primary:  var(--color2-text-middle);
+  --icon2-hover:    var(--color2-text-light);
+  --icon2-muted:   var(--color2-text-dark);
 
+  --text-accent:  var(--color2-text-middle);
+  /* ============================================================
+     HOVER & INTERACTION (NON-DECORATIVE)
+     ------------------------------------------------------------
+     Hover is state, not emphasis
+  ============================================================ */
+
+  --status-failed: #f06f6f;
 }

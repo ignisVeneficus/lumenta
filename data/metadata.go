@@ -205,14 +205,26 @@ func (m Metadata) GetRating() *uint16 {
 	return m.getUint16(MetaRating)
 }
 func (m Metadata) GetWidth() uint32 {
-	v := m.getUint32(MetaWidth)
+	r := m.GetRotation()
+	var v *uint32
+	if r == nil || *r == 0 || *r == 180 {
+		v = m.getUint32(MetaWidth)
+	} else {
+		v = m.getUint32(MetaHeight)
+	}
 	if v == nil {
 		return 0
 	}
 	return *v
 }
 func (m Metadata) GetHeight() uint32 {
-	v := m.getUint32(MetaHeight)
+	r := m.GetRotation()
+	var v *uint32
+	if r == nil || *r == 0 || *r == 180 {
+		v = m.getUint32(MetaHeight)
+	} else {
+		v = m.getUint32(MetaWidth)
+	}
 	if v == nil {
 		return 0
 	}

@@ -8,6 +8,8 @@ import (
 	"github.com/ignisVeneficus/lumenta/logging"
 )
 
+const syncRunFields = `s.id, s.is_active, s.started_at, s.finished_at, s.mode, s.total_seen, s.total_deleted, s.status, s.error, s.meta_hash `
+
 const createSync = `INSERT INTO sync_runs (started_at, mode, meta_hash) VALUES (NOW(), ?, ?)`
 
 const closeSyncSuccess = `UPDATE sync_runs SET
@@ -28,6 +30,8 @@ WHERE id = ?`
 
 const getSyncRunLastHash = "SELECT meta_hash FROM sync_runs WHERE status='finished' ORDER BY started_at desc LIMIT 1"
 
+const getSyncRunByID = `SELECT ` + syncRunFields + ` FROM sync_runs s WHERE s.id = ?`
+
 /*
 UPDATE sync_runs
 SET
@@ -39,6 +43,17 @@ WHERE
   is_active = 1
   AND started_at < NOW() - INTERVAL 2 HOUR;
 */
+
+func parseSyncRunRow(row *sql.Row) (dbo.SyncRun, error) {
+	var s dbo.SyncRun
+	err := row.Scan(&s.ID, &s.IsActive, &s.StartedAt, &s.FinishedAt, &s.Mode, &s.TotalSeen, &s.TotalDeleted, &s.Status, &s.Error, &s.MetaHash)
+	return s, err
+}
+
+func (q *Queries) GetSyncRunByID(ctx context.Context, id uint64) (dbo.SyncRun, error) {
+	row := q.db.QueryRowContext(ctx, getSyncRunByID, id)
+	return parseSyncRunRow(row)
+}
 
 func (q *Queries) CreateSync(ctx context.Context, mode dbo.SyncMode, metaHash string) error {
 	_, err := q.db.ExecContext(ctx, createSync, mode, metaHash)
@@ -60,6 +75,14 @@ func (q *Queries) GetSyncRunLastHash(ctx context.Context) (string, error) {
 	var hash string
 	err := row.Scan(&hash)
 	return hash, err
+}
+
+func GetSyncRunByID(db *sql.DB, ctx context.Context, id uint64) (dbo.SyncRun, error) {
+	logg := logging.Enter(ctx, "dao.sync_run.getById", map[string]any{"id": id})
+	q := NewQueries(db)
+
+	s, err := q.GetSyncRunByID(ctx, id)
+	return s, returnWrapNotFound(logg, err, "sync_run")
 }
 
 func CreateSyncRun(db *sql.DB, ctx context.Context, mode dbo.SyncMode, metaHash string) (uint64, error) {

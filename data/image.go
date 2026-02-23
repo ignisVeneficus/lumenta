@@ -41,7 +41,7 @@ func ResolveFocus(fpx, fpy *float32, mode ImageFocusMode) Focus {
 		ret.FocusX = 0.5
 		ret.FocusY = 0.5
 	case ImageFocusModeAuto:
-		//TODO
+		//TODO: auto focus: based on faces
 		ret.FocusX = 0.5
 		ret.FocusY = 0.5
 	case ImageFocusModeManual:

@@ -1,0 +1,16 @@
+{{ define "main" }}
+<div class="breadcrumbs-wrapper">
+{{- if .Breadcrumbs }}
+    {{- template "partials/breadcrumbs.html" .Breadcrumbs -}}
+    {{- template "partials/image-ctx-menu.html" . -}}
+{{- end -}}
+</div>
+<div class="content">
+        <div class="tags">
+            {{- if .PageTags.Cards -}}
+                {{- template "partials/card-grid.html" .PageTags -}}
+            {{- end -}}
+        </div>
+        {{- template "partials/image-grid.html" .ImageGrid -}}
+</div>
+{{ end }}

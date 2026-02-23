@@ -18,7 +18,8 @@
   gap: var(--space-4);
 }
 .site-brand .brand-logo{
-    opacity: 0.9;
+  padding-top: var(--space-3);
+  opacity: 0.9;
 }
 .site-brand .brand-logo svg{
     height: 2.5rem;
@@ -45,7 +46,7 @@
 }
 
 /* ==========================================================================
-   Image Grid
+   IMAGE GRID
    ========================================================================== */
 
 .imageGrid {
@@ -53,15 +54,38 @@
 
   display: grid;
   grid-template-columns: repeat(12, 1fr);
+  /*
   grid-auto-rows: calc((100% / 12) * 4 / 5);
   grid-auto-rows: calc(var(--col-width) * 4 / 5);
+  */
   grid-auto-flow: row dense; 
   gap: var(--space-4); /* 16px */
 }
+.imageGrid a{
+  position: relative;
+}
 
 .caption{
-  display: none;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  opacity: 0;
+  background-color: rgba(0,0,0,0.5);
+  padding: var(--space-2);
+
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
+
+.imageGrid a:hover .caption,
+.imageGrid a:focus-within .caption{
+  opacity: 1;
+}
+
 
 @media (max-width: 1024px) {
   .imageGrid {
@@ -96,4 +120,52 @@
 .tile{
   grid-column: calc(var(--p12x) + 1) / span var(--p12w);
   grid-row:    calc(var(--p12y) + 1) / span var(--p12h);
+}
+
+/* ==========================================================================
+   IMAGE CONTEXT MENU
+   ========================================================================== */
+.breadcrumbs-wrapper{
+    display: flex;
+    align-items: center;
+}
+.breadcrumbs-wrapper .breadcrumbs{
+  flex: 1 1 auto;
+}
+
+/*
+TODO: merge style
+*/
+.context-panel {
+  position: relative;
+}
+
+/* Trigger */
+.context-trigger {
+  list-style: none;
+  cursor: pointer;
+}
+
+.context-trigger::-webkit-details-marker {
+  display: none;
+}
+
+/* Panel */
+.context-content {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: 0;                  /* <-- EZ A LÉNYEG */
+
+  width: 320px;
+  max-width: min(90vw, 400px); /* responsive védelem */
+  max-height: 60vh;
+  overflow-y: auto;
+
+  margin-top: 0.75rem;
+  padding: 1rem;
+
+  background: var(--bg-upper);
+  border-radius: 12px;
+  border: 1px solid var(--border-subtle);
+  z-index: 100;
 }

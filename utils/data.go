@@ -3,7 +3,10 @@ package utils
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"sort"
 
+	"golang.org/x/text/collate"
+	"golang.org/x/text/language"
 	"gopkg.in/yaml.v3"
 )
 
@@ -35,4 +38,19 @@ func HashDataYAML(cfg any) (string, error) {
 
 	sum := sha256.Sum256(data)
 	return hex.EncodeToString(sum[:]), nil
+}
+
+func SortByStringKey[T any](items []T, key func(T) string) {
+	c := collate.New(
+		language.Und,
+		collate.IgnoreCase,
+		collate.Numeric,
+	)
+
+	sort.Slice(items, func(i, j int) bool {
+		return c.CompareString(
+			key(items[i]),
+			key(items[j]),
+		) < 0
+	})
 }

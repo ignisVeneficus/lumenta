@@ -7,7 +7,9 @@
       </div>
 
       <nav class="site-header-nav">
-        {{ template "partials/button-menu.html" . }}
+        {{- if .User.EnableMenu -}}
+          {{ template "partials/button-menu.html" . }}
+        {{- end -}}
       </nav>
 
       <div class="site-header-right">

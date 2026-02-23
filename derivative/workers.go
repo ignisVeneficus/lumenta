@@ -54,7 +54,7 @@ func GenerateDerivativeStep(j *Job) error {
 	}
 
 	img = applyRotation(img, j.ImageParams.Rotation)
-
+	// FIXME: Need this rotate? normal focus, don't, auto???
 	j.ImageParams.Focus.Rotate(j.ImageParams.Rotation)
 
 	for _, t := range j.Tasks {

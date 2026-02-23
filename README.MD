@@ -15,8 +15,6 @@ For photographers, this means control.
 For engineers, this means determinism.
 For both, it means automation without chaos.
 
----
-
 ## Where Lumenta fits in a photographer’s workflow
 
 Lumenta is designed to sit **after your editing and tagging workflow**.
@@ -41,8 +39,6 @@ For photographers, this means:
 
 Configure it once. Feed it images. It does the rest.
 
----
-
 ## Why Lumenta is not “just another photo album”
 
 Lumenta is intentionally opinionated.
@@ -55,8 +51,6 @@ Lumenta is intentionally opinionated.
 The archive belongs to one photographer.
 Access levels control visibility — not authorship.
 
----
-
 ## Filesystem-first design
 
 The filesystem is the source of truth.
@@ -67,8 +61,6 @@ The filesystem is the source of truth.
 - Your directory structure remains meaningful.
 
 Lumenta scans the configured root directory and builds its internal model from that structure.
-
----
 
 ## Rule-based automation
 
@@ -86,8 +78,6 @@ They are generated deterministically from rule definitions.
 
 The current rule model reflects the working design and may evolve while abstractions are being refined.
 
----
-
 ## Metadata and hierarchical tags
 
 Lumenta provides a flexible, configurable metadata system.
@@ -99,8 +89,6 @@ Lumenta provides a flexible, configurable metadata system.
 Hierarchical tagging — still uncommon in many web galleries — is treated as a first-class concept.
 
 The goal is not to re-edit metadata in the web layer, but to faithfully represent and leverage the structure already created in your photo workflow.
-
----
 
 ## Strong configuration model
 
@@ -115,9 +103,9 @@ The entire system is configuration-driven.
 
 The design philosophy is simple:
 
-> Configure once. Feed it images. Let it run.
+> Configure it once. Feed it images. Let it organize itself.
 
----
+[Configration documentation](./doc/config.md)
 
 ## Presentation layer and extensibility
 
@@ -126,10 +114,6 @@ The web layer is template-based.
 - Pages are rendered using configurable templates.
 - The structure allows for future theme support.
 - The goal is visual flexibility without breaking deterministic backend logic.
-
-![First preview](./doc/img/preview1.png)
-
----
 
 ## Development status
 
@@ -157,9 +141,6 @@ The server-side web foundation is present and functional:
 - User handling and access control foundations
 - Image grid rendering and basic gallery presentation
 
-![First preview](./doc/img/preview1.png)
-
-
 These components establish the baseline for browsing and interacting with the indexed photo collection,
 while higher-level UI features and polish are expected to evolve over time.
 
@@ -167,8 +148,14 @@ Breaking changes are expected, and no backward compatibility guarantees are prov
 
 This repository should be considered experimental.
 
-
 ## Building
 
 ```bash
 go build ./...
+```
+## Showcase
+
+![public tag tree](./doc/img/tags.png)
+![public tag view page](./doc/img/tag-view.png)
+![admin file browser](./doc/img/admin-fs.png)
+![admin image page](./doc/img/admin-img.png)

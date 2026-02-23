@@ -14,7 +14,7 @@ func (c *Config) Validate() error {
 	c.Derivatives.Validate(&verr, "derivatives")
 	c.Sync.Validate(&verr, "sync")
 	c.Site.Validate(&verr, "site")
-	c.Presentation.Validate(&verr, "sync")
+	c.Presentation.Validate(&verr, "presentation")
 
 	if verr.HasErrors() {
 		return &verr

@@ -118,6 +118,7 @@ type GridImage struct {
 	Aspect      float32
 	Rating      int
 	Layouts     map[int]*Layout
+	URL         string
 }
 
 func (gi *GridImage) ComputeClamp(cellAspect float32) {

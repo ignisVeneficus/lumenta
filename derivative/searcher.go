@@ -2,6 +2,7 @@ package derivative
 
 import (
 	"context"
+	"fmt"
 
 	authData "github.com/ignisVeneficus/lumenta/auth/data"
 	derivativeConfig "github.com/ignisVeneficus/lumenta/config/derivative"
@@ -28,15 +29,20 @@ func GetDerivativesPathWithACL(ctx context.Context, acl authData.ACLContext, ima
 		logging.ExitErr(logg, err)
 		return "", err
 	}
-	outPath := utils.ConcatGlobalDerivativePath(roots.Derivatives, image.Path, image.Filename, cfg.Postfix, "jpg")
+	outPath := utils.ConcatGlobalDerivativePath(roots.Derivatives, image.Root, image.Path, image.Filename, cfg.Postfix, "jpg")
 
 	ok, err := utils.FileExists(outPath)
 	if ok {
 		logging.Exit(logg, "found", map[string]any{"path": outPath})
 		return outPath, nil
 	}
-
-	inPath := utils.ConcatGlobalPath(roots.Originals, image.Path, image.Filename, image.Ext)
+	imgRoot, ok := roots.Originals[image.Root]
+	if !ok {
+		err := fmt.Errorf("root not defined: %s", image.Root)
+		logging.ExitErr(logg, err)
+		return "", err
+	}
+	inPath := utils.ConcatGlobalPath(imgRoot.Root, image.Path, image.Filename, image.Ext)
 	rot := int16(0)
 	if image.Rotation != nil {
 		rot = *image.Rotation

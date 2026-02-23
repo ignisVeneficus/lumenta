@@ -1,0 +1,12 @@
+<div class="ctx-menu">
+{{- if .ImageTags -}}
+<details class="image-tag-panel context-panel">
+  <summary class="image-tag-trigger context-trigger action button">
+    <i class="icon fa-solid fa-tags" aria-label="Browse tags"></i>
+  </summary>
+  <div class="tag-content context-content">
+    {{- template "partials/tag-tree.html" .ImageTags }}
+  </div>
+</details>
+{{- end -}}
+</div>

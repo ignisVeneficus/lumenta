@@ -7,10 +7,11 @@ import (
 )
 
 type AuthConfig struct {
-	Mode    data.AuthProvider `yaml:"mode"`
-	Forward AuthForward       `yaml:"forward"`
-	OIDC    AuthOIDC          `yaml:"oidc"`
-	JWT     JWTConfig         `yaml:"jwt"`
+	Mode         data.AuthProvider `yaml:"mode"`
+	Forward      AuthForward       `yaml:"forward"`
+	OIDC         AuthOIDC          `yaml:"oidc"`
+	JWT          JWTConfig         `yaml:"jwt"`
+	GuestEnabled bool              `yaml:"guest_enabled"`
 }
 
 type AuthForward struct {

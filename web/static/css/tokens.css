@@ -15,6 +15,7 @@
 
   --font-serif: "Source Serif 4", Georgia, "Times New Roman", serif;
 
+  --font-fa: "Font Awesome 7 Free";
 
   /* ============================================================
      FONT SIZES
@@ -31,7 +32,7 @@
   --font-size-3xl: 2rem;     /* 32px – hero headings */
   --font-size-4xl: 3rem;     /* 48px – rare, landing only */  
 
-  --font-size-size-brand: 4rem;        /* homepage title only */
+  --font-size-brand: 4rem;        /* homepage title only */
 
   --font-size-tagline: var(--font-size-lg);  /* 18px */
   --font-size-section: var(--font-size-xl);  /* 20px */
@@ -50,6 +51,7 @@
   --font-weight-regular: 400;
   --font-weight-medium: 500;
 
+  --font-weight-fa: 900;
 
   /* ============================================================
      SPACE SCALE (atomic)
@@ -77,4 +79,59 @@
 
 
   --space-page-x: var(--space-6);
+
+  /* ============================================================
+     COLOR DEFINIONS
+  ============================================================ */
+
+  --gray-bg-light:   #181818; 
+  --gray-bg-middle:  #121212;
+  --gray-bg-dark:    #0d0d0d;
+
+  --gray-text-middle:#e0e0e0;
+  --gray-text-dark:  #aaaaaa;
+  /*
+  --color1-bg-dark:   #002e2a;
+  --color1-bg-middle: #003733;
+  --color1-bg-light:  #00403c;
+  
+  --color1-bg-dark:   #0f2321;
+  --color1-bg-middle: #122a28;
+  --color1-bg-light:  #16312f;
+  --color1-bg-lighter: #1b3835;
+*/
+  --color1-bg-dark:     #101413;
+  --color1-bg-middle:   #151a19; 
+  --color1-bg-light:    #191f1e;
+  --color1-bg-lighter:  #1d2423;
+
+  --color1-text-light:  #63e2d6;
+  --color1-text-middle: #41c7bb;
+  --color1-text-dark:   #008d83;  
+
+  --color2-text-light:  #ffc04f;
+  --color2-text-middle: #f59e0b;
+  --color2-text-dark:   #b66300;  
+
+  --gray-hover: rgba(255,255,255,0.09);
+  /*
+  rgba(255,255,255,0.17)
+  */
+
+
+  /* ============================================================
+     TEXT LEVELS (PURE GRAYS)
+     ------------------------------------------------------------
+     Text colors do NOT change with background level
+  ============================================================ */
+
+  /* Primary text: titles, album names, important info */
+  --text-primary:  var(--gray-text-middle);
+  /* Secondary text: descriptions, meta, breadcrumbs */
+  --text-secondary:  var(--gray-text-dark);
+
+  /* Subtle overlay for image / album hover */
+  --background-hover: var(--gray-hover);
+
 }
+

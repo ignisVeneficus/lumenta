@@ -1,15 +1,53 @@
+/* ==========================================================================
+   COMMON LAYOUT
+   ========================================================================== */
+.admin-layout{
+  display: grid;
+  grid-template-columns: 60px 1fr;
 
+}
+
+/* ==========================================================================
+   ACTION RAIL
+   ========================================================================== */
+
+.action-rail {
+  position: relative;
+  background: var(--bg-workspace);
+  height:100%
+
+}
+
+.rail-inner {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 60px;
+  height: 100%;
+
+  overflow: hidden;
+  transition: width 0.2s ease;
+
+  padding-left: var(--space-page-x);  
+
+  z-index: 10;
+}
+
+
+/* ==========================================================================
+   IMAGE BROWSER 
+   ========================================================================== */
 .images .card .description[data="Public"]{
 
 }
 .images .card .description[data="Users"]::before,
 .acl-label[data-acl^="User:"]::before {
   content: "\f023";
-  font: var(--fa-family);
+  font-family: var(--font-fa);
   display: inline-block;
   text-rendering: auto;
   -webkit-font-smoothing: antialiased;
-  font-weight: var(--fa-style);
+  font-weight: var(--font-weight-fa);
   margin-right: var(--space-2);
 }
 
@@ -32,4 +70,206 @@
 }
 .title-icon{
     color: var(--text-secondary);
+}
+
+.not-found{
+  font-size: var(--font-size-meta);
+  opacity: 0.6;
+}
+/* ==========================================================================
+   IMAGE PAGE 
+   ========================================================================== */
+
+.image-page .content {
+  display: flex;
+  gap: var(--space-4);
+}
+.column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.column-1{
+  flex: 0 0 min(400px, 33%);
+}
+.column-2{
+  flex: 0 0 min(400px, 33%);
+}
+.panel{
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+/* TOODO: move to mobil section */
+.panel-pos{
+    grid-column-start:calc(var(--p12x) + 1);
+    grid-row-start: calc(var(--p12y) + 1);
+}
+
+
+
+.panel .title{
+    font-size: var(--font-size-lg);
+}
+
+.image-page .image-preview {
+  aspect-ratio: var(--ratio);
+  position: relative;  
+  height: 100%;
+}
+.image-page .image-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.image-page .media-box{
+    position: absolute;
+    overflow: hidden;
+    aspect-ratio: var(--real-ratio);
+    left: 50%;
+    top: 0;
+    height: 100%;
+    transform: translateX(-50%);    
+}
+
+.data-table{
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.has-sidecard::before,
+.has-not-sidecard::before,
+.status-failed::before,
+.status-finished::before,
+.status-running::before{
+  font-family: var(--font-fa);
+  display: inline-block;
+  text-rendering: auto;
+  -webkit-font-smoothing: antialiased;
+  font-weight: var(--font-weight-fa);
+  margin-right: var(--space-2);
+}
+.has-sidecard::before,
+.status-finished::before{
+  content: "\f058";
+}
+.has-not-sidecard::before,
+.status-failed::before{
+  content: "\f057";
+}
+.status-running::before{    
+  content: "\f2f1";
+  animation: spin 1s linear infinite;
+  color: var(--accent); 
+}
+.status-failed::before{
+  color: var(--status-failed);
+}
+
+
+/* ==========================================================================
+   FOCUS RETICLE
+   ========================================================================== */
+
+.focus-reticle {
+  position: absolute;
+
+  left: calc(var(--fx) * 100%);
+  top:  calc(var(--fy) * 100%);
+
+  transform: translate(-50%, -50%);
+  height: 100%;
+  width: auto;   
+  aspect-ratio: 1 / 1;
+  pointer-events: none;
+}
+
+.reticle-color{
+  stroke: var(--text-accent);
+}
+.reticle-bg{
+  stroke: #000000;
+}
+.focus-reticle{
+  fill: none;
+  vector-effect: non-scaling-stroke;
+}
+
+.reticle-outer {
+  stroke-width: 0.6;
+  opacity: 0.5;
+}
+.reticle-bg .reticle-outer{
+  stroke-width: 0.9;
+}
+
+.reticle-inner {
+  stroke-width: 0.7;
+  opacity: 0.90;
+}
+.reticle-bg .reticle-inner{
+  stroke-width: 1;
+}
+
+.reticle-line {
+  stroke-linecap: round;
+}
+/* ==========================================================================
+   ACL SETTINGS
+   FOCUS SETTINGS
+   ========================================================================== */
+
+.radio-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  cursor: pointer;
+  padding: var(--space-1);
+}
+
+.radio-item input[type='radio'] {
+  display: none;
+}
+
+.radio-item i {
+  color: var(--text-muted);
+  width: var(--space-5);
+  text-align: center;
+}
+
+.radio-row:hover {
+  background: var(--bg-context);
+}
+.radio-row:hover i{
+  color: var(--icon-hover);
+}
+
+.radio-item input:checked + i {
+  color: var(--text-accent);
+}
+
+.radio-item input:checked + i + span {
+  color: var(--text-primary);
+}
+
+.radio-option {
+  margin-left: auto;
+  display: none;
+}
+
+.radio-item:has(input[type="radio"]:checked) .radio-option {
+  display: block;
+}
+
+.radio-group input[type='text']{
+  height: 32px;
+  font-size: inherit;
+  width: 3ch;
+  text-align: center;
+  color: inherit;
+
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.15);
 }

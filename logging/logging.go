@@ -210,6 +210,17 @@ func Return(logg zerolog.Logger, err error) error {
 	return err
 }
 
+// Return logs the function exit status using the appropriate exit helper
+// and returns the provided error unchanged.
+func ReturnParams(logg zerolog.Logger, err error, params map[string]any) error {
+	if err != nil {
+		ExitErrParams(logg, err, params)
+	} else {
+		Exit(logg, "ok", params)
+	}
+	return err
+}
+
 //
 // ===== Info-level event logging =====
 //

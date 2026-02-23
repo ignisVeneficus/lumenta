@@ -3,6 +3,8 @@ package server
 import (
 	"context"
 	"net/http"
+	"net/url"
+	"strings"
 
 	"github.com/ignisVeneficus/lumenta/auth"
 	authData "github.com/ignisVeneficus/lumenta/auth/data"
@@ -55,6 +57,31 @@ func createJWTToken(c *gin.Context, jwtSvc *JWTService, acl authData.ACLContext)
 	)
 
 	return true
+}
+
+func SiteAccessMiddleware(EnableGuest bool) gin.HandlerFunc {
+	return func(c *gin.Context) {
+
+		ctx := auth.GetAuthContex(c)
+
+		if ctx.Role == authData.RoleGuest && !EnableGuest {
+
+			if strings.HasPrefix(c.Request.URL.Path, "/api/") {
+				c.JSON(http.StatusUnauthorized, gin.H{
+					"error": "authentication required",
+				})
+				c.Abort()
+				return
+			}
+
+			next := url.QueryEscape(c.Request.URL.RequestURI())
+			c.Redirect(http.StatusFound, "/login?next="+next)
+			c.Abort()
+			return
+		}
+
+		c.Next()
+	}
 }
 
 func AuthContextMiddleware(ctx context.Context, cfg authConfig.AuthConfig, env config.Environment) gin.HandlerFunc {

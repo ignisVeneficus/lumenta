@@ -1,0 +1,47 @@
+<fieldset class="acl-group radio-group">
+  <label class="acl-item radio-item">
+    <div class="radio-row">
+      <input type="radio" name="acl" value="public"
+      {{ if eq .Image.ACLScope "public" }}checked{{ end }}
+      >
+      <i class="fa-solid fa-globe"></i>
+      <span>Public</span>
+    </div>
+  </label>
+
+  <label class="acl-item radio-item">
+    <div class="radio-row">
+      <input type="radio" name="acl" value="users"
+      {{ if eq .Image.ACLScope "any_user" }}checked{{ end }}
+      >
+      <i class="fa-solid fa-users"></i>
+      <span>All Users</span>
+    </div>
+  </label>
+
+  <label class="acl-item acl-user radio-item">
+    <div class="radio-row">
+      <input type="radio" name="acl" value="user"
+      {{ if eq .Image.ACLScope "user" }}checked{{ end }}
+      >
+      
+      <i class="fa-solid fa-user"></i>
+      <span>User</span>
+    </div>
+    <select class="acl-select radio-option">
+      <option>John</option>
+      <option>Anna</option>
+    </select>
+  </label>
+
+  <label class="acl-item radio-item">
+    <div class="radio-row">
+      <input type="radio" name="acl" value="admin"
+      {{ if eq .Image.ACLScope "admin" }}checked{{ end }}
+      >
+      <i class="fa-solid fa-lock"></i>
+      <span>Admin Only</span>
+    </div>
+  </label>
+
+</fieldset>

@@ -1,11 +1,19 @@
 package presentation
 
-import gridData "github.com/ignisVeneficus/lumenta/tpl/grid/data"
+import (
+	authData "github.com/ignisVeneficus/lumenta/auth/data"
+	gridData "github.com/ignisVeneficus/lumenta/tpl/grid/data"
+)
 
 type PresentationConfig struct {
-	Templates string     `yaml:"templates"`
-	Grid      GridConfig `yaml:"grid"`
+	Templates            string            `yaml:"templates"`
+	Grid                 GridConfig        `yaml:"grid"`
+	MetadataACL          MetadataACLConfig `yaml:"metadata_acl"`
+	ConvertedMetadataACL MetadataACL       `yaml:"-"`
 }
+type MetadataACLConfig map[authData.ACLRole][]string
+
+type MetadataACL map[string]authData.ACLRole
 
 type GridConfig map[int]RoleConfig
 

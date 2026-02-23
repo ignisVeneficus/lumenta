@@ -36,7 +36,7 @@ func calculateAspect(w, h int) float32 {
 	return float32(w) / float32(h)
 }
 
-func classifyAspect(w, h int) gridData.Aspect {
+func ClassifyAspect(w, h int) gridData.Aspect {
 	r := calculateAspect(w, h)
 
 	switch {
@@ -51,59 +51,6 @@ func classifyAspect(w, h int) gridData.Aspect {
 	}
 }
 
-func assignRolesForLayout(tmp []*gridData.GridImage, layoutWidth int, matrix gridConfig.GridConfig, salt uint64) {
-	// 1. base cell count (normal role)
-	totalBase := 0
-	for _, img := range tmp {
-		layout, ok := img.Layouts[layoutWidth]
-		if !ok {
-			// FIXME
-			log.Logger.Error().Int("missing width", layoutWidth).Msg("sh*t happens: no layout")
-			continue
-		}
-		totalBase += layout.Rect.W * layout.Rect.H
-	}
-
-	maxCells := totalBase + totalBase/3
-	extraCells := maxCells - totalBase
-
-	heroBudget := int(float64(extraCells) * heroShare)
-	largeBudget := extraCells - heroBudget
-
-	for _, img := range tmp {
-		layout, ok := img.Layouts[layoutWidth]
-		if !ok {
-			// FIXME
-			log.Logger.Error().Msg("sh*t happens: no layout")
-		}
-		cells := layout.Rect.W * layout.Rect.H
-		if heroBudget > 0 {
-			sp, _ := matrix.Span(layoutWidth, gridData.RoleHero, img.AspectClass)
-			delta := sp.W*sp.H - cells
-			if heroBudget-delta >= 0 {
-				heroBudget -= delta
-				layout.Role = gridData.RoleHero
-				layout.Rect = sp.ToRect()
-				img.Layouts[layoutWidth] = layout
-				continue
-			}
-		}
-		if largeBudget > 0 {
-			sp, _ := matrix.Span(layoutWidth, gridData.RoleLarge, img.AspectClass)
-			delta := sp.W*sp.H - cells
-			if largeBudget-delta >= 0 {
-				largeBudget -= delta
-				layout.Role = gridData.RoleLarge
-				layout.Rect = sp.ToRect()
-				img.Layouts[layoutWidth] = layout
-				continue
-			}
-		}
-		if largeBudget == 0 && heroBudget == 0 {
-			break
-		}
-	}
-}
 func assignRolesForLayouts(tmp []*gridData.GridImage, layoutWidths []int, matrix gridConfig.GridConfig) {
 	heros := heroQty
 	larges := largeQty
@@ -134,16 +81,19 @@ func assignRolesForLayouts(tmp []*gridData.GridImage, layoutWidths []int, matrix
 	}
 }
 
-func BuildGrid(images []dbo.Image, gridConfig gridConfig.GridConfig, salt uint64) []*gridData.GridImage {
+func BuildGrid(images []dbo.Image, gridCfg gridConfig.GridConfig, salt uint64, urlBuilder URLBuilder) []*gridData.GridImage {
 	ret := make([]*gridData.GridImage, 0)
 	if len(images) == 0 {
 		return ret
 	}
-
+	grids := []int{}
+	for i := range gridCfg {
+		grids = append(grids, i)
+	}
 	// fill table
 	// default cell count
 	for _, img := range images {
-		aspectClass := classifyAspect(int(img.Width), int(img.Height))
+		aspectClass := ClassifyAspect(int(img.Width), int(img.Height))
 		caption := utils.FromStringPtr(img.Title)
 		if caption == "" {
 			caption = img.Filename
@@ -152,16 +102,20 @@ func BuildGrid(images []dbo.Image, gridConfig gridConfig.GridConfig, salt uint64
 		if img.Rating != nil {
 			rating = int(*img.Rating)
 		}
-		// TODO multiple width
-		layout := BuildForLayout(gridConfig, 12, aspectClass)
+		layouts := map[int]*gridData.Layout{}
+		for _, i := range grids {
+			layout := BuildForLayout(gridCfg, i, aspectClass)
+			layouts[i] = layout
+		}
 		gi := gridData.GridImage{
 			ImgId:       *img.ID,
 			Caption:     caption,
 			Focus:       data.ResolveFocus(img.FocusX, img.FocusY, data.ImageFocusMode(img.FocusMode)),
 			Rating:      rating,
 			AspectClass: aspectClass,
-			Layouts:     map[int]*gridData.Layout{12: layout},
+			Layouts:     layouts,
 			Aspect:      float32(img.Width) / float32(img.Height),
+			URL:         urlBuilder(*img.ID),
 		}
 		ret = append(ret, &gi)
 	}
@@ -179,9 +133,7 @@ func BuildGrid(images []dbo.Image, gridConfig gridConfig.GridConfig, salt uint64
 		return hi < hj
 	})
 
-	// TODO: multiple
-	//assignRolesForLayout(tmp, 12, placement.DefaultGridMatrix, salt)
-	assignRolesForLayouts(tmp, []int{12}, gridConfig)
+	assignRolesForLayouts(tmp, grids, gridCfg)
 
 	for _, img := range ret {
 		// TODO: params
@@ -190,16 +142,15 @@ func BuildGrid(images []dbo.Image, gridConfig gridConfig.GridConfig, salt uint64
 		}
 	}
 
-	// placement 12
-	// TODO for loop
-
-	PlaceTilesSkyline(ret, 12)
+	for _, i := range grids {
+		PlaceTilesSkyline(ret, i)
+	}
 
 	return ret
 }
 
-func BuildForLayout(grid gridConfig.GridConfig, width int, aspect gridData.Aspect) *gridData.Layout {
-	s, ok := grid.Span(width, gridData.RoleNormal, aspect)
+func BuildForLayout(gridCfg gridConfig.GridConfig, width int, aspect gridData.Aspect) *gridData.Layout {
+	s, ok := gridCfg.Span(width, gridData.RoleNormal, aspect)
 	if !ok {
 		log.Logger.Error().Int("width", width).Msg("Layout has no config for this width")
 		return nil
@@ -209,3 +160,5 @@ func BuildForLayout(grid gridConfig.GridConfig, width int, aspect gridData.Aspec
 		Rect:  s.ToRect(),
 	}
 }
+
+type URLBuilder func(imgID uint64) string

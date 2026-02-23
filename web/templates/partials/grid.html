@@ -2,7 +2,7 @@
 <div class="imageGrid">
     {{- range .Images -}}
         <figure class="tile {{ gridTileRole . }}" {{ gridRectToVar . }}>
-            <a>
+            <a href="{{ .URL }}" title="{{ .Caption }}">
                 <img
                     src="{{ imagePath .ImgId "w1024" }}"
                     srcset="{{ gridTileImgList .ImgId 640 1024 1600 2400 }}"
@@ -15,7 +15,7 @@
                     loading="lazy"
                     decoding="async"
                 >
-                <div class="caption">{{ .Caption }}</div>
+                <figcaption class="caption">{{ .Caption }}</figcaption>
             </a>
         </figure>
     {{- end -}}

@@ -5,6 +5,7 @@ import (
 	"html/template"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/ignisVeneficus/lumenta/server/routes"
 	"github.com/ignisVeneficus/lumenta/tpl/functions"
@@ -19,15 +20,25 @@ func DefaultFuncMap() template.FuncMap {
 		"gridTileRole":    functions.TileRole,
 		"toPercent":       ToPercent,
 
-		"linkAdmin": func() template.URL {
-			return template.URL(routes.CreateAdminRootPath())
-		},
 		"pagingFirst": functions.PagingFirst,
 		"pagingPrev":  functions.PagingPrev,
 		"pagingNext":  functions.PagingNext,
 		"pagingLast":  functions.PagingLast,
 
 		"imagePath": ImagePath,
+		"tagsRootPath": func() template.URL {
+			return template.URL(routes.CreateTagsRootPath())
+		},
+		"tagPath": TagPath,
+
+		"adminRootPath": func() template.URL {
+			return template.URL(routes.CreateAdminRootPath())
+		},
+
+		"formatTime": func(t time.Time) string {
+			return t.Format("2006-01-02 15:04:05")
+		},
+		"reticleOffset": functions.FocusOffset,
 	}
 }
 
@@ -85,4 +96,7 @@ func SiteIcon(path string) template.HTML {
 
 func ImagePath(imageId uint64, derivative string) template.URL {
 	return template.URL(routes.CreateDerivativePath(imageId, derivative))
+}
+func TagPath(tagId uint64) template.URL {
+	return template.URL(routes.CreateTagPath(uint64(tagId)))
 }

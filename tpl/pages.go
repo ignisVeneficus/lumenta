@@ -11,7 +11,10 @@ import (
 func CreatePageContext(pc *data.PageContext, cfg config.Config, c *gin.Context, role string, surface data.Surface) {
 	pc.Site = createSiteContext(cfg.Site)
 	pc.Page = createPageInfo(role, surface)
-	pc.User = auth.GetAuthContex(c)
+	pc.User = data.UserContext{
+		ACLContext:      auth.GetAuthContex(c),
+		HasGuestEnabled: cfg.Auth.GuestEnabled,
+	}
 }
 
 func createSiteContext(cfx siteconfig.SiteConfig) data.SiteInfo {

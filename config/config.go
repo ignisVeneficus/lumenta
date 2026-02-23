@@ -58,6 +58,8 @@ func Load(path string) (*Config, error) {
 		return nil, err
 	}
 
+	writeOutMetadataInfo(cfg.Presentation.ConvertedMetadataACL, cfg.Sync.MergedMetadata)
+
 	log.Logger.Info().Msg("Configuration loaded")
 	return &cfg, nil
 }

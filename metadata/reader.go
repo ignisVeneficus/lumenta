@@ -16,7 +16,7 @@ import (
 
 func ExtractMetadata(ctx context.Context, paths ...string) (data.Metadata, error) {
 	logg := logging.Enter(ctx, "metadata.extract", map[string]any{"source": paths})
-	exiftool, err := exif.GetExiftool(ctx)
+	exiftool, err := exif.GetExiftool()
 	if err != nil {
 		logging.ExitErr(logg, err)
 		return nil, err

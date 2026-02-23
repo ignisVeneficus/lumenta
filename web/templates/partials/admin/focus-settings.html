@@ -1,0 +1,80 @@
+<fieldset class="focus-group radio-group">
+  <label class="focus-item radio-item">
+    <div class="radio-row">
+      <input type="radio" name="focus" value="top"
+      {{ if eq .Image.FocusMode "top" }}checked{{ end }}
+      >
+      <i class="fa-solid fa-arrows-up-to-line"></i>
+      <span>Top</span>
+    </div>
+  </label>
+
+  <label class="focus-item radio-item">
+    <div class="radio-row">
+      <input type="radio" name="focus" value="bottom"
+      {{ if eq .Image.FocusMode "bottom" }}checked{{ end }}
+      >
+      <i class="fa-solid fa-arrows-down-to-line"></i>
+      <span>Bottom</span>
+    </div>
+  </label>
+
+  <label class="focus-item radio-item">
+    <div class="radio-row">
+      <input type="radio" name="focus" value="left"
+      {{ if eq .Image.FocusMode "left" }}checked{{ end }}
+      >
+      <i class="fa-solid fa-arrows-up-to-line rotate-270"></i>
+      <span>Left</span>
+    </div>
+  </label>
+
+  <label class="focus-item radio-item">
+    <div class="radio-row">
+      <input type="radio" name="focus" value="right"
+      {{ if eq .Image.FocusMode "right" }}checked{{ end }}
+      >
+      <i class="fa-solid fa-arrows-down-to-line rotate-270"></i>
+      <span>Right</span>
+    </div>
+  </label>
+
+  <label class="focus-item radio-item">
+    <div class="radio-row">
+      <input type="radio" name="focus" value="center"
+      {{ if eq .Image.FocusMode "center" }}checked{{ end }}
+      >
+      <i class="fa-solid fa-bullseye"></i>
+      <span>Center</span>
+    </div>
+  </label>
+
+  <label class="focus-item focus-manual radio-item">
+    <div class="radio-row">
+      <input type="radio" name="focus" value="manual"
+      {{ if eq .Image.FocusMode "manual" }}checked{{ end }}
+      >
+      
+      <i class="fa-solid fa-crosshairs"></i>
+      <span>Manual</span>
+    </div>
+    <div class="manual-focus data-table radio-option">
+      <label>X:</label>
+      <input type="text" name="focusX"/>
+      <label>Y:</label>
+      <input type="text" name="focusY"/>
+      <button>Set</button>
+    </div>
+  </label>
+
+  <label class="focus-item radio-item">
+    <div class="radio-row">
+      <input type="radio" name="focus" value="auto"
+      {{ if eq .Image.FocusMode "auto" }}checked{{ end }}
+      >
+      <i class="fa-solid fa-wand-magic-sparkles"></i>
+      <span>Automatic</span>
+    </div>
+  </label>
+
+</fieldset>

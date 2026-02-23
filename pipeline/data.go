@@ -6,6 +6,8 @@ import (
 	"os"
 	"sort"
 
+	authData "github.com/ignisVeneficus/lumenta/auth/data"
+	fileConfig "github.com/ignisVeneficus/lumenta/config/filesystem"
 	syncConfig "github.com/ignisVeneficus/lumenta/config/sync"
 	"github.com/ignisVeneficus/lumenta/data"
 	"github.com/ignisVeneficus/lumenta/db/dbo"
@@ -36,6 +38,7 @@ type WorkItem struct {
 	// FILESYSTEM (walk)
 	// =========================================================
 
+	RootName     string      // name of the root, defined in config
 	RootPath     string      // configured sync root
 	Path         string      // path relative to RootPath without filename
 	RealPath     string      // absolute / canonical filesystem path
@@ -64,6 +67,13 @@ type WorkItem struct {
 
 	FileHash         string // computed content hash
 	FileMetadataHash string // computed content hash
+
+	// =========================================================
+	// ACL
+	// =========================================================
+
+	ACLRole *dbo.ACLScope
+	ACLUser *uint64
 
 	// =========================================================
 	// METADATA EXTRACTION (EXIF / XMP / IPTC)
@@ -130,13 +140,15 @@ type PipelineContext struct {
 	// Configuration (read-only)
 	// =========================================================
 
-	RootPath   string
+	RootPath   fileConfig.RootConfigs
 	AllowedExt map[string]struct{}
 
-	Database *sql.DB
-	Metadata *syncConfig.MetadataConfig
-	Filters  []syncConfig.PathFilterConfig
-	Panorama *ruleengine.RuleGroup
+	Database    *sql.DB
+	Metadata    *syncConfig.MetadataConfig
+	Filters     []syncConfig.PathFilterConfig
+	Panorama    *ruleengine.RuleGroup
+	ACLRules    syncConfig.ACLRules
+	ACLOverride bool
 
 	SyncId uint64
 	Force  bool
@@ -149,6 +161,15 @@ type PipelineContext struct {
 	Out chan<- WorkItem
 }
 
+type ACLRules []ACLRule
+
+type ACLRule struct {
+	Role   authData.ACLRole
+	User   *string
+	UserId *uint64
+	Rules  []ruleengine.CompiledFilter
+}
+
 func (pc *PipelineContext) MarshalZerologObjectWithLevel(e *zerolog.Event, level zerolog.Level) {
 
 	if level <= zerolog.DebugLevel {
@@ -156,7 +177,8 @@ func (pc *PipelineContext) MarshalZerologObjectWithLevel(e *zerolog.Event, level
 		e.Bool("has_in", pc.In != nil).
 			Bool("has_out", pc.Out != nil)
 
-		e.Str("root_path", pc.RootPath)
+		//FIXME: add the originals to debug
+		//e.Str("root_path", pc.RootPath)
 
 		if len(pc.AllowedExt) > 0 {
 			exts := make([]string, 0, len(pc.AllowedExt))

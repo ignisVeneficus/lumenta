@@ -18,7 +18,7 @@ type ForwardVerifier struct {
 }
 
 func (fav ForwardVerifier) ContextFromRequest(ctx context.Context, ip string, request http.Request) *authData.ACLContext {
-	logg := logging.Enter(ctx, "auth.forward.verif", map[string]any{"ip": ip})
+	logg := logging.Enter(ctx, "auth.forward.ctxFromRequest", map[string]any{"ip": ip})
 	if !CIDRMatch(fav.Cidrs, ip) {
 		logging.Exit(logg, "NOT OK", map[string]any{"problem": "not allowed ip"})
 		return nil

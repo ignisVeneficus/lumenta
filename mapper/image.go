@@ -2,13 +2,17 @@ package mapper
 
 import (
 	"encoding/json"
+
 	"strings"
 
+	authData "github.com/ignisVeneficus/lumenta/auth/data"
 	"github.com/ignisVeneficus/lumenta/data"
 	"github.com/ignisVeneficus/lumenta/db/dbo"
+	"github.com/rs/zerolog/log"
 )
 
 func SplitTagPath(path string) []string {
+	log.Logger.Debug().Str("path", path).Msg("splitPath")
 	path = strings.TrimSpace(path)
 	if path == "" {
 		return nil
@@ -49,18 +53,33 @@ func UpdateImageMetadata(i *dbo.Image, metadata data.Metadata) error {
 		return err
 	}
 	i.ExifJSON = JSONMetadata
-	i.Tags = []dbo.Tag{}
+	i.Tags = dbo.TagsTree{}
 	for _, t := range tags {
 		tname := SplitTagPath(t)
-		current := dbo.Tag{Name: tname[len(tname)-1], Source: "digikam"}
+		current := &dbo.Tag{Name: tname[len(tname)-1], Source: "digikam"}
 		current.Children = nil
 		for j := len(tname) - 2; j >= 0; j-- {
-			parent := dbo.Tag{Name: tname[j], Source: "digikam"}
-			parent.Children = []dbo.Tag{current}
+			parent := &dbo.Tag{Name: tname[j], Source: "digikam"}
+			parent.Children = dbo.TagsTree{current}
 			current = parent
 		}
 		i.Tags = append(i.Tags, current)
 	}
 
 	return nil
+}
+
+func MapACL(acl authData.ACLRole, user *uint64) *dbo.ACLScope {
+	v := dbo.ACLScopeAdmin
+	switch acl {
+	case authData.RoleAdmin:
+		v = dbo.ACLScopeAdmin
+	case authData.RoleUser:
+		if user != nil {
+			v = dbo.ACLScopeUser
+		} else {
+			v = dbo.ACLScopeAnyUser
+		}
+	}
+	return &v
 }
