@@ -24,8 +24,8 @@
                 </div>
             </div>
             <div class="image-subject-panel panel panel-pos" style="--p12x: 0; --p12y:3; --p12w:3;--p12h:2">
-                <div class="image-title">{{ .Image.Title }}</div>
-                <div class="image-title">{{ .Image.Subject }}</div>
+                <div class="image-title {{ if not .Image.HasTitle }}meta-empty{{ end }}">{{ .Image.NormalisedTitle }}</div>
+                <div class="image-title {{ if not .Image.HasSubject }}meta-empty{{ end }}">{{ .Image.NormalisedSubject }}</div>
             </div>
             <div class="image-fs-panel panel panel-pos" style="--p12x: 0; --p12y:3; --p12w:3;--p12h:2">
                 <div class="title">Filesystem Info</div>

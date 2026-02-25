@@ -257,6 +257,7 @@ func FSPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 			root = pathParts[0]
 			path = strings.Join(pathParts[1:], "/")
 		}
+		// todo: db path check?
 
 		database := db.GetDatabase()
 		var dirs adminData.FsDirs

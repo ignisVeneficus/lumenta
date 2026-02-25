@@ -10,6 +10,8 @@ import (
 	grid "github.com/ignisVeneficus/lumenta/tpl/grid/data"
 )
 
+var EMDash = "–"
+
 type FsContext struct {
 	data.PageContext
 	Breadcrumbs data.Breadcrumbs
@@ -90,4 +92,22 @@ func (pi PageImage) CalculatedAspect() float64 {
 }
 func (pi PageImage) CalculatedAspectString() string {
 	return fmt.Sprintf("%.2f", pi.CalculatedAspect())
+}
+func (pi PageImage) HasTitle() bool {
+	return pi.Title != nil && (*pi.Title) != ""
+}
+func (pi PageImage) NormalisedTitle() string {
+	if pi.HasTitle() {
+		return *pi.Title
+	}
+	return EMDash
+}
+func (pi PageImage) HasSubject() bool {
+	return pi.Subject != nil && (*pi.Subject) != ""
+}
+func (pi PageImage) NormalisedSubject() string {
+	if pi.HasSubject() {
+		return *pi.Subject
+	}
+	return EMDash
 }

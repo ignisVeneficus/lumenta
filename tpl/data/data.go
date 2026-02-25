@@ -141,3 +141,13 @@ func (pt PageTag) Description() string {
 func (pt PageTag) Info() string {
 	return fmt.Sprintf("%d images", pt.ImgQty)
 }
+
+type ErrorPageContext struct {
+	PageContext
+	Resource   string
+	ResourceID uint64
+	RootURL    string
+	Title      string
+	Message    string
+	BackLabel  string
+}

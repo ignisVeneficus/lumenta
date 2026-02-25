@@ -9,6 +9,9 @@
 *.dylib
 *.bat
 
+# tmp files
+*.tmp
+
 # Log file
 *.log
 

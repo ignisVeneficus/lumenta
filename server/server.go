@@ -10,6 +10,7 @@ import (
 	"github.com/ignisVeneficus/lumenta/config"
 	"github.com/ignisVeneficus/lumenta/server/routes"
 	"github.com/ignisVeneficus/lumenta/tpl"
+	"github.com/ignisVeneficus/lumenta/tpl/pages"
 	"github.com/ignisVeneficus/lumenta/tpl/pages/admin"
 	"github.com/ignisVeneficus/lumenta/tpl/pages/public"
 )
@@ -30,6 +31,8 @@ func Server(cfg config.Config) {
 	}
 
 	r := gin.New()
+
+	r.NoRoute(pages.Global404(templatreResolver, cfg))
 
 	r.Use(
 		RequestID(),

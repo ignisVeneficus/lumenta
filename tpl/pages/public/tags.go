@@ -21,6 +21,7 @@ import (
 	"github.com/ignisVeneficus/lumenta/tpl"
 	"github.com/ignisVeneficus/lumenta/tpl/data"
 	"github.com/ignisVeneficus/lumenta/tpl/grid"
+	"github.com/ignisVeneficus/lumenta/tpl/pages"
 )
 
 var (
@@ -160,7 +161,8 @@ func TagPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 		switch {
 		case errors.Is(err, dao.ErrDataNotFound):
 			logging.ExitErr(logg, err)
-			c.AbortWithStatus(http.StatusNotFound)
+			pages.Soft404(r, cfg, c, data.SurfacePublic, "tag", routes.CreateTagsRootPath(), uint64(tagId))
+			return
 		case err != nil:
 			logging.ExitErr(logg, err)
 			c.AbortWithStatus(http.StatusInternalServerError)

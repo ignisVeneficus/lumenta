@@ -1,161 +1,174 @@
 # Lumenta
 
-**Lumenta is an automation-first, self-hosted photo library engine for photographers who think in archives, not uploads.**
+**Lumenta is a rule-driven, self-hosted gallery engine for people who already manage their photos properly — and don’t want to manage them again in their gallery.**
 
-It is not just a gallery.
-It is a deterministic indexing core with a presentation layer on top — built around a simple promise:
+It is not just a gallery.  
+It is a structured rule system from which albums are generated automatically.
 
-> Configure it once. Feed it images. Let it organize itself.
+You tag once.  
+You organize once.  
+You define rules once.
 
-Lumenta continuously reads your structured photo archive, evaluates rules, materializes albums, and exposes a clean web layer — without asking you to manually curate anything twice.
+After that, you just add images.
 
-Designed for large collections and long-term ownership, Lumenta treats your photo library as a structured, evolving system — not a pile of files waiting to be uploaded.
+No manual syncing.  
+No album micromanagement.  
+No per-image ACL tweaking.
 
-For photographers, this means control.
-For engineers, this means determinism.
-For both, it means automation without chaos.
+Lumenta reads your filesystem directly, extracts metadata, stores it in a database, and evaluates your rules to build albums automatically.  
+The web layer operates exclusively from this indexed model — reflecting the structure you already created.
+
+Designed for large photo collections, Lumenta removes repeated work and long-term maintenance overhead.
+
+> Configure it once. Feed it images. Forget it.
+
+Automation. Without chaos.
 
 ## Where Lumenta fits in a photographer’s workflow
 
-Lumenta is designed to sit **after your editing and tagging workflow**.
+Lumenta typically enters at the end of your workflow — **after editing and tagging**.
 
-Typical workflow:
+A typical process:
 
 1. Shoot
-2. Import into your photo management tool (e.g. Lightroom, digiKam, etc.)
-3. Rate, tag, and organize
-4. Export or sync to your structured archive
-5. Let **Lumenta read that archive automatically**
+2. Import into your photo management tool (e.g., Lightroom, digiKam, etc.)
+3. Select and edit
+4. Rate, tag and organize
+5. Export or sync to your structured archive
+6. Lumenta reads the archive automatically
 
-You do not upload photos into Lumenta.
-You point it at your existing filesystem-based archive, and it builds the web presentation layer from there.
+There is:
 
-For photographers, this means:
+- No manual upload step  
+- No web-format conversion step  
+- No manual import  
+- No manual album maintenance  
 
-- No duplicated upload step
-- No secondary manual album maintenance
-- No divergence between your editing tool and your web gallery
-- Your existing hierarchical tags remain meaningful
-
-Configure it once. Feed it images. It does the rest.
+You simply point Lumenta to your existing filesystem-based archive, and it builds the web presentation layer on top of it.
 
 ## Why Lumenta is not “just another photo album”
 
-Lumenta is intentionally opinionated.
+Lumenta follows a **single-owner model**.
 
-- **Single owner model** – this is not a multi-user upload platform.
-- No collaborative image uploads.
-- No group editing.
-- Users exist only with different read-level access (e.g. guest, authenticated user).
+This means:
 
-The archive belongs to one photographer.
+- It is not a multi-user upload platform  
+- There is no collaborative image uploading  
+- There is no group editing  
+- Users exist only with different read-level permissions (e.g., guest, authenticated user)
+
+The archive belongs to one photographer.  
 Access levels control visibility — not authorship.
 
 ## Filesystem-first design
 
 The filesystem is the source of truth.
 
-- Images stay where you manage them.
-- No re-upload required.
-- No proprietary storage layer.
-- Your directory structure remains meaningful.
+- Images remain where you manage them  
+- No re-upload required  
+- No proprietary storage layer  
+- Your directory structure retains its meaning  
 
 Lumenta scans the configured root directory and builds its internal model from that structure.
 
 ## Rule-based automation
 
-Automation is central.
+Rules and automation are central.
 
-Rules are used to define:
+Rules define:
 
-- Which images should be indexed
-- What qualifies as special formats (e.g. panorama detection)
-- Planned: default ACL rules based on metadata or structure
+- Which images are indexed (and which are excluded)
+- What qualifies as special formats (e.g., panorama detection)
+- Default ACL (Access Control List) behavior based on metadata or structure
 - Album population logic
 
-Albums are not curated manually.
+Albums are not curated manually.  
 They are generated deterministically from rule definitions.
-
-The current rule model reflects the working design and may evolve while abstractions are being refined.
 
 ## Metadata and hierarchical tags
 
-Lumenta provides a flexible, configurable metadata system.
+Lumenta provides a flexible and configurable metadata system.
 
-- Metadata definitions are configurable.
-- Extraction and synchronization are rule-driven.
-- Hierarchical tags are supported and preserved.
+- Metadata definitions are configurable
+- Most rule definitions are built on top of metadata
+- Hierarchical tags are fully supported
 
 Hierarchical tagging — still uncommon in many web galleries — is treated as a first-class concept.
 
 The goal is not to re-edit metadata in the web layer, but to faithfully represent and leverage the structure already created in your photo workflow.
 
+Both embedded metadata and sidecar files are supported, with a clear hierarchy between sources when resolving conflicts.
+
 ## Strong configuration model
 
-The entire system is configuration-driven.
+The entire system is built on a powerful configuration layer.
 
 - Indexing behavior
 - Rule logic
 - Metadata mapping
 - Album generation
-- Derivative behavior
-- Access defaults
+- Derivative handling
+- Default access rules
+- Branding
+- Theme support
 
-The design philosophy is simple:
-
-> Configure it once. Feed it images. Let it organize itself.
-
-[Configration documentation](./doc/config.md)
+[Configuration documentation](./doc/config.md)
 
 ## Presentation layer and extensibility
 
 The web layer is template-based.
 
-- Pages are rendered using configurable templates.
-- The structure allows for future theme support.
-- The goal is visual flexibility without breaking deterministic backend logic.
+- Pages are rendered using configurable templates
+- The structure allows future theme support
+- The goal is visual flexibility without compromising backend determinism
 
 ## Development status
 
-This project is in **early development**.
-The focus so far has been on validating core architecture, data flow, and abstractions rather than on feature completeness.
+This project is in **early development**.  
+The focus so far has been on validating the core architecture, data flow, and abstractions rather than on feature completeness.
 
-The following areas are **implemented or actively being worked on**, and should be considered usable but still evolving:
+The following areas are implemented or actively being refined and are usable, though still evolving:
 
 ### Data ingestion and backend core
 
-The full filesystem-to-database ingestion path is in place and under active refinement:
+The complete filesystem → database ingestion path is implemented and under active refinement:
 
-- Database schema and access layer, with a strong focus on the `images` domain model
-- Filesystem scanning and sync pipeline
-- Deterministic import using a rule engine–driven model
-- Configuration loading and structured configuration validation
+- Database schema and access layer, focused on the `images` domain model
+- Filesystem scanning and synchronization pipeline
+- Deterministic import driven by a rule engine
+- Structured configuration loading and validation
 
 Together, these form the backbone of the system: the authoritative **filesystem → database** data flow.
 
 ### Web backend and presentation layer
 
-The server-side web foundation is present and functional:
+The server-side web foundation is functional:
 
-- Web server framework and request routing
+- Web framework and routing
 - User handling and access control foundations
 - Image grid rendering and basic gallery presentation
 
-These components establish the baseline for browsing and interacting with the indexed photo collection,
-while higher-level UI features and polish are expected to evolve over time.
+These components provide the foundation for browsing and interacting with the indexed collection, while higher-level UI features and refinements will evolve over time.
 
-Breaking changes are expected, and no backward compatibility guarantees are provided at this stage.
+## Showcase
 
-This repository should be considered experimental.
+### Public hierarchical tag tree
+![public tag tree](./doc/img/tags.png)
 
-## Building
+### Public hierarchical tag browser
+![public tag view page](./doc/img/tag-view.png)
+
+### Admin filesystem browser
+![admin file browser](./doc/img/admin-fs.png)
+
+### Admin image details page
+![admin image page](./doc/img/admin-img.png)
+
+
+## Build
 
 ```bash
 go build ./...
 ```
-## Showcase
 
-![public tag tree](./doc/img/tags.png)
-![public tag view page](./doc/img/tag-view.png)
-![admin file browser](./doc/img/admin-fs.png)
-![admin image page](./doc/img/admin-img.png)
+This repository should be considered experimental.

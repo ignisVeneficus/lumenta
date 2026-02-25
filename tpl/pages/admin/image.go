@@ -14,10 +14,12 @@ import (
 	"github.com/ignisVeneficus/lumenta/db/dao"
 	"github.com/ignisVeneficus/lumenta/db/dbo"
 	"github.com/ignisVeneficus/lumenta/logging"
+	"github.com/ignisVeneficus/lumenta/server/routes"
 	"github.com/ignisVeneficus/lumenta/tpl"
 	"github.com/ignisVeneficus/lumenta/tpl/data"
 	adminData "github.com/ignisVeneficus/lumenta/tpl/data/admin"
 	"github.com/ignisVeneficus/lumenta/tpl/grid"
+	"github.com/ignisVeneficus/lumenta/tpl/pages"
 )
 
 func createSpacePath(path, filename, ext string) string {
@@ -48,7 +50,7 @@ func ImagePage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 		switch {
 		case errors.Is(err, dao.ErrDataNotFound):
 			logging.ExitErr(logg, err)
-			c.AbortWithStatus(http.StatusNotFound)
+			pages.Soft404(r, cfg, c, data.SurfaceAdmin, "image", routes.CreateAdminRootPath(), uint64(imageID))
 			return
 		case err != nil:
 			logging.ExitErr(logg, err)

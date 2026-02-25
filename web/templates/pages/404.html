@@ -1,0 +1,13 @@
+{{ define "main" }}
+<div class="content">
+    <h1><i class="fa fa-ban"></i>{{ .Title }}</h1>
+
+    <p class="soft404-message">
+        {{ .Message }}
+    </p>
+
+    <div class="soft404-actions">
+        <a href="{{ .RootURL }}" class="btn-primary">{{ .BackLabel }}</a>
+    </div>
+</div>
+{{ end }}
