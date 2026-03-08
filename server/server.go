@@ -59,6 +59,7 @@ func Server(cfg config.Config) {
 		*/
 		publicGrp.GET(routes.GetTagsRootPath(), public.TagsRootPage(templatreResolver, cfg))
 		publicGrp.GET(routes.GetTagPath(), public.TagPage(templatreResolver, cfg))
+		publicGrp.GET(routes.GetTagImagePath(), public.TagImagePage(templatreResolver, cfg))
 
 		/// "/img/:id/:type"
 		publicGrp.GET(routes.GetImageDerivativePath(), DerivativeHandler(cfg))

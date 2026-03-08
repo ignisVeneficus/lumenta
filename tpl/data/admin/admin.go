@@ -78,6 +78,7 @@ type PageImage struct {
 	ComputedFocus focusdata.Focus
 	Aspect        grid.Aspect
 	Sync          dbo.SyncRun
+	SingleMap     *data.SingleMap
 }
 
 func (pi PageImage) ClampedAspect() float64 {
@@ -103,11 +104,11 @@ func (pi PageImage) NormalisedTitle() string {
 	return EMDash
 }
 func (pi PageImage) HasSubject() bool {
-	return pi.Subject != nil && (*pi.Subject) != ""
+	return pi.Caption != nil && (*pi.Caption) != ""
 }
 func (pi PageImage) NormalisedSubject() string {
 	if pi.HasSubject() {
-		return *pi.Subject
+		return *pi.Caption
 	}
 	return EMDash
 }

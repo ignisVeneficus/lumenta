@@ -45,7 +45,7 @@ func BuildRootDirGrid(ctx context.Context, database *sql.DB, page int, url data.
 		logging.ExitErr(logg, err)
 		return adminData.FsDirs{}, err
 	}
-	paging := tpl.CreatePaging(url, dirPageName, page, qty, dirPerPage)
+	paging := data.CreatePaging(url, dirPageName, page, qty, dirPerPage)
 
 	dirItems := []adminData.FsDir{}
 	for _, d := range dirs {
@@ -94,7 +94,7 @@ func BuildDirGrid(ctx context.Context, database *sql.DB, root, pagePath string, 
 		logging.ExitErr(logg, err)
 		return adminData.FsDirs{}, err
 	}
-	paging := tpl.CreatePaging(url, dirPageName, page, qty, dirPerPage)
+	paging := data.CreatePaging(url, dirPageName, page, qty, dirPerPage)
 
 	dirItems := []adminData.FsDir{}
 	for _, d := range dirs {
@@ -148,7 +148,7 @@ func BuildImageGrid(ctx context.Context, database *sql.DB, root, path string, pa
 		return adminData.FsImages{}, err
 	}
 
-	paging := tpl.CreatePaging(url, imagePageName, page, qty, imagePerPage)
+	paging := data.CreatePaging(url, imagePageName, page, qty, imagePerPage)
 
 	imageItems := []adminData.FsImage{}
 	for _, i := range images {
@@ -228,7 +228,7 @@ func FSPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 		path = strings.TrimPrefix(path, "/")
 		dPageStr := c.DefaultQuery(dirPageName, "1")
 		iPageStr := c.DefaultQuery(imagePageName, "1")
-		logg := logging.Enter(c, "admin.fsPage", map[string]any{
+		logg := logging.Enter(c, "page.admin.fs", map[string]any{
 			"path":           path,
 			"directory_page": dPageStr,
 			"image_page":     iPageStr,

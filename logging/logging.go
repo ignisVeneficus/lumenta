@@ -255,15 +255,33 @@ func InfoLog(log zerolog.Logger, function string, event string, result string, m
 }
 
 // Error emits an error log entry using the standard process logging format.
-//
-// The function exists to enforce a consistent error event structure
-// across the application, aligned with other process-level logging helpers
-// (Enter, ExitErr, ErrorContinue, etc.).
-//
-// Not all parameters are necessarily rendered in the current implementation;
-// their presence defines the canonical error logging interface.
-func Error(err error, event string, result string, message string, params map[string]any) {
-	log.Logger.Error().Err(err)
+
+func Error(ctx context.Context, err error, function string,
+	event string, result string, message string, params map[string]any) {
+	logg := loggerFromCtx(ctx)
+
+	level, ok := isDebugOrTraceEnabled(logg)
+	if !ok {
+		return
+	}
+
+	e := logg.Error().
+		Str(FieldFunc, function).
+		Str(FieldSpanID, "").
+		Str(FieldResult, result).
+		Str(FieldEvent, event)
+	if err != nil {
+		e.Err(err)
+	}
+	if ctx != nil {
+		if tid, ok := ctx.Value(TraceIDKey).(string); ok {
+			e = e.Str(FieldTraceID, tid)
+		}
+	}
+	if params != nil {
+		AddParams(e, level, params)
+	}
+	e.Msg(message)
 }
 
 //

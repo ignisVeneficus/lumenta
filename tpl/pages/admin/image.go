@@ -34,7 +34,7 @@ func resolveFocus(img dbo.Image) focusData.Focus {
 func ImagePage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		imageIDStr := c.Param("id")
-		logg := logging.Enter(c, "admin.ImagePage", map[string]any{
+		logg := logging.Enter(c, "page.admin.image", map[string]any{
 			"image": imageIDStr,
 		})
 
@@ -80,6 +80,14 @@ func ImagePage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 			Sync:          lastSync,
 			Aspect:        grid.ClassifyAspect(int(image.Width), int(image.Height)),
 		}
+		if image.Latitude != nil && image.Longitude != nil {
+			imageCtx.Image.SingleMap = &data.SingleMap{
+				Lat:  *image.Latitude,
+				Long: *image.Longitude,
+			}
+
+		}
+
 		// TODO: get users
 
 		if err := r.RenderPage(c.Writer, "admin/image", imageCtx); err != nil {

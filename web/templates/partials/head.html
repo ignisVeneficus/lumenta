@@ -36,5 +36,17 @@
   <link rel="apple-touch-icon" sizes="180x180" href="/static/favicons/apple-touch-icon.png" />
   <link rel="manifest" href="/static/favicons/site.webmanifest" />
 
+  <!-- event dispacher -->
+  <script src="/static/js/dispatcher.js"></script> 
+  <!-- derivative pooling -->
+  <script src="/static/js/derivative.js" defer></script> 
+  <!-- fullscreen handling -->
+  <script src="/static/js/fullscreen.js" defer></script>
+  <!-- slideshow handling -->
+  <script src="/static/js/slideshow.js" defer></script>
+
+
+
+  {{ block "page-head" . }}{{ end }}
   {{ block "head-extra" . }}{{ end }}
 </head>

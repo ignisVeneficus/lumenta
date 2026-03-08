@@ -19,7 +19,7 @@ import (
 
 func TagsRootPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		logg := logging.Enter(c, "public.tags.root", nil)
+		logg := logging.Enter(c, "page.public.tags.root", nil)
 
 		breadCrumbs := data.Breadcrumbs{
 			data.Breadcrumb{

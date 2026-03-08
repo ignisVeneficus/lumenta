@@ -147,6 +147,11 @@ The server-side web foundation is functional:
 - Web framework and routing
 - User handling and access control foundations
 - Image grid rendering and basic gallery presentation
+- Tag tree rendering
+- Tag browser page
+- Generic image page with openable info panel, fullscreen capatible and slideshow
+- Admin image browser and image information
+- Map (leaflet) integration for single image
 
 These components provide the foundation for browsing and interacting with the indexed collection, while higher-level UI features and refinements will evolve over time.
 
@@ -157,6 +162,9 @@ These components provide the foundation for browsing and interacting with the in
 
 ### Public hierarchical tag browser
 ![public tag view page](./doc/img/tag-view.png)
+
+### Public generic image page
+![public generic image page](./doc/img/image.png)
 
 ### Admin filesystem browser
 ![admin file browser](./doc/img/admin-fs.png)

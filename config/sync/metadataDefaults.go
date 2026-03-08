@@ -7,7 +7,7 @@ func DefaultDBMetadataConfig() MetadataConfig {
 		Fields: map[string]MetadataFieldConfig{
 
 			// =========================
-			// EXIF – idő és technika
+			// EXIF – Time technic
 			// =========================
 
 			data.MetaTakenAt: {
@@ -102,7 +102,7 @@ func DefaultDBMetadataConfig() MetadataConfig {
 			},
 
 			// =========================
-			// Orientáció / rating
+			// Orientation / Ratings
 			// =========================
 
 			data.MetaRotation: {
@@ -121,7 +121,7 @@ func DefaultDBMetadataConfig() MetadataConfig {
 			},
 
 			// =========================
-			// Emberi leírás
+			// Human description
 			// =========================
 
 			data.MetaTitle: {
@@ -132,7 +132,7 @@ func DefaultDBMetadataConfig() MetadataConfig {
 				Type: data.MetaString,
 			},
 
-			data.MetaSubject: {
+			data.MetaCaption: {
 				Sources: []MetadataSourceConfig{
 					{Ref: "xmp-dc:description"},
 					{Ref: "iptc:caption"},

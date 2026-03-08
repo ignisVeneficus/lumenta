@@ -44,7 +44,7 @@ func CreateTagsRootPath() string {
 }
 
 func GetTagPath() string {
-	return getPath(tagPath, ":id")
+	return getPath(tagPath, ":tid")
 }
 func CreateTagPath(id uint64) string {
 	return fmt.Sprintf(tagPath, id)
@@ -58,4 +58,7 @@ func GetTagImagePath() string {
 }
 func CreateTagImagePath(tid, iid uint64) string {
 	return fmt.Sprintf(tagImagePath, tid, iid)
+}
+func BuildTagImagePath(tid, iid uint64) *data.URLBuilder {
+	return data.NewURL(CreateTagImagePath(tid, iid))
 }

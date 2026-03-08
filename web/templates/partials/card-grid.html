@@ -3,7 +3,8 @@
         {{- range $card:= .Cards -}}
         <a class="card" href="{{$card.URL}}">
             <div class="media">
-                <img src="{{imagePath $card.Image "w640"}}"/>
+                <img src="{{imagePath $card.Image "w640" }}"
+                class="derivative-img"/>
             </div>
             <div class="meta">
                 <div class="name">{{$card.Name}}</div>

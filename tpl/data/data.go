@@ -11,6 +11,8 @@ import (
 	gridData "github.com/ignisVeneficus/lumenta/tpl/grid/data"
 )
 
+var ThumbnailPerPage = 5
+
 const (
 	QueryPaging = "page"
 )
@@ -67,33 +69,6 @@ type AlbumPageContex struct {
 	Images []*gridData.GridImage
 }
 
-type Breadcrumb struct {
-	Label string
-	Link  template.URL
-	Type  string
-	Title string
-}
-type Breadcrumbs []Breadcrumb
-
-type Paging struct {
-	Url     URLBuilder
-	Name    string
-	MaxPage uint64
-	ActPage uint64
-}
-type CardGridData interface {
-	Cards() []GridCard
-	Paging() Paging
-}
-
-type GridCard interface {
-	URL() template.URL
-	Image() uint64
-	Name() string
-	Description() string
-	Info() string
-}
-
 type TagRootPageContext struct {
 	PageContext
 	Breadcrumbs Breadcrumbs
@@ -113,11 +88,6 @@ type ImageGridPageContext struct {
 }
 
 type ImageTags dbo.TagsTree
-
-type TagPageContext struct {
-	ImageGridPageContext
-	PageTags PageTags
-}
 
 type PageTags struct {
 	Tags   []PageTag
@@ -150,4 +120,20 @@ type ErrorPageContext struct {
 	Title      string
 	Message    string
 	BackLabel  string
+}
+
+type SingleMap struct {
+	Lat   float64
+	Long  float64
+	Color *string
+}
+
+type ImagePageContext struct {
+	PageContext
+	Breadcrumbs Breadcrumbs
+	Image       PageImage
+	Thumbnails  Thumbnails
+	Next        *Thumbnail
+	Prev        *Thumbnail
+	Up          string
 }

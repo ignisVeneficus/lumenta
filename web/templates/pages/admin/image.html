@@ -1,3 +1,9 @@
+{{ define "page-head" }}
+    {{- if .Image.SingleMap -}}
+       {{template "partials/map/head.html" }}
+    {{- end -}}
+{{ end }}
+
 {{ define "main" }}
 <div class="breadcrumbs-wrapper">
 {{- with .Breadcrumbs }}
@@ -7,7 +13,7 @@
 
 <div class="admin-layout image-page">
     {{- template "partials/admin/action-rail.html" . -}}
-    <!-- TODO: rebuild for grid -->
+
     <div class="content">
         <div class="column column-1">
             <div class="image-panel panel panel-pos" style="--p12x: 0; --p12y:0; --p12w:3;--p12h:3">
@@ -80,6 +86,13 @@
 
                 </div>
             </div>
+            {{- if .Image.SingleMap -}}
+            <div>
+                <div class="title">Location</div>
+                <div>{{ formatLatitude .Image.SingleMap.Lat }}, {{ formatLongitude .Image.SingleMap.Long }}</div>
+                {{ template "partials/map/single-map.html" .Image.SingleMap }}
+            </div>
+            {{- end -}}
         </div>
         <div class="column column-2">
             <div class="image-state-panel panel panel-pos" style="--p12x: 3; --p12y:0; --p12w:3;--p12h:1">
@@ -94,7 +107,7 @@
                 <div class="title">Actions</div>
             </div>
             <div class="image-metadatas-panel panel panel-pos">
-                <div class="title">Matadatas</div>           
+                <div class="title">Metadatas</div>           
             </div>
         </div>
         <div class="colum colum-3">

@@ -20,7 +20,7 @@ import (
 const imageFields = `
 i.id, i.root, i.path, i.filename, i.ext,
 i.file_size, i.mtime, i.file_hash, i.meta_hash,
-i.title, i.subject,
+i.title, i.caption,
 i.taken_at, i.camera, i.lens, i.focal_length, i.aperture, i.exposure, i.iso,
 i.latitude, i.longitude, i.rotation, i.rating, i.width, i.height, i.panorama,
 i.focus_x, i.focus_y, i.focus_mode,
@@ -53,7 +53,7 @@ const createImage = `
 INSERT INTO images (
   root, path, filename, ext,
   file_size, mtime, file_hash, meta_hash,
-  title, subject,
+  title, caption,
   taken_at, camera, lens, focal_length, aperture, exposure,iso,
   latitude, longitude, rotation, rating, width, height, panorama,
   focus_x, focus_y, focus_mode,
@@ -67,7 +67,7 @@ const updateImage = `
 UPDATE images SET
   root=?, path=?, filename=?, ext=?,
   file_size=?, mtime=?, file_hash=?, meta_hash=?,
-  title=?, subject=?,
+  title=?, caption=?,
   taken_at=?, camera=?, lens=?, focal_length=?, aperture=?, exposure=?, iso=?,
   latitude=?, longitude=?, rotation=?, rating=?, width=?, height=?, panorama=?,
   focus_x=?, focus_y=?, focus_mode=?,
@@ -135,8 +135,8 @@ const getImageIdByTagACLFirstHash = `SELECT i.id ` + imageByTagACLWhere + ` ORDE
 const countImageRoots = `SELECT COUNT(DISTINCT i.root) AS root_count FROM images i`
 const queryImageRoots = `SELECT DISTINCT i.root FROM images i order by i.root`
 
-const queryImageIDByTagACLNext = `SELECT i.id ` + imageByTagACLWhere + " AND " + imageWhereNext + defaultImageOrderForwald + ` LIMIT ?, ?`
-const queryImageIDByTagACLPrev = `SELECT i.id ` + imageByTagACLWhere + " AND " + imageWherePrev + defaultImageOrderBackward + ` LIMIT ?, ?`
+const queryImageIDByTagACLNext = `SELECT i.id,COALESCE(NULLIF(i.title,''), i.filename) AS display_name ` + imageByTagACLWhere + " AND " + imageWhereNext + defaultImageOrderForwald + ` LIMIT ?, ?`
+const queryImageIDByTagACLPrev = `SELECT i.id,COALESCE(NULLIF(i.title,''), i.filename) AS display_name ` + imageByTagACLWhere + " AND " + imageWherePrev + defaultImageOrderBackward + ` LIMIT ?, ?`
 
 func parseImage(row *sql.Row) (dbo.Image, error) {
 	var i dbo.Image
@@ -151,7 +151,7 @@ func parseImage(row *sql.Row) (dbo.Image, error) {
 		&i.FileHash,
 		&i.MetaHash,
 		&i.Title,
-		&i.Subject,
+		&i.Caption,
 		&i.TakenAt,
 		&i.Camera,
 		&i.Lens,
@@ -206,7 +206,7 @@ func parseImageRows(rows *sql.Rows) ([]dbo.Image, error) {
 			&i.FileHash,
 			&i.MetaHash,
 			&i.Title,
-			&i.Subject,
+			&i.Caption,
 			&i.TakenAt,
 			&i.Camera,
 			&i.Lens,
@@ -265,7 +265,7 @@ func (q *Queries) CreateImage(ctx context.Context, i dbo.Image) error {
 		i.FileHash,
 		i.MetaHash,
 		i.Title,
-		i.Subject,
+		i.Caption,
 		i.TakenAt,
 		i.Camera,
 		i.Lens,
@@ -312,7 +312,7 @@ func (q *Queries) UpdateImage(ctx context.Context, i dbo.Image) error {
 		i.FileHash,
 		i.MetaHash,
 		i.Title,
-		i.Subject,
+		i.Caption,
 		i.TakenAt,
 		i.Camera,
 		i.Lens,
@@ -443,7 +443,7 @@ func (q *Queries) QueryImageWLastSyncByWUserPathPaged(ctx context.Context, root,
 			&i.FileHash,
 			&i.MetaHash,
 			&i.Title,
-			&i.Subject,
+			&i.Caption,
 			&i.TakenAt,
 			&i.Camera,
 			&i.Lens,
@@ -603,7 +603,7 @@ func (q *Queries) QueryImageRoots(ctx context.Context) ([]string, error) {
 	return out, nil
 }
 
-func (q *Queries) QueryImageIDByTagACLNext(ctx context.Context, tagId uint64, imgId uint64, orderDate *time.Time, fileName string, acl ACLContext, from, qty uint64) ([]uint64, error) {
+func (q *Queries) QueryImageIDByTagACLNext(ctx context.Context, tagId uint64, imgId uint64, orderDate *time.Time, fileName string, acl ACLContext, from, qty uint64) ([]dbo.ImageTitle, error) {
 	params := []any{tagId}
 	params = append(params, acl.AsParamArray()...)
 	params = append(params, getImageParamsNextPrev(imgId, orderDate, fileName)...)
@@ -613,10 +613,10 @@ func (q *Queries) QueryImageIDByTagACLNext(ctx context.Context, tagId uint64, im
 		return nil, err
 	}
 	defer rows.Close()
-	out := make([]uint64, 0)
+	out := make([]dbo.ImageTitle, 0)
 	for rows.Next() {
-		var i uint64
-		if err := rows.Scan(&i); err != nil {
+		var i dbo.ImageTitle
+		if err := rows.Scan(&i.ID, &i.Title); err != nil {
 			return nil, err
 		}
 		out = append(out, i)
@@ -627,7 +627,7 @@ func (q *Queries) QueryImageIDByTagACLNext(ctx context.Context, tagId uint64, im
 	return out, nil
 }
 
-func (q *Queries) QueryImageIDByTagACLPrev(ctx context.Context, tagId uint64, imgId uint64, orderDate *time.Time, fileName string, acl ACLContext, from, qty uint64) ([]uint64, error) {
+func (q *Queries) QueryImageIDByTagACLPrev(ctx context.Context, tagId uint64, imgId uint64, orderDate *time.Time, fileName string, acl ACLContext, from, qty uint64) ([]dbo.ImageTitle, error) {
 	params := []any{tagId}
 	params = append(params, acl.AsParamArray()...)
 	params = append(params, getImageParamsNextPrev(imgId, orderDate, fileName)...)
@@ -637,10 +637,10 @@ func (q *Queries) QueryImageIDByTagACLPrev(ctx context.Context, tagId uint64, im
 		return nil, err
 	}
 	defer rows.Close()
-	out := make([]uint64, 0)
+	out := make([]dbo.ImageTitle, 0)
 	for rows.Next() {
-		var i uint64
-		if err := rows.Scan(&i); err != nil {
+		var i dbo.ImageTitle
+		if err := rows.Scan(&i.ID, &i.Title); err != nil {
 			return nil, err
 		}
 		out = append(out, i)
@@ -774,14 +774,16 @@ func DeleteImage(db *sql.DB, ctx context.Context, id uint64) error {
 	return tx.Commit()
 }
 func GetImageById(db *sql.DB, ctx context.Context, id uint64) (dbo.Image, error) {
-	log.Logger.Debug().Uint64("id", id).Msg("Get image by id")
+	logg := logging.Enter(ctx, "dao.image.ge.byId", map[string]any{
+		"image_id": id,
+	})
 
 	q := NewQueries(db)
 	i, err := q.GetImageById(ctx, id)
-	return i, wrapNotFound(err, "image")
+	return i, returnWrapNotFound(logg, err, "image")
 }
 func GetImageByIdACL(db *sql.DB, ctx context.Context, id uint64, acl ACLContext) (dbo.Image, error) {
-	logg := logging.Enter(ctx, "dao.image.getById.ACL", map[string]any{
+	logg := logging.Enter(ctx, "dao.image.ge.byId.ACL", map[string]any{
 		"image_id":    id,
 		"acl_context": acl,
 	})
@@ -809,7 +811,10 @@ func GetImageByIdWTags(db *sql.DB, ctx context.Context, id uint64) (dbo.Image, e
 	return i, nil
 }
 func GetImageByIdACLWTags(db *sql.DB, ctx context.Context, id uint64, acl ACLContext) (dbo.Image, error) {
-	logg := logging.Enter(ctx, "dao.image.getImageById.ACL.Tags", nil)
+	logg := logging.Enter(ctx, "dao.image.get.withTags.byId.byACL", map[string]any{
+		"image_id": id,
+		"acl":      acl,
+	})
 
 	q := NewQueries(db)
 	i, err := q.GetImageByIdACL(ctx, id, acl)
@@ -1164,31 +1169,41 @@ func QueryImageRoots(db *sql.DB, ctx context.Context) ([]string, error) {
 	return paths, nil
 }
 
-func QueryImageIDByTagACLNext(db *sql.DB, ctx context.Context, tagId uint64, imgId uint64, takenDate *time.Time, fileName string, acl ACLContext, from, qty uint64) ([]uint64, error) {
-	logg := logging.Enter(ctx, "dao.image.query.Id.byTag.Next", nil)
+func QueryImageIDByTagACLNext(db *sql.DB, ctx context.Context, tagId uint64, imgId uint64, takenDate *time.Time, fileName string, acl ACLContext, from, qty uint64) ([]dbo.ImageTitle, error) {
+	logg := logging.Enter(ctx, "dao.image.query.IdTitle.byTag.Next", map[string]any{
+		"image_id": imgId,
+		"tag_id":   tagId,
+		"from":     from,
+		"qty":      qty,
+	})
 	q := NewQueries(db)
-	ids, err := q.QueryImageIDByTagACLNext(ctx, tagId, imgId, takenDate, fileName, acl, from, qty)
+	imagesTitle, err := q.QueryImageIDByTagACLNext(ctx, tagId, imgId, takenDate, fileName, acl, from, qty)
 	if err != nil {
 		logging.ExitErr(logg, err)
 		return nil, err
 	}
 	logging.Exit(logg, "ok", map[string]any{
-		"found": len(ids),
+		"found": len(imagesTitle),
 	})
-	return ids, nil
+	return imagesTitle, nil
 
 }
 
-func QueryImageIDByTagACLPrev(db *sql.DB, ctx context.Context, tagId uint64, imgId uint64, takenDate *time.Time, fileName string, acl ACLContext, from, qty uint64) ([]uint64, error) {
-	logg := logging.Enter(ctx, "dao.image.query.Id.byTag.Prev", nil)
+func QueryImageIDByTagACLPrev(db *sql.DB, ctx context.Context, tagId uint64, imgId uint64, takenDate *time.Time, fileName string, acl ACLContext, from, qty uint64) ([]dbo.ImageTitle, error) {
+	logg := logging.Enter(ctx, "dao.image.query.IdTitle.byTag.Prev", map[string]any{
+		"image_id": imgId,
+		"tag_id":   tagId,
+		"from":     from,
+		"qty":      qty,
+	})
 	q := NewQueries(db)
-	ids, err := q.QueryImageIDByTagACLPrev(ctx, tagId, imgId, takenDate, fileName, acl, from, qty)
+	imagesTitle, err := q.QueryImageIDByTagACLPrev(ctx, tagId, imgId, takenDate, fileName, acl, from, qty)
 	if err != nil {
 		logging.ExitErr(logg, err)
 		return nil, err
 	}
 	logging.Exit(logg, "ok", map[string]any{
-		"found": len(ids),
+		"found": len(imagesTitle),
 	})
-	return ids, nil
+	return imagesTitle, nil
 }

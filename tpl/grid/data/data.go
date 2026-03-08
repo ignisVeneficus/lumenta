@@ -112,7 +112,7 @@ func (s Span) ToRect() *Rect {
 
 type GridImage struct {
 	ImgId       uint64
-	Caption     string
+	Title       string
 	Focus       data.Focus
 	AspectClass Aspect
 	Aspect      float32

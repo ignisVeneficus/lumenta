@@ -3,6 +3,7 @@ package tpl
 import (
 	"fmt"
 	"html/template"
+	"math"
 	"os"
 	"path/filepath"
 	"time"
@@ -13,12 +14,12 @@ import (
 
 func DefaultFuncMap() template.FuncMap {
 	return template.FuncMap{
-		"icon":            Icon,
-		"siteIcon":        SiteIcon,
-		"gridTileImgList": functions.TileImgList,
-		"gridRectToVar":   functions.RectsToStyleVars,
-		"gridTileRole":    functions.TileRole,
-		"toPercent":       ToPercent,
+		"icon":          Icon,
+		"siteIcon":      SiteIcon,
+		"tileImgList":   functions.TileImgList,
+		"gridRectToVar": functions.RectsToStyleVars,
+		"gridTileRole":  functions.TileRole,
+		"toPercent":     ToPercent,
 
 		"pagingFirst": functions.PagingFirst,
 		"pagingPrev":  functions.PagingPrev,
@@ -39,6 +40,9 @@ func DefaultFuncMap() template.FuncMap {
 			return t.Format("2006-01-02 15:04:05")
 		},
 		"reticleOffset": functions.FocusOffset,
+
+		"formatLatitude":  FormatLatDMS,
+		"formatLongitude": FormatLonDMS,
 	}
 }
 
@@ -99,4 +103,37 @@ func ImagePath(imageId uint64, derivative string) template.URL {
 }
 func TagPath(tagId uint64) template.URL {
 	return template.URL(routes.CreateTagPath(uint64(tagId)))
+}
+
+func FormatLatDMS(lat float64) string {
+	return toDMS(lat, "N", "S")
+}
+
+func FormatLonDMS(lon float64) string {
+	return toDMS(lon, "E", "W")
+}
+func toDMS(decimal float64, posHem, negHem string) string {
+	abs := math.Abs(decimal)
+
+	deg := int(abs)
+	minFloat := (abs - float64(deg)) * 60
+	min := int(minFloat)
+	sec := (minFloat - float64(min)) * 60
+
+	// rounding guard
+	if sec >= 59.9995 {
+		sec = 0
+		min++
+	}
+	if min >= 60 {
+		min = 0
+		deg++
+	}
+
+	hem := posHem
+	if decimal < 0 {
+		hem = negHem
+	}
+
+	return fmt.Sprintf("%d°%02d'%05.2f\"%s", deg, min, sec, hem)
 }

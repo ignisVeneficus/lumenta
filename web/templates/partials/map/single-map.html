@@ -1,0 +1,15 @@
+<div id="map" class="single-map"
+     data-cluster="false"
+     data-popup="false"
+     data-hover="true">
+</div>
+
+<script>
+window.MAP_POINT = {
+  lat: {{ .Lat  }},
+  lon: {{ .Long }},
+  {{- if .Color -}}
+  color: {{ .Color }},
+  {{- end -}}
+}
+</script>

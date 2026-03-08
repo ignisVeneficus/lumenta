@@ -24,7 +24,7 @@ const (
 	MetaRotation     = "rotation"
 	MetaRating       = "rating"
 	MetaTitle        = "title"
-	MetaSubject      = "subject"
+	MetaCaption      = "caption"
 	MetaTags         = "tags"
 	MetaHeight       = "height"
 	MetaWidth        = "width"
@@ -139,8 +139,8 @@ func (m Metadata) getInt8(key string) *int8 {
 func (m Metadata) GetTitle() *string {
 	return m.getString(MetaTitle)
 }
-func (m Metadata) GetSubject() *string {
-	return m.getString(MetaSubject)
+func (m Metadata) GetCaption() *string {
+	return m.getString(MetaCaption)
 }
 func (m Metadata) GetTakenAt() *time.Time {
 	return m.getTime(MetaTakenAt)
@@ -273,11 +273,7 @@ func (m MetadataValue) AsInt() (int64, bool) {
 }
 
 func (m MetadataValue) AsString() (string, bool) {
-	if m.Type != MetaString {
-		return "", false
-	}
-	v, ok := m.Value.(string)
-	return v, ok
+	return fmt.Sprint(m.Value), true
 }
 
 func (m MetadataValue) AsList() ([]string, bool) {

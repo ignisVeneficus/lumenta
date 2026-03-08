@@ -170,7 +170,7 @@ func (s *Service) workerLoop(ctx context.Context, workerID int) {
 	for {
 		j := s.pop(ctx)
 		if j == nil {
-			logging.Error(nil, "service.derivative.loop", "error", "job is nil", nil)
+			logging.Error(ctx, nil, "service.derivative.loop", "pop", "error", "job is nil", nil)
 			return
 		}
 		logg := logging.Enter(j.Ctx, "service.derivative.loop", map[string]any{"worker Id": workerID})

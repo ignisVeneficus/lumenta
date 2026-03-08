@@ -2,20 +2,23 @@
 <div class="imageGrid">
     {{- range .Images -}}
         <figure class="tile {{ gridTileRole . }}" {{ gridRectToVar . }}>
-            <a href="{{ .URL }}" title="{{ .Caption }}">
+            <a href="{{ .URL }}" title="{{ .Title }}">
                 <img
                     src="{{ imagePath .ImgId "w1024" }}"
-                    srcset="{{ gridTileImgList .ImgId 640 1024 1600 2400 }}"
+                    {{/*
+                    srcset="{ { tileImgList .ImgId 640 1024 1600 2400 } }"
                     sizes="
                       (max-width: 600px) 100vw,
                       (max-width: 1024px) 50vw,
                       33vw
                     "
-                    alt="{{ .Caption }}"
+                    */}}
+                    alt="{{ .Title }}"
                     loading="lazy"
                     decoding="async"
+                    class="derivative-img"
                 >
-                <figcaption class="caption">{{ .Caption }}</figcaption>
+                <figcaption class="caption">{{ .Title }}</figcaption>
             </a>
         </figure>
     {{- end -}}

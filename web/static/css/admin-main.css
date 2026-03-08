@@ -275,3 +275,37 @@
   background: rgba(255,255,255,0.06);
   border: 1px solid rgba(255,255,255,0.15);
 }
+
+/* ==========================================================================
+   ADMIN MAIN
+   ========================================================================== */
+.admin-main{
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+.admin-main .card{
+  width: 150px;
+  height: 200px;
+  background-color: var(--bg-context);
+}
+.admin-main .card a{
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-4);
+  align-items: center;
+  justify-content: center;
+}
+.admin-main .card a:hover{
+  background-color: var(--gray-hover);
+}
+
+.admin-main .card a .icon{
+  font-size:100px;
+  flex: 1;
+  color: var(--icon-primary);
+  line-height: 100px;
+}
+.admin-main .card a:hover .icon{
+  color: var(--icon-hover)
+}

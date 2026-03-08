@@ -65,7 +65,7 @@
   position: relative;
 }
 
-.caption{
+.imageGrid .caption{
   position: absolute;
   left: 0;
   right: 0;
@@ -125,13 +125,6 @@
 /* ==========================================================================
    IMAGE CONTEXT MENU
    ========================================================================== */
-.breadcrumbs-wrapper{
-    display: flex;
-    align-items: center;
-}
-.breadcrumbs-wrapper .breadcrumbs{
-  flex: 1 1 auto;
-}
 
 /*
 TODO: merge style
@@ -168,4 +161,200 @@ TODO: merge style
   border-radius: 12px;
   border: 1px solid var(--border-subtle);
   z-index: 100;
+}
+
+/* ==========================================================================
+   MAIN IMAGE
+   ========================================================================== */
+.image-page{
+  display:flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4)  
+}
+.image-content{
+  position: relative;
+  align-self: stretch;
+}
+.image-content .image{
+  display: flex;
+  position:relative;
+  align-items: center;
+  justify-content: center;
+}
+.image-content .image img {
+  max-width: 100%;
+  max-height: 70vh;
+  object-fit: contain;
+}
+.image-content .image .caption{
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  opacity: 0;
+  background-color: rgba(0,0,0,0.5);
+  padding: var(--space-2);
+
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.image-content .image:hover .caption{
+  opacity: 1;
+}
+
+.image-thumbs{
+  display: grid;
+  grid-template-columns: 32px repeat(5, 1fr) 32px;
+  gap: var(--space-2);
+  align-items: stretch;
+  max-height: 200px;
+  max-width: calc(32px + 5 * 200px + 32px + 6 * var(--space-2));
+}
+.image-wrapper{
+  display:flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.thumbnail img{
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+}
+.image-page .overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 8000;
+  display: flex;
+}
+.overlay .image-nav{
+  pointer-events: auto;
+  display:flex;
+  height: 100%;
+  align-items: flex-start;
+}
+.image-nav.left{
+  width: clamp(80px, 10vw, 180px);
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.right{
+    width: clamp(80px, 10vw, 180px);
+    display:flex;
+    flex-direction: row;
+}
+
+.image-page #info-panel{
+  display:flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: 200px;
+  background: var(--bg-upper);
+  padding: var(--space-4) var(--space-page-x);
+  font-size: var(--font-size-xs);
+}
+.image-page #info-panel .title{
+  font-size: var(--font-size-m);
+}
+
+.image-nav.up {
+  height: 80px;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.right .image-nav{
+  flex: 1;
+  overflow: visible;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  justify-content: center;  
+}
+.image-nav a.action{
+  opacity: 0%;
+  width: 100%;
+  height: 100%;
+}
+.image-nav a.action:hover{
+  opacity: 100%;
+}
+.image-page .caption{
+  text-align: center;
+}
+.image-thumbs .action{
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height:100%;
+}
+body:has(#toggle-info:not(:checked)) #info-panel {
+    display: none;
+}
+
+body:has(#toggle-info:checked) #info-panel {
+    display: flex;
+}
+
+body:has(#toggle-info:checked) .right{
+    width: clamp(330px, calc(10vw + 250px), 430px);
+}
+body:has(#toggle-info:checked) .overlay{
+    right: calc(-1*var(--space-page-x))
+}
+
+
+
+.ctx-toggle:checked + .action{
+  background: var(--background-active)
+}
+.ctx-toggle:checked + .action:hover{
+  background: var(--background-active)
+}
+html.is-fullscreen .image-content{
+  position: fixed;
+  inset: 0;
+  z-index: 7000;
+  background: var(--bg-deep);
+  overflow: auto;
+  padding: var(--space-4) var(--space-page-x);
+}
+html.is-fullscreen .ctx-menu{
+  position: fixed;
+  right: var(--space-page-x);
+  top: var(--space-4);
+  z-index: 9500;
+  background: var(--bg-deep);
+  overflow: auto;
+}
+html.is-fullscreen .off-fs{
+  display:none;
+}
+
+.on-fs{
+  display:none;
+}
+html.is-fullscreen .on-fs{
+  display: inline-flex;
+}
+html.is-fullscreen .image-wrapper{
+  height:100%;
+}
+html.is-fullscreen .image-page .overlay{
+  margin: var(--space-4) var(--space-page-x);
+}
+html.slideshow-ui-hidden .ctx-menu{
+  display: none;
+}
+html.slideshow-ui-hidden .image-page .overlay{
+  display: none;
 }

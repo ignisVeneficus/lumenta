@@ -5,7 +5,6 @@ import (
 
 	"github.com/ignisVeneficus/lumenta/data"
 	"github.com/ignisVeneficus/lumenta/db/dbo"
-	"github.com/ignisVeneficus/lumenta/utils"
 	"github.com/rs/zerolog/log"
 
 	gridConfig "github.com/ignisVeneficus/lumenta/config/presentation"
@@ -94,10 +93,7 @@ func BuildGrid(images []dbo.Image, gridCfg gridConfig.GridConfig, salt uint64, u
 	// default cell count
 	for _, img := range images {
 		aspectClass := ClassifyAspect(int(img.Width), int(img.Height))
-		caption := utils.FromStringPtr(img.Title)
-		if caption == "" {
-			caption = img.Filename
-		}
+		title := img.GetTitle()
 		rating := 0
 		if img.Rating != nil {
 			rating = int(*img.Rating)
@@ -109,7 +105,7 @@ func BuildGrid(images []dbo.Image, gridCfg gridConfig.GridConfig, salt uint64, u
 		}
 		gi := gridData.GridImage{
 			ImgId:       *img.ID,
-			Caption:     caption,
+			Title:       title,
 			Focus:       data.ResolveFocus(img.FocusX, img.FocusY, data.ImageFocusMode(img.FocusMode)),
 			Rating:      rating,
 			AspectClass: aspectClass,

@@ -138,8 +138,8 @@ CREATE TABLE IF NOT EXISTS images (
 
   title VARCHAR(255) NULL 
     COMMENT 'Human-readable image title',
-  subject TEXT NULL 
-    COMMENT 'Longer image description or caption',
+  caption TEXT NULL 
+    COMMENT 'Longer image description',
 
   focus_x FLOAT NULL
     COMMENT 'Normalized horizontal focus point (0..1)',

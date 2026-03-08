@@ -1,0 +1,142 @@
+{{ define "page-head" }}
+    {{- if .Image.SingleMap -}}
+       {{template "partials/map/head.html" }}
+    {{- end -}}
+{{ end }}
+
+{{ define "main" }}
+
+<script>
+window.SLIDESHOW = {
+  next: "{{ .Next.Url }}",
+  delay: 5000
+}
+</script>
+
+<div class="breadcrumbs-wrapper">
+{{- if .Breadcrumbs }}
+    {{- template "partials/breadcrumbs.html" .Breadcrumbs -}}
+{{- end -}}
+    <div class="ctx-menu">
+        {{- if .Prev -}}
+        <a class="action off-fs" href="{{ .Prev.Url }}"><i class="icon fa-solid fa-angle-left" title="{{ .Prev.Title }}"></i></a>
+        {{- else -}}
+        <span class="action disabled off-fs"><i class="icon fa-solid fa-angle-left" title="Previous image"></i></span>
+        {{- end -}}
+
+        <a class="action off-fs" href="{{ .Up }}"><i class="icon fa-solid fa-angle-up" title="Back to the list"></i></a>
+
+        {{- if .Next -}}
+        <a class="action off-fs" href="{{ .Next.Url }}"><i class="icon fa-solid fa-angle-right" title="{{ .Next.Title }}"></i></a>
+        {{- else -}}
+        <span class="action disabled off-fs"><i class="icon fa-solid fa-angle-right" title="Previous image"></i></span>
+        {{- end -}}
+
+        <a class="ctx-btn action off-fs" id="fullscreen-on">
+            <i class="icon fa-solid fa-expand" title="Fullscreen mode"></i>
+        </a>
+        <a class="ctx-btn action on-fs" id="fullscreen-off">
+            <i class="icon fa-solid fa-compress" title="Leave fullscreen mode"></i>
+        </a>
+
+
+        <input type="checkbox" id="toggle-info" class="ctx-toggle">
+        <label for="toggle-info" class="ctx-btn action off-fs">
+            <i class="icon fa-solid fa-circle-info" title="Toggle info panel"></i>
+        </label>
+
+        <input type="checkbox" id="toggle-slideshow" class="ctx-toggle">
+        <label for="toggle-slideshow" class="ctx-btn action on-fs">
+            <i class="icon fa-solid fa-play" title="Toggle slideshow"></i>
+        </label>
+    </div>
+</div>
+<div class="content image-page">
+  <div class="image-content">
+    <div class="image-wrapper">
+        <div class="image" id="theImage">
+            <img src="{{ imagePath .Image.Image.ID "w2400" }}"
+            {{/*
+            srcset="{ { tileImgList .Image.Image.ID 640 1024 1600 2400 } }"
+            sizes="(max-width: 900px) 100vw, 900px"
+            */}}
+            class="derivative-img"
+            />
+            <figcaption class="caption">{{ .Image.Image.GetTitle }}</figcaption>
+        </div>
+    </div>
+    <div class="overlay">
+        <div class="image-nav left image-nav-prev">
+            {{- if .Prev -}}
+            <a class="action" href="{{ .Prev.Url }}"><i class="icon fa-solid fa-angle-left" title="{{ .Prev.Title }}"></i></a>
+            {{- end -}}
+        </div>
+        <div class="image-nav up image-nav-up">
+            <a class="action" href="{{ .Up }}"><i class="icon fa-solid fa-angle-up" title="Back to the list"></i></a>
+        </div>
+        <div class="right">
+            <div class="image-nav image-nav-next">
+            {{- if .Next -}}
+            <a class="action" href="{{ .Next.Url }}"><i class="icon fa-solid fa-angle-right" title="{{ .Next.Title }}"></i></a>
+            {{- end -}}
+            </div>
+            <aside class="viewer-info" id="info-panel">
+                <div class="info-content">
+                    {{- with .Image.Metadata -}}
+                        {{- if .Title -}}
+                            <div class="title">{{ .Title }}</div>
+                        {{- end -}}
+                        {{- if .Description -}}
+                            <div class="description">{{ .Description }}</div>
+                        {{- end -}}
+                        {{- range .Blocks -}}
+                            <div class="metadata">
+                                {{- range .Data}}
+                                    <div class="value">{{ . }}</div>
+                                {{- end -}}
+                            </div>
+                        {{- end -}}
+                    {{- end -}}
+                    {{- if .Image.SingleMap -}}
+                    <div>
+                        {{ template "partials/map/single-map.html" .Image.SingleMap }}
+                    </div>
+                    {{- end -}}
+
+                    <div class="tag-tree-box">
+                        {{ template "partials/tag-tree.html" .Image.Tags }}
+                    </div>
+
+                </div>
+            </aside>
+        </div>
+    </div>
+  </div>
+  <div class="image-thumbs">
+    {{- if .Thumbnails.BeforeUrl -}}
+        <a href="{{.Thumbnails.BeforeUrl}}" class="action"><i class="icon fa-solid fa-angle-left" title="Previous page"></i></a>
+    {{- else -}}
+        <span class="action disabled"><i class="icon fa-solid fa-angle-left" title="Previous page"></i></span>
+    {{- end -}}
+    {{- range .Thumbnails.Images -}}
+        <div class="thumbnail">
+            {{- if . -}}
+                {{- if .Url -}}
+                <a href="{{ .Url }}">
+                    <img src="{{ imagePath .ImageId "s400" }}" title="{{ .Title }}" class="derivative-img"/>
+                </a>
+                {{- else -}}
+                    <img src="{{ imagePath .ImageId "s400" }}" class="derivative-img"/>
+                {{- end -}}
+            {{- end -}}
+        </div>
+    {{- end -}}
+    {{- if .Thumbnails.AfterUrl -}}
+        <a href="{{.Thumbnails.AfterUrl}}" class="action"><i class="icon fa-solid fa-angle-right" title="Next page"></i></a>
+    {{- else -}}
+        <span class="action disabled"><i class="icon fa-solid fa-angle-right" title="Next page"></i></span>
+    {{- end -}}
+  </div>
+        
+</div>
+{{ end }}

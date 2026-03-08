@@ -45,7 +45,7 @@ func UpdateImageMetadata(i *dbo.Image, metadata data.Metadata) error {
 	i.Width = metadata.GetWidth()
 	i.Height = metadata.GetHeight()
 	i.Rotation = metadata.GetRotation()
-	i.Subject = metadata.GetSubject()
+	i.Caption = metadata.GetCaption()
 	i.Title = metadata.GetTitle()
 	tags := metadata.GetTags()
 	JSONMetadata, err := json.Marshal(metadata)
