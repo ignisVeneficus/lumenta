@@ -43,7 +43,7 @@
 
         function renderMap(points) {
 
-            const map = L.map(container, {
+            map = L.map(container, {
                 zoomControl: true,
                 preferCanvas: true
             });

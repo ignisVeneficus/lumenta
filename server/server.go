@@ -38,8 +38,9 @@ func Server(cfg config.Config) {
 		RequestID(),
 		Logger(),
 		gin.Recovery(),
-		AuthContextMiddleware(ctx, cfg.Auth, cfg.Env),
+		AuthContextMiddleware(ctx, cfg.Site.BaseURL, cfg.Auth, cfg.Env),
 		SiteAccessMiddleware(cfg.Auth.GuestEnabled),
+		BrowserCache(),
 	)
 
 	r.GET("/static/*filepath", func(c *gin.Context) {
@@ -50,6 +51,7 @@ func Server(cfg config.Config) {
 	})
 
 	publicGrp := r.Group("/")
+	publicGrp.Use(DefaultHTMLMime())
 	{
 
 		publicGrp.GET("/", public.MainPage(templatreResolver, cfg))
@@ -65,7 +67,7 @@ func Server(cfg config.Config) {
 		publicGrp.GET(routes.GetImageDerivativePath(), DerivativeHandler(cfg))
 	}
 	adminGrp := r.Group("/admin")
-	adminGrp.Use(RequireRole(authData.RoleAdmin))
+	adminGrp.Use(RequireRole(authData.RoleAdmin), DefaultHTMLMime())
 	{
 		adminGrp.GET("/", admin.MainPage(templatreResolver, cfg))
 		adminGrp.GET(routes.GetAdminFsPath(), admin.FSPage(templatreResolver, cfg))

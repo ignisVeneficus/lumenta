@@ -16,9 +16,10 @@ type JWTClaims struct {
 }
 
 type JWTService struct {
-	secret []byte
-	ttl    time.Duration
-	issuer string
+	secret   []byte
+	ttl      time.Duration
+	issuer   string
+	audience string
 }
 
 type Option func(*JWTService)
@@ -31,6 +32,10 @@ func WithTTL(ttl time.Duration) Option {
 // WithIssuer configures token issuer (iss).
 func WithIssuer(issuer string) Option {
 	return func(s *JWTService) { s.issuer = issuer }
+}
+
+func WithAudience(aud string) Option {
+	return func(s *JWTService) { s.audience = aud }
 }
 
 func NewJWTService(secret string, opts ...Option) *JWTService {
@@ -55,6 +60,9 @@ func (s *JWTService) Verify(tokenStr string) (*JWTClaims, error) {
 		jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}),
 		jwt.WithIssuedAt(),
 		jwt.WithExpirationRequired(),
+		jwt.WithAudience(s.audience),
+		jwt.WithIssuer(s.issuer),
+		jwt.WithLeeway(30*time.Second), // clock skew
 	)
 
 	token, err := parser.ParseWithClaims(
@@ -81,7 +89,9 @@ func (s *JWTService) Issue(acl authData.ACLContext) (string, error) {
 
 	rc := jwt.RegisteredClaims{
 		Issuer:    s.issuer,
+		Audience:  jwt.ClaimStrings{s.audience},
 		IssuedAt:  jwt.NewNumericDate(now),
+		NotBefore: jwt.NewNumericDate(now),
 		ExpiresAt: jwt.NewNumericDate(now.Add(s.ttl)),
 	}
 	claims := JWTClaims{

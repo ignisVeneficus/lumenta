@@ -84,11 +84,11 @@ func SiteAccessMiddleware(EnableGuest bool) gin.HandlerFunc {
 	}
 }
 
-func AuthContextMiddleware(ctx context.Context, cfg authConfig.AuthConfig, env config.Environment) gin.HandlerFunc {
+func AuthContextMiddleware(ctx context.Context, issuer string, cfg authConfig.AuthConfig, env config.Environment) gin.HandlerFunc {
 
 	rt := GetAuthRuntime(ctx, cfg)
 
-	JWT := NewJWTService(cfg.JWT.Secret)
+	JWT := NewJWTService(cfg.JWT.Secret, WithIssuer(issuer))
 
 	return func(c *gin.Context) {
 

@@ -17,8 +17,9 @@
     <div class="content">
         <div class="column column-1">
             <div class="image-panel panel panel-pos" style="--p12x: 0; --p12y:0; --p12w:3;--p12h:3">
-                <div class="image-preview" style="--ratio: {{.Image.ClampedAspect}};">
+                <div class="image-preview " style="--ratio: {{.Image.ClampedAspect}};">
                     <img
+                        class="derivative-img"
                         src="{{ imagePath .Image.ID "s800" }}"
                         loading="lazy"
                         decoding="async"

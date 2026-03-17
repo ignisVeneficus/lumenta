@@ -63,11 +63,24 @@ func DerivativeHandler(cfg config.Config) gin.HandlerFunc {
 		}
 		if err == nil {
 			logging.Exit(logg, "ok", nil)
+			c.Header("Content-Type", "image/jpeg")
+			c.Header("Cache-Control", "public, max-age=31536000")
 			c.File(path)
 			return
 		}
 		logging.ExitErr(logg, err)
 		c.AbortWithStatus(http.StatusInternalServerError)
-		return
+	}
+}
+func DefaultHTMLMime() gin.HandlerFunc {
+	return func(c *gin.Context) {
+
+		c.Next()
+
+		h := c.Writer.Header()
+
+		if h.Get("Content-Type") == "" {
+			h.Set("Content-Type", "text/html; charset=utf-8")
+		}
 	}
 }
