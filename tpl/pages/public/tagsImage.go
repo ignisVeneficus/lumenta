@@ -50,7 +50,7 @@ func TagImagePage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		tagIdStr := c.Param("tid")
 		imageIdStr := c.Param("iid")
-		iPageStr := c.DefaultQuery(imagePageName, "0")
+		iPageStr := c.DefaultQuery(data.ImagePageParam, "0")
 		logg := logging.Enter(c, "page.public.tags.image", map[string]any{
 			"tag_id":     tagIdStr,
 			"image_id":   imageIdStr,
@@ -114,7 +114,7 @@ func TagImagePage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 			return dao.QueryImageIDByTagACLPrev(database, c, uint64(tagId), *image.ID, image.TakenAt, image.Filename, dboAcl, uint64(start), uint64(qty))
 		}
 		pagingUrlGenerator := func(imageId uint64, page int) string {
-			return routes.BuildTagImagePath(uint64(tagId), imageId).WithIntQuery(imagePageName, page).String()
+			return routes.BuildTagImagePath(uint64(tagId), imageId).WithImagePaging(page).String()
 		}
 
 		thumbnails, err := data.GenerateThumbnail(c, queryPrev, queryNext, image, iPage, generator, pagingUrlGenerator)
@@ -124,9 +124,6 @@ func TagImagePage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 		}
 
 		prev, next, err := TagsImagePrevNext(database, c, dboAcl, uint64(tagId), image)
-
-		url := routes.BuildTagImagePath(uint64(tagId), uint64(imageId))
-		url.WithIntQuery(imagePageName, iPage)
 
 		breadcrumbs, err := tpl.BuildTagBreadcumb(database, c, thisTag, false)
 		title := image.GetTitle()

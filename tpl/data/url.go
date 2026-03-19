@@ -5,6 +5,11 @@ import (
 	"strconv"
 )
 
+var (
+	ImagePageParam  = "iPage"
+	FolderPageParam = "fPage"
+)
+
 type URLBuilder struct {
 	path  string
 	query url.Values
@@ -23,8 +28,12 @@ func (u *URLBuilder) String() string {
 	return u.path + "?" + u.query.Encode()
 }
 
-func (u *URLBuilder) WithPaging(page int) *URLBuilder {
-	u.query.Set(QueryPaging, strconv.Itoa(page))
+func (u *URLBuilder) WithImagePaging(page int) *URLBuilder {
+	u.query.Set(ImagePageParam, strconv.Itoa(page))
+	return u
+}
+func (u *URLBuilder) WithFolderPaging(page int) *URLBuilder {
+	u.query.Set(FolderPageParam, strconv.Itoa(page))
 	return u
 }
 func (u *URLBuilder) WithIntQuery(name string, value int) *URLBuilder {

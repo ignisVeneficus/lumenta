@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/ignisVeneficus/lumenta/api/endpoint"
 	authData "github.com/ignisVeneficus/lumenta/auth/data"
 	"github.com/ignisVeneficus/lumenta/config"
 	"github.com/ignisVeneficus/lumenta/server/routes"
@@ -84,6 +85,10 @@ func Server(cfg config.Config) {
 			Album edit		GET /admin/albums/:id
 			Album edit		POST /admin/albums/:id
 		*/
+	}
+	apiGrp := r.Group(routes.ApiPrefix)
+	{
+		apiGrp.GET(routes.GetApiTagPath(), endpoint.ImageCoordByTags(cfg))
 	}
 
 	srv := &http.Server{

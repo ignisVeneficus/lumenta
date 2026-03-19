@@ -25,10 +25,8 @@ import (
 )
 
 var (
-	dirPerPage    = 24
-	imagePerPage  = 48
-	dirPageName   = "dPage"
-	imagePageName = "iPage"
+	dirPerPage   = 24
+	imagePerPage = 48
 )
 
 func BuildRootDirGrid(ctx context.Context, database *sql.DB, page int, url data.URLBuilder) (adminData.FsDirs, error) {
@@ -45,7 +43,7 @@ func BuildRootDirGrid(ctx context.Context, database *sql.DB, page int, url data.
 		logging.ExitErr(logg, err)
 		return adminData.FsDirs{}, err
 	}
-	paging := data.CreatePaging(url, dirPageName, page, qty, dirPerPage)
+	paging := data.CreatePaging(url, data.FolderPageParam, page, qty, dirPerPage)
 
 	dirItems := []adminData.FsDir{}
 	for _, d := range dirs {
@@ -94,7 +92,7 @@ func BuildDirGrid(ctx context.Context, database *sql.DB, root, pagePath string, 
 		logging.ExitErr(logg, err)
 		return adminData.FsDirs{}, err
 	}
-	paging := data.CreatePaging(url, dirPageName, page, qty, dirPerPage)
+	paging := data.CreatePaging(url, data.FolderPageParam, page, qty, dirPerPage)
 
 	dirItems := []adminData.FsDir{}
 	for _, d := range dirs {
@@ -148,7 +146,7 @@ func BuildImageGrid(ctx context.Context, database *sql.DB, root, path string, pa
 		return adminData.FsImages{}, err
 	}
 
-	paging := data.CreatePaging(url, imagePageName, page, qty, imagePerPage)
+	paging := data.CreatePaging(url, data.ImagePageParam, page, qty, imagePerPage)
 
 	imageItems := []adminData.FsImage{}
 	for _, i := range images {
@@ -226,8 +224,8 @@ func FSPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		path := c.Param("fsPath")
 		path = strings.TrimPrefix(path, "/")
-		dPageStr := c.DefaultQuery(dirPageName, "1")
-		iPageStr := c.DefaultQuery(imagePageName, "1")
+		dPageStr := c.DefaultQuery(data.FolderPageParam, "1")
+		iPageStr := c.DefaultQuery(data.ImagePageParam, "1")
 		logg := logging.Enter(c, "page.admin.fs", map[string]any{
 			"path":           path,
 			"directory_page": dPageStr,
@@ -249,7 +247,7 @@ func FSPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 		}
 
 		url := routes.BuildAdminFsPath(path)
-		url.WithIntQuery(dirPageName, dPage).WithIntQuery(imagePageName, iPage)
+		url.WithFolderPaging(dPage).WithImagePaging(iPage)
 
 		root := ""
 		pathParts := strings.Split(path, "/")

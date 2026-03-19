@@ -5,7 +5,7 @@
         fill="currentColor"
         xmlns="http://www.w3.org/2000/svg">
     <path d="M14 39C14 39 26 26.8 26 15C26 7.8 20.6 2 14 2C7.4 2 2 7.8 2 15C2 26.8 14 39 14 39Z"
-            stroke="white" stroke-width="2"/>
+            stroke-width="2"/>
     </svg>
     `;
 
@@ -21,11 +21,14 @@
     let container = null;
 
     let map = null;
+    let mapInitializing = false;
 
     function initMap() {
-        if (map) return;
+        if (map || mapInitializing) return;
 
         if (!container) return;
+
+        mapInitializing = true;
 
         const apiUrl = container.dataset.api;
         const enableCluster = container.dataset.cluster !== "false";
@@ -38,7 +41,9 @@
         } else if (apiUrl) {
             fetch(apiUrl)
                 .then(r => r.json())
-                .then(data => renderMap(data.points || []));
+                .then(resp => renderMap(resp.data || []));
+        }else{
+            console.error("no api url!")
         }
 
         function renderMap(points) {
@@ -55,18 +60,21 @@
 
             if (!points.length) {
                 map.setView([0, 0], 3);
+                mapInitializing = false;
                 return;
             }
 
             if (points.length === 1) {
-                addMarker(points[0]);
+                addMarker(null,points[0]);
                 map.setView([points[0].lat, points[0].lon], 16);
+                mapInitializing = false;
                 return;
             }
 
             if (!enableCluster) {
-                points.forEach(addMarker);
+                points.forEach(null,addMarker);
                 fitBounds(points);
+                mapInitializing = false;
                 return;
             }
 
@@ -123,41 +131,69 @@
                             }).addTo(layer);
 
                             marker.on("click", () => {
-                                map.setView([lat, lng], zoom + 2);
-                            });
+                                const clusterId = c.properties.cluster_id;
+                                const expansionZoom = index.getClusterExpansionZoom(clusterId);
+                                const currentZoom = map.getZoom();
+                                if (currentZoom >= expansionZoom || currentZoom >= 18) {
+                                    const leaves = index.getLeaves(clusterId, 50); // limit!
+                                    layer.clearLayers();
+                                    const spiderPoints = spiderfyPoints(
+                                        map,
+                                        { lat, lon: lng },
+                                        leaves.map(l => l.properties)
+                                    );
 
+                                    spiderPoints.forEach(p => addMarker(layer, p));
+
+                                } else {
+                                    map.setView([lat, lng], expansionZoom);
+                                }
+                            });
                         } else {
-                            addMarker(c.properties);
+                            addMarker(layer, c.properties);
                         }
                     });
                 }
 
                 map.on("moveend zoomend", update);
-                update();
             }
 
             function clusterIcon(count) {
-                const color = clusterColor(count);
+                const level = Math.floor(Math.log10(count));
+                const bucket = clusterBucket(count)
 
                 return L.divIcon({
-                    html: `<div class="lm-cluster" style="background:${color}">${count}</div>`,
+                    html: `<div class="lm-cluster lm-cluster-${level} lm-cluster-points-${bucket}">${count}</div>`,
                     className: "",
                     iconSize: [44, 44]
                 });
             }
 
-            function clusterColor(count) {
-                if (count < 10) return "#7bc96f";
-                if (count < 50) return "#41b6c4";
-                if (count < 200) return "#2c7fb8";
-                return "#253494";
+            function clusterBucket(count) {
+                if (count <= 1) return 1;
+
+                const exp = Math.floor(Math.log10(count));
+                const base = Math.pow(10, exp);
+                const normalized = count / base;
+
+                let bucket;
+                if (normalized <= 1) bucket = 1;
+                else if (normalized <= 2) bucket = 2;
+                else if (normalized <= 5) bucket = 5;
+                else bucket = 10;
+
+                return bucket * base;
             }
 
-            function addMarker(p) {
+            function addMarker(layer, p) {
+                place = layer;
+                if(place==null){
+                    place = map;
+                }
                 const marker = L.marker(
                     [p.lat, p.lon],
                     { icon: pinIcon(p.color) }
-                ).addTo(map);
+                ).addTo(place);
 
                 if (enableHover && p.label) {
                     marker.bindTooltip(p.label);
@@ -170,10 +206,10 @@
 
             function pinIcon(color) {
                 if (!color) {
-                    color = "var(--icon-primary)";
+                    color = "primary";
                 }
                 return L.divIcon({
-                    html: `<div style="color:${color}">${pinSvg}</div>`,
+                    html: `<div class="pin pin-${color}">${pinSvg}</div>`,
                     className: "",
                     iconSize: [28, 40],
                     iconAnchor: [14, 40]
@@ -182,8 +218,8 @@
 
             function popupHtml(p) {
                 let html = `<div class="lm-popup">`;
-                if (p.label) html += `<strong>${escape(p.label)}</strong>`;
-                if (p.img) html += `<img src="${escape(p.img)}">`;
+                if (p.label) html += `<div class="label">${escape(p.label)}</div>`;
+                if (p.img) html += `<div class="img-wrapper"><img src="${escape(p.imgUrl)}"></div>`;
                 html += `</div>`;
 
                 if (p.url) {
@@ -200,6 +236,38 @@
                     .replaceAll("\"", "&quot;");
             }
         }
+    }
+
+    function spiderfyPoints(map, center, points) {
+        const centerPt = map.project([center.lat, center.lon]);
+        const res = [];
+
+        const separation = 25; // px
+        const spiralLengthFactor = 5;
+        const spiralFootSeparation = 28;
+
+        let angle = 0;
+
+        for (let i = 0; i < points.length; i++) {
+
+            const r = spiralLengthFactor * angle + 20;
+
+            const x = centerPt.x + r * Math.cos(angle);
+            const y = centerPt.y + r * Math.sin(angle);
+
+            const latlng = map.unproject([x, y]);
+
+            res.push({
+                ...points[i],
+                _spiderfy: true,
+                lat: latlng.lat,
+                lon: latlng.lng
+            });
+
+            angle += spiralFootSeparation / r;
+        }
+
+        return res;
     }
 
     function ensureMap() {

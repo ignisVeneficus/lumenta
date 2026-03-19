@@ -50,8 +50,6 @@
    ========================================================================== */
 
 .imageGrid {
-  padding: var(--space-4) 0; 
-
   display: grid;
   grid-template-columns: repeat(12, 1fr);
   /*
@@ -357,4 +355,19 @@ html.slideshow-ui-hidden .ctx-menu{
 }
 html.slideshow-ui-hidden .image-page .overlay{
   display: none;
+}
+
+/* ==========================================================================
+   FOLDER (TAGS, ALBUMS, ETC) PAGE
+   ========================================================================== */
+
+.folder-page{
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.image-grid{
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
 }

@@ -3,15 +3,17 @@ function enableEventuallyAvailableImage(img, {
   initialDelay = 1000,
   maxDelay = 15000,
 } = {}) {
-  console.info("start:", img.src);
+
+  if (img._retryBound) return;
+  img._retryBound = true;
+
   let attempt = 0;
   let delay = initialDelay;
   let timer = null;
 
-  function retry() {
-    console.info("retry", img.src);
+  function scheduleRetry() {
     if (attempt >= maxRetries) {
-      console.warn("Image retry exhausted:",  img.src);
+      console.warn("Image retry exhausted:", img.src);
       return;
     }
 
@@ -19,22 +21,23 @@ function enableEventuallyAvailableImage(img, {
 
     timer = setTimeout(() => {
       timer = null;
-      const ts= Date.now();
-      
-      const base =  img.src;
-      const url = new URL(base, location.href);
+
+      const url = new URL(img.src, location.href);
       url.searchParams.set("_r", Date.now());
-      console.info("attempt:",attempt,base);
+
+      console.info("retry attempt:", attempt, url.toString());
 
       img.src = url.toString();
 
       delay = Math.min(delay * 1.7, maxDelay);
 
+      scheduleRetry();
+
     }, delay);
   }
 
   img.addEventListener("error", () => {
-    retry();
+    scheduleRetry();
   });
 
   img.addEventListener("load", () => {
@@ -42,14 +45,24 @@ function enableEventuallyAvailableImage(img, {
       clearTimeout(timer);
       timer = null;
     }
-    console.log("Derivative loaded:", img.src);
+    console.log("Loaded:", img.src);
   });
 
-  if (img.complete && img.naturalWidth > 0) {
-    console.log("Already loaded",img.src);
+  if (img.complete) {
+    if (img.naturalWidth > 0) {
+      console.log("Already loaded", img.src);
+    } else {
+      console.log("Already failed → retry", img.src);
+      scheduleRetry();
+    }
   }
 }
+function initDerivativeRetry(root = document) {
+  root.querySelectorAll(".derivative-img").forEach(img => {
+    enableEventuallyAvailableImage(img);
+  });
+}
 
-document
-  .querySelectorAll(".derivative-img")
-  .forEach(img => enableEventuallyAvailableImage(img));
+document.addEventListener("DOMContentLoaded", () => {
+  initDerivativeRetry();
+});

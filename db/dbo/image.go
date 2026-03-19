@@ -113,3 +113,10 @@ type ImageTitle struct {
 	ID    uint64
 	Title string
 }
+
+type ImageCoord struct {
+	ID        uint64
+	Title     string
+	Latitude  *float64
+	Longitude *float64
+}

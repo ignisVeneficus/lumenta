@@ -1,7 +1,7 @@
-<div id="map"
-     data-api="/api/map/points?context=page&album_id=42"
-     data-cluster="true"
-     data-popup="true"
-     data-hover="true"
-     data-maxpoints="100">
+<div id="map" class="full-page"
+     data-api="{{ .APIURL }}"
+     data-cluster="{{ .Cluster }}"
+     data-popup="{{ .Popup }}"
+     data-hover="{{ .Hover }}"
+     data-maxpoints="{{ .NrMaxPoints }}">
 </div>

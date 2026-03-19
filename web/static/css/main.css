@@ -279,15 +279,16 @@ body {
    ========================================================================== */
 
 .card-grid-wrapper{
-  padding: var(--space-4) 0;
   color: var(--text-primary);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);  
 }
 
 .card-grid{
   display: grid;
   grid-template-columns: repeat(6, 1fr);
   gap: var(--space-4); /* 16px */
-  padding-bottom: var(--space-4);
 }
 @media (max-width: 1024px) {
   .card-grid {

@@ -20,6 +20,7 @@ type Folders struct {
 type FolderPageContext struct {
 	ImageGridPageContext
 	PageCards Folders
+	Map       MultiMap
 }
 
 func CreateFolders[T any](items []T, paging Paging, mapper func(T) Folder) Folders {
@@ -32,4 +33,12 @@ func CreateFolders[T any](items []T, paging Paging, mapper func(T) Folder) Folde
 		Cards:  cards,
 		Paging: paging,
 	}
+}
+
+type MultiMap struct {
+	APIURL      string
+	Cluster     bool
+	Popup       bool
+	Hover       bool
+	NrMaxPoints uint64
 }

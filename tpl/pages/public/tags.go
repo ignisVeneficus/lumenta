@@ -25,10 +25,8 @@ import (
 )
 
 var (
-	tagsPerPage   = 6 // one row
-	imagePerPage  = 24
-	tagPageName   = "tPage"
-	imagePageName = "iPage"
+	tagsPerPage  = 6 // one row
+	imagePerPage = 24
 )
 
 func BuildFolders(ctx context.Context, database *sql.DB, tagId uint64, acl dao.ACLContext, page int, url data.URLBuilder) (data.Folders, error) {
@@ -51,7 +49,7 @@ func BuildFolders(ctx context.Context, database *sql.DB, tagId uint64, acl dao.A
 		logging.ExitErr(logg, err)
 		return data.Folders{}, err
 	}
-	paging := data.CreatePaging(url, tagPageName, page, qty, tagsPerPage)
+	paging := data.CreatePaging(url, data.FolderPageParam, page, qty, tagsPerPage)
 
 	tagsItems := []tagImage{}
 	for _, t := range tags {
@@ -91,7 +89,7 @@ func BuildImageGrid(ctx context.Context, database *sql.DB, tagId uint64, acl dao
 		logging.ExitErr(logg, err)
 		return data.ImageGrid{}, err
 	}
-	paging := data.CreatePaging(url, imagePageName, page, qty, imagePerPage)
+	paging := data.CreatePaging(url, data.ImagePageParam, page, qty, imagePerPage)
 	makeURL := func(id uint64) string {
 		return routes.CreateTagImagePath(tagId, id)
 	}
@@ -104,8 +102,8 @@ func BuildImageGrid(ctx context.Context, database *sql.DB, tagId uint64, acl dao
 func TagPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		tagIdStr := c.Param("tid")
-		tPageStr := c.DefaultQuery(tagPageName, "1")
-		iPageStr := c.DefaultQuery(imagePageName, "1")
+		tPageStr := c.DefaultQuery(data.FolderPageParam, "1")
+		iPageStr := c.DefaultQuery(data.ImagePageParam, "1")
 		logg := logging.Enter(c, "page.public.tags", map[string]any{
 			"tag_id":      tagIdStr,
 			"subTag_page": tPageStr,
@@ -134,7 +132,7 @@ func TagPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 		}
 
 		url := routes.BuildTagPath(uint64(tagId))
-		url.WithIntQuery(tagPageName, tPage).WithIntQuery(imagePageName, iPage)
+		url.WithFolderPaging(tPage).WithImagePaging(iPage)
 
 		database := db.GetDatabase()
 		acl := auth.GetAuthContex(c)
@@ -180,6 +178,15 @@ func TagPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 		}
 		tagForrest = dbo.MergeTagsTrees(tagForrest)
 
+		apiUrl := routes.BuildApiTagPath(uint64(tagId)).WithImagePaging(iPage)
+		multiMap := data.MultiMap{
+			APIURL:      apiUrl.String(),
+			Cluster:     true,
+			Popup:       true,
+			Hover:       true,
+			NrMaxPoints: 100,
+		}
+
 		tagPageCtx := data.FolderPageContext{}
 		pageCtx := tagPageCtx.GetPage()
 		tpl.CreatePageContext(pageCtx, cfg, c, "tags", data.SurfacePublic)
@@ -187,6 +194,7 @@ func TagPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 		tagPageCtx.PageCards = folders
 		tagPageCtx.ImageGrid = imageGrid
 		tagPageCtx.ImageTags = data.ImageTags(tagForrest)
+		tagPageCtx.Map = multiMap
 
 		if err := r.RenderPage(c.Writer, "public/folders", tagPageCtx); err != nil {
 			c.String(500, err.Error())

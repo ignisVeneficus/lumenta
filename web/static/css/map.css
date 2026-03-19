@@ -2,9 +2,30 @@
   width: 100%;
   overflow: hidden;
 }
+#map.full-page{
+  width:100%;
+  height:400px;
+}
+
+.pin{
+  --pin-fill: color-mix(in oklab, var(--icon-primary) 60%, black 40%);
+  --pin-stroke: color-mix(in oklab, var(--text-primary) 60%, black 40%);
+}
+.pin svg path{
+  fill: var(--pin-fill);
+  stroke: var(--pin-stroke);
+}
+
+.pin-primary{
+  --pin-fill: var(--icon-primary);
+  --pin-stroke: var(--text-primary)
+}
 
 /* Cluster */
 .lm-cluster {
+  --cluster-mix: 10%;
+  --cluster-neutral: var(--icon-primary);
+  --cluster-accent: var(--icon2-primary);
   width: 44px;
   height: 44px;
   border-radius: 50%;
@@ -14,15 +35,29 @@
   align-items: center;
   justify-content: center;
   box-shadow: 0 0 0 6px rgba(0,0,0,0.08);
+  background: color-mix(
+    in oklab,
+    var(--cluster-neutral) calc(100% - var(--cluster-mix)),
+    var(--cluster-accent) var(--cluster-mix)
+  );  
 }
+
+.cluster-level-0 { --cluster-mix: 10%; }
+.cluster-level-1 { --cluster-mix: 30%; }
+.cluster-level-2 { --cluster-mix: 50%; }
+.cluster-level-3 { --cluster-mix: 70%; }
+.cluster-level-4 { --cluster-mix: 100%; }
 
 /* Popup */
 .lm-popup {
   width: 220px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  align-items: center;
 }
 .lm-popup img {
   width: 100%;
-  border-radius: 8px;
   margin-top: 6px;
 }
 .single-map{
