@@ -9,6 +9,7 @@ import (
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/ignisVeneficus/lumenta/auth/data"
 	authData "github.com/ignisVeneficus/lumenta/auth/data"
+	"github.com/ignisVeneficus/lumenta/db/dbo"
 	"github.com/ignisVeneficus/lumenta/logging"
 )
 
@@ -19,8 +20,36 @@ type OIDCClaims struct {
 }
 
 type OIDCVerifier struct {
-	verifier  *oidc.IDTokenVerifier
+	verifier  oidcVerifier
 	AdminRole string
+}
+
+type oidcToken interface {
+	Claims(v interface{}) error
+}
+
+type oidcVerifier interface {
+	Verify(ctx context.Context, rawIDToken string) (oidcToken, error)
+}
+
+type realOIDCToken struct {
+	t *oidc.IDToken
+}
+
+func (r realOIDCToken) Claims(v interface{}) error {
+	return r.t.Claims(v)
+}
+
+type realVerifier struct {
+	v *oidc.IDTokenVerifier
+}
+
+func (r realVerifier) Verify(ctx context.Context, raw string) (oidcToken, error) {
+	tok, err := r.v.Verify(ctx, raw)
+	if err != nil {
+		return nil, err
+	}
+	return realOIDCToken{tok}, nil
 }
 
 func NewOIDCVerifier(ctx context.Context, issuerURL, clientID, adminRole string) (*OIDCVerifier, error) {
@@ -42,7 +71,7 @@ func NewOIDCVerifier(ctx context.Context, issuerURL, clientID, adminRole string)
 	})
 	logging.Exit(logg, "ok", nil)
 
-	return &OIDCVerifier{verifier: v, AdminRole: adminRole}, nil
+	return &OIDCVerifier{verifier: realVerifier{v}, AdminRole: adminRole}, nil
 }
 
 func (o *OIDCVerifier) verify(ctx context.Context, token string) (*OIDCClaims, error) {
@@ -53,7 +82,7 @@ func (o *OIDCVerifier) verify(ctx context.Context, token string) (*OIDCClaims, e
 		return nil, err
 	}
 
-	idToken, err := o.verifier.Verify(context.Background(), token)
+	idToken, err := o.verifier.Verify(ctx, token)
 	if err != nil {
 		logging.ExitErr(logg, err)
 		return nil, err
@@ -76,9 +105,9 @@ func (o *OIDCVerifier) verify(ctx context.Context, token string) (*OIDCClaims, e
 	return ret, nil
 }
 
-func (o *OIDCVerifier) ContextFromRequest(ctx context.Context, ip string, request http.Request) *authData.ACLContext {
+func (o *OIDCVerifier) ContextFromRequest(ctx context.Context, ip string, request *http.Request) *authData.ACLContext {
 	logg := logging.Enter(ctx, "auth.oidc.ctxFromRequest", nil)
-	token := TokenForOIDC(&request)
+	token := TokenForOIDC(request)
 	if token == "" {
 		logging.Exit(logg, "NOT OK", map[string]any{"problem": "no token"})
 		return nil
@@ -90,16 +119,19 @@ func (o *OIDCVerifier) ContextFromRequest(ctx context.Context, ip string, reques
 		return nil
 	}
 
-	role := data.RoleUser
+	role := dbo.RoleUser
 	for _, g := range claims.Groups {
 		if strings.TrimSpace(g) == o.AdminRole {
-			role = data.RoleAdmin
+			role = dbo.RoleAdmin
 		}
 	}
 	logging.Exit(logg, "OK", map[string]any{"role": role, "user": &claims.Subject})
+
 	return &data.ACLContext{
+		ACLContext: dbo.ACLContext{
+			Role: role,
+		},
 		UserName: &claims.Subject,
-		Role:     role,
 		Provider: data.ProviderOIDC,
 	}
 

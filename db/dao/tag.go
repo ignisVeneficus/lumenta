@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 
 	"github.com/ignisVeneficus/lumenta/db/dbo"
 	"github.com/ignisVeneficus/lumenta/logging"
@@ -50,7 +51,7 @@ const queryTagsByACL = `SELECT
 FROM image_tags AS it
 JOIN tags AS t ON t.id = it.tag_id
 JOIN images AS i ON i.id = it.image_id
-WHERE ` + aclImageWhereClause + `
+WHERE %s
 GROUP BY
     t.id,
     t.name,
@@ -67,8 +68,8 @@ const queryTagsByParentACLPaged = `SELECT
 FROM image_tags it
 JOIN tags t   ON t.id = it.tag_id
 JOIN images i ON i.id = it.image_id
-WHERE t.parent_id=? AND ` +
-	aclImageWhereClause + `
+WHERE t.parent_id=? 
+	AND %s
 GROUP BY
     t.id,
     t.name,
@@ -82,7 +83,7 @@ FROM image_tags it
 JOIN tags t   ON t.id = it.tag_id
 JOIN images i ON i.id = it.image_id
 WHERE t.parent_id = ?
-  AND ` + aclImageWhereClause
+  AND %s `
 
 const getTagByIDACL = ` SELECT ` + tagFields + ` FROM tags as t 
 WHERE t.id = ?
@@ -91,7 +92,7 @@ WHERE t.id = ?
       FROM image_tags it
       JOIN images i ON i.id = it.image_id
       WHERE it.tag_id = t.id
-        AND ` + aclImageWhereClause + ` 
+        AND %s 
 );`
 
 func parseTagRow(row *sql.Row) (dbo.Tag, error) {
@@ -181,8 +182,10 @@ func (q *Queries) QueryTags(ctx context.Context) ([]dbo.Tag, error) {
 
 	return tags, nil
 }
-func (q *Queries) QueryTagsByACL(ctx context.Context, acl ACLContext) ([]dbo.TagWCount, error) {
-	rows, err := q.db.QueryContext(ctx, queryTagsByACL, acl.AsParamArray()...)
+func (q *Queries) QueryTagsByACL(ctx context.Context, acl dbo.ACLContext) ([]dbo.TagWCount, error) {
+	aclWhere, aclParams := CreateAclWhere("i", acl)
+
+	rows, err := q.db.QueryContext(ctx, fmt.Sprintf(queryTagsByACL, aclWhere), aclParams...)
 	if err != nil {
 		return nil, err
 	}
@@ -201,12 +204,13 @@ func (q *Queries) QueryTagsByACL(ctx context.Context, acl ACLContext) ([]dbo.Tag
 	return tags, nil
 }
 
-func (q *Queries) QueryTagsByParentACLPaged(ctx context.Context, parent uint64, acl ACLContext, from, qty uint64) ([]dbo.TagWCount, error) {
+func (q *Queries) QueryTagsByParentACLPaged(ctx context.Context, parent uint64, acl dbo.ACLContext, from, qty uint64) ([]dbo.TagWCount, error) {
+	aclWhere, aclParams := CreateAclWhere("i", acl)
 	params := []any{parent}
-	params = append(params, acl.AsParamArray()...)
+	params = append(params, aclParams...)
 	params = append(params, from)
 	params = append(params, qty)
-	rows, err := q.db.QueryContext(ctx, queryTagsByParentACLPaged, params...)
+	rows, err := q.db.QueryContext(ctx, fmt.Sprintf(queryTagsByParentACLPaged, aclWhere), params...)
 	if err != nil {
 		return nil, err
 	}
@@ -225,19 +229,21 @@ func (q *Queries) QueryTagsByParentACLPaged(ctx context.Context, parent uint64, 
 	return tags, nil
 }
 
-func (q *Queries) CountTagsByParentACL(ctx context.Context, parent uint64, acl ACLContext) (uint64, error) {
+func (q *Queries) CountTagsByParentACL(ctx context.Context, parent uint64, acl dbo.ACLContext) (uint64, error) {
+	aclWhere, aclParams := CreateAclWhere("i", acl)
 	params := []any{parent}
-	params = append(params, acl.AsParamArray()...)
-	row := q.db.QueryRowContext(ctx, countTagsByParentACL, params...)
+	params = append(params, aclParams...)
+	row := q.db.QueryRowContext(ctx, fmt.Sprintf(countTagsByParentACL, aclWhere), params...)
 	var count uint64
 	err := row.Scan(&count)
 	return count, err
 }
 
-func (q *Queries) GetTagByIDACL(ctx context.Context, id uint64, acl ACLContext) (dbo.Tag, error) {
+func (q *Queries) GetTagByIDACL(ctx context.Context, id uint64, acl dbo.ACLContext) (dbo.Tag, error) {
+	aclWhere, aclParams := CreateAclWhere("i", acl)
 	params := []any{id}
-	params = append(params, acl.AsParamArray()...)
-	row := q.db.QueryRowContext(ctx, getTagByIDACL, params...)
+	params = append(params, aclParams...)
+	row := q.db.QueryRowContext(ctx, fmt.Sprintf(getTagByIDACL, aclWhere), params...)
 	return parseTagRow(row)
 }
 
@@ -377,26 +383,26 @@ func QueryTags(db *sql.DB, ctx context.Context) ([]dbo.Tag, error) {
 	return tags, logging.Return(logg, err)
 }
 
-func QueryTagsByACL(db *sql.DB, ctx context.Context, acl ACLContext) ([]dbo.TagWCount, error) {
+func QueryTagsByACL(db *sql.DB, ctx context.Context, acl dbo.ACLContext) ([]dbo.TagWCount, error) {
 	logg := logging.Enter(ctx, "dao.tag.query.byACL", map[string]any{"ACL": acl})
 	q := NewQueries(db)
 	tags, err := q.QueryTagsByACL(ctx, acl)
 	return tags, logging.ReturnParams(logg, err, map[string]any{"found": len(tags)})
 }
-func QueryTagsByParentACLPaged(db *sql.DB, ctx context.Context, parent uint64, acl ACLContext, from, qty uint64) ([]dbo.TagWCount, error) {
+func QueryTagsByParentACLPaged(db *sql.DB, ctx context.Context, parent uint64, acl dbo.ACLContext, from, qty uint64) ([]dbo.TagWCount, error) {
 	logg := logging.Enter(ctx, "dao.tag.query.byParent.ByACL.paged", map[string]any{"ACL": acl, "parent": parent, "from": from, "qty": qty})
 	q := NewQueries(db)
 	tags, err := q.QueryTagsByParentACLPaged(ctx, parent, acl, from, qty)
 	return tags, logging.ReturnParams(logg, err, map[string]any{"found": len(tags)})
 }
-func CountTagsByParentACL(db *sql.DB, ctx context.Context, parent uint64, acl ACLContext) (uint64, error) {
+func CountTagsByParentACL(db *sql.DB, ctx context.Context, parent uint64, acl dbo.ACLContext) (uint64, error) {
 	logg := logging.Enter(ctx, "dao.tag.count.byParent.ByACL", map[string]any{"ACL": acl, "parent": parent})
 	q := NewQueries(db)
 	count, err := q.CountTagsByParentACL(ctx, parent, acl)
 	return count, logging.Return(logg, err)
 }
 
-func GetTagByIDACL(db *sql.DB, ctx context.Context, tagId uint64, acl ACLContext) (dbo.Tag, error) {
+func GetTagByIDACL(db *sql.DB, ctx context.Context, tagId uint64, acl dbo.ACLContext) (dbo.Tag, error) {
 	logg := logging.Enter(ctx, "dao.tag.get.byId.byACL", map[string]any{"ACL": acl})
 	q := NewQueries(db)
 	tag, err := q.GetTagByIDACL(ctx, tagId, acl)

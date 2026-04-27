@@ -254,6 +254,31 @@ func InfoLog(log zerolog.Logger, function string, event string, result string, m
 	e.Msg(message)
 }
 
+func Warning(function string, event string, result string, message string, params map[string]any) {
+	logg := log.Logger
+	WarningLog(logg, function, event, result, message, params)
+}
+func WarningLog(log zerolog.Logger, function string, event string, result string, message string, params map[string]any) {
+	level := log.GetLevel()
+	if level > zerolog.WarnLevel {
+		return
+	}
+	e := log.Warn()
+	if function != "" {
+		e.Str(FieldFunc, function)
+	}
+	if event != "" {
+		e.Str(FieldEvent, event)
+	}
+	if result != "" {
+		e.Str(FieldResult, result)
+	}
+	if params != nil {
+		AddParams(e, zerolog.InfoLevel, params)
+	}
+	e.Msg(message)
+}
+
 // Error emits an error log entry using the standard process logging format.
 
 func Error(ctx context.Context, err error, function string,

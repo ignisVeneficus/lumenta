@@ -1,0 +1,132 @@
+{{ define "page-head" }}
+    {{template "partials/dropdown-head.html" }}
+    {{template "partials/rules-head.html" }}
+    <script src="/static/js/admin-album.js" defer></script>        
+{{ end }}
+
+
+{{ define "main" }}
+<div class="breadcrumbs-wrapper">
+{{- with .Breadcrumbs }}
+    {{- template "partials/breadcrumbs.html" . -}}
+{{- end -}}
+</div>
+
+<div class="admin-layout album-page">
+    {{- template "partials/admin/action-rail.html" . -}}
+
+    <div class="content">
+
+        {{- with .Album.Flash -}}
+            {{- if eq . "saved" -}}
+                <div class="flash flash-success">Saved</div>
+            {{- end -}}
+            {{- if eq . "created" -}}
+                <div class="flash flash-success">Created</div>
+            {{- end -}}
+            {{- if eq . "deleted" -}}
+                <div class="flash flash-success">Deleted</div>
+            {{- end -}}
+        {{ end }}
+
+        <form method="POST" action="">
+            <div class="form-action">
+                <button type="submit" class="action button"><i class="icon fa-solid fa-floppy-disk"></i>Save</button>
+                <a class="action button" href="{{ adminAlbumsPath }}"><i class="icon fa-solid fa-xmark"></i>Cancel</a>
+            </div>
+            <div class="colums">
+                <div class="column column-1">
+                    <div class="image-panel panel">
+                        <div class="image-preview">
+                            {{- if .Album.CoverImage -}}
+                            <img
+                                class="derivative-img"
+                                src="{{ imagePath .Album.CoverImage "s800" }}"
+                                loading="lazy"
+                                decoding="async"
+                            >
+                            {{- else -}}
+                            <div class="no-image">
+                                <i class="icon fa-regular fa-image" title="No cover image"></i>
+                            </div>
+                            {{- end -}}
+                        </div>
+                    </div>
+                </div>
+                <div class="column column-2">
+                    <div class="panel">
+                        {{ with index .Album.Errors (fieldName "_") }}
+                            {{ range . }}
+                                <div class="error">{{ . }}</div>
+                            {{ end }}
+                        {{ end }}
+
+                        <div class="block">
+                            <label>Name</label>
+                            <input name="name" required value="{{ .Album.Name }}">
+
+                            {{ with index .Album.Errors (fieldName "name") }}
+                                {{ range . }}
+                                    <div class="error">{{ . }}</div>
+                                {{ end }}
+                            {{ end }}
+                        </div>
+                        <div class="block">
+                            <label>Description</label>
+                            <textarea name="description">{{ .Album.Description }}</textarea>
+                            {{ with index .Album.Errors (fieldName "description") }}
+                                {{ range . }}
+                                    <div class="error">{{ . }}</div>
+                                {{ end }}
+                            {{ end }}
+                        </div>
+                        <div class="block">
+                            <label>Parent Album</label>
+                            <div
+                                class="xselect"
+                                data-mode="single"
+                                data-src='{{ apiAdminAlbumsPath "tree" }}'
+                                data-name="parent_id"
+                                data-label-key="name"
+                                data-pill-label-key="fullName"
+                                ><script type="application/json" class="xselect-selected">
+                                [{{- if .Album.ParentID -}}{{- .Album.ParentID | toJS -}}{{- end -}}]
+                                </script>
+                                </div>
+
+                            {{ with index .Album.Errors (fieldName "parent_id") }}
+                                {{ range . }}
+                                    <div class="error">{{ . }}</div>
+                                {{ end }}
+                            {{ end }}
+                        </div>
+                    </div>
+                </div>
+                <div class="column column-3">
+                    <div class="ACL-panel panel">
+                        <div class="title">ACL Settings</div>
+                        {{ with .Album }}           
+                            {{ template "partials/admin/acl-settings.html" .}}
+                        {{ end }}
+                    </div>
+                </div>
+            </div>
+            <div class="rule-panel panel">
+                <div class="title">Rules</div>
+                <div
+                    class="xrules"
+                    data-output-input="json_rules"
+                    data-rules-elem="rules-data"
+                    data-tags-url='{{ apiAdminTagsPath "tree" }}'
+                    data-albums-url='{{ apiAdminAlbumsPath "tree" }}'
+                    >
+                    </div>
+                <input name="json_rules" id="json_rules" type="hidden" value="[]"/>
+                <script id="rules-data" type="application/json">
+                    {{ .Album.RuleJSON | toJS}}
+                </script>
+            </div>
+        </form>
+    <div>
+</div>
+{{ end }}

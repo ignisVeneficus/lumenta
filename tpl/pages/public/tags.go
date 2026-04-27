@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/ignisVeneficus/lumenta/auth"
@@ -16,6 +15,7 @@ import (
 	"github.com/ignisVeneficus/lumenta/db"
 	"github.com/ignisVeneficus/lumenta/db/dao"
 	"github.com/ignisVeneficus/lumenta/db/dbo"
+	"github.com/ignisVeneficus/lumenta/internal/i18n"
 	"github.com/ignisVeneficus/lumenta/logging"
 	"github.com/ignisVeneficus/lumenta/server/routes"
 	"github.com/ignisVeneficus/lumenta/tpl"
@@ -25,11 +25,11 @@ import (
 )
 
 var (
-	tagsPerPage  = 6 // one row
-	imagePerPage = 24
+	tagsPerPage  uint64 = 6 // one row
+	imagePerPage uint64 = 24
 )
 
-func BuildFolders(ctx context.Context, database *sql.DB, tagId uint64, acl dao.ACLContext, page int, url data.URLBuilder) (data.Folders, error) {
+func BuildFolders(ctx context.Context, database *sql.DB, tagId uint64, acl dbo.ACLContext, page uint64, url data.URLBuilder) (data.Folders, error) {
 	type tagImage struct {
 		dbo.TagWCount
 		ImageId *uint64
@@ -44,7 +44,7 @@ func BuildFolders(ctx context.Context, database *sql.DB, tagId uint64, acl dao.A
 		logging.ExitErr(logg, err)
 		return data.Folders{}, err
 	}
-	tags, err := dao.QueryTagsByParentACLPaged(database, ctx, tagId, acl, uint64((page-1)*tagsPerPage), uint64(tagsPerPage))
+	tags, err := dao.QueryTagsByParentACLPaged(database, ctx, tagId, acl, (page-1)*tagsPerPage, tagsPerPage)
 	if err != nil {
 		logging.ExitErr(logg, err)
 		return data.Folders{}, err
@@ -80,7 +80,7 @@ func BuildFolders(ctx context.Context, database *sql.DB, tagId uint64, acl dao.A
 	logging.Exit(logg, "ok", nil)
 	return folders, nil
 }
-func BuildImageGrid(ctx context.Context, database *sql.DB, tagId uint64, acl dao.ACLContext, images []dbo.Image, page int, url data.URLBuilder, cfg presentation.PresentationConfig) (data.ImageGrid, error) {
+func BuildImageGrid(ctx context.Context, database *sql.DB, tagId uint64, acl dbo.ACLContext, images []dbo.Image, page uint64, url data.URLBuilder, cfg presentation.PresentationConfig) (data.ImageGrid, error) {
 	logg := logging.Enter(ctx, "admin.fsPage.buildDirGrid", map[string]any{
 		"page": page,
 	})
@@ -94,13 +94,15 @@ func BuildImageGrid(ctx context.Context, database *sql.DB, tagId uint64, acl dao
 		return routes.CreateTagImagePath(tagId, id)
 	}
 	return data.ImageGrid{
-		Paging: paging,
-		Images: grid.BuildGrid(images, cfg.Grid, tagId*uint64(page), makeURL),
+		Paging: &paging,
+		Images: grid.BuildGrid(images, cfg.Grid, tagId*page, makeURL),
 	}, nil
 }
 
 func TagPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		i18n := i18n.Get()
+		loc := tpl.L(c)
 		tagIdStr := c.Param("tid")
 		tPageStr := c.DefaultQuery(data.FolderPageParam, "1")
 		iPageStr := c.DefaultQuery(data.ImagePageParam, "1")
@@ -110,66 +112,70 @@ func TagPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 			"image_page":  iPageStr,
 		})
 
-		tagId, err := strconv.Atoi(tagIdStr)
+		tagId, err := tpl.ParseID(tagIdStr)
 		if err != nil {
 			logging.ExitErr(logg, fmt.Errorf("invalid tag id"))
 			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "invalid tag id"})
 			return
 		}
 
-		tPage, err := strconv.Atoi(tPageStr)
+		tPage, err := tpl.ParsePaging(tPageStr)
 		if err != nil {
 			logging.ExitErr(logg, fmt.Errorf("invalid subTag_page"))
 			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "invalid directory page"})
 			return
 		}
 
-		iPage, err := strconv.Atoi(iPageStr)
+		iPage, err := tpl.ParsePaging(iPageStr)
 		if err != nil {
 			logging.ExitErr(logg, fmt.Errorf("invalid image_page"))
 			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "invalid image page"})
 			return
 		}
 
-		url := routes.BuildTagPath(uint64(tagId))
+		url := routes.BuildTagPath(tagId)
 		url.WithFolderPaging(tPage).WithImagePaging(iPage)
 
 		database := db.GetDatabase()
 		acl := auth.GetAuthContex(c)
 
-		thisTag, err := dao.GetTagByIDACL(database, c, uint64(tagId), tpl.CreateDBOACL(acl))
+		thisTag, err := dao.GetTagByIDACL(database, c, tagId, acl.ACLContext)
 		switch {
 		case errors.Is(err, dao.ErrDataNotFound):
 			logging.ExitErr(logg, err)
-			pages.Soft404(r, cfg, c, data.SurfacePublic, "tag", routes.CreateTagsRootPath(), uint64(tagId))
+			pages.Soft404(r, cfg, c, data.SurfacePublic, "tag", routes.CreateTagsRootPath(), tagId)
 			return
 		case err != nil:
 			logging.ExitErr(logg, err)
 			c.AbortWithStatus(http.StatusInternalServerError)
+			return
 		}
 
-		dboAcl := tpl.CreateDBOACL(acl)
-		folders, err := BuildFolders(c, database, uint64(tagId), dboAcl, tPage, *url)
+		folders, err := BuildFolders(c, database, tagId, acl.ACLContext, tPage, *url)
 		if err != nil {
 			logging.ExitErr(logg, err)
 			c.AbortWithStatus(http.StatusInternalServerError)
+			return
 		}
 
-		images, err := dao.QueryImageByTagACLPaged(database, c, uint64(tagId), dboAcl, uint64((iPage-1)*imagePerPage), uint64(imagePerPage))
+		images, err := dao.QueryImageByTagACLPaged(database, c, tagId, acl.ACLContext, (iPage-1)*imagePerPage, imagePerPage)
 		if err != nil {
 			logging.ExitErr(logg, err)
 			c.AbortWithStatus(http.StatusInternalServerError)
+			return
 		}
 
-		imageGrid, err := BuildImageGrid(c, database, uint64(tagId), dboAcl, images, iPage, *url, cfg.Presentation)
+		imageGrid, err := BuildImageGrid(c, database, tagId, acl.ACLContext, images, iPage, *url, cfg.Presentation)
 		if err != nil {
 			logging.ExitErr(logg, err)
 			c.AbortWithStatus(http.StatusInternalServerError)
+			return
 		}
 		breadcrumbs, err := tpl.BuildTagBreadcumb(database, c, thisTag, true)
 		if err != nil {
 			logging.ExitErr(logg, err)
 			c.AbortWithStatus(http.StatusInternalServerError)
+			return
 		}
 
 		tagForrest := dbo.TagsTree{}
@@ -178,7 +184,7 @@ func TagPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 		}
 		tagForrest = dbo.MergeTagsTrees(tagForrest)
 
-		apiUrl := routes.BuildApiTagPath(uint64(tagId)).WithImagePaging(iPage)
+		apiUrl := routes.BuildApiTagPath(tagId).WithImagePaging(iPage)
 		multiMap := data.MultiMap{
 			APIURL:      apiUrl.String(),
 			Cluster:     true,
@@ -196,9 +202,13 @@ func TagPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 		tagPageCtx.ImageTags = data.ImageTags(tagForrest)
 		tagPageCtx.Map = multiMap
 
-		if err := r.RenderPage(c.Writer, "public/folders", tagPageCtx); err != nil {
-			c.String(500, err.Error())
+		logging.Exit(logg, "ok", nil)
+		if err := r.RenderPage(c.Writer, "public/folders", tagPageCtx, loc, i18n); err != nil {
+			c.AbortWithStatus(http.StatusInternalServerError)
+			logging.ExitErr(logg, err)
+			return
 		}
+		logging.Exit(logg, "ok", nil)
 
 	}
 }

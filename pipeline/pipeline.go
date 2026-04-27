@@ -2,9 +2,12 @@ package pipeline
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 
 	"github.com/ignisVeneficus/lumenta/config"
+	"github.com/ignisVeneficus/lumenta/data"
 	"github.com/ignisVeneficus/lumenta/db"
 	"github.com/ignisVeneficus/lumenta/db/dao"
 	"github.com/ignisVeneficus/lumenta/db/dbo"
@@ -64,13 +67,46 @@ func RunGlobalSync(ctx context.Context, cfg config.Config, cleanUp bool) error {
 	case metaHash != dbMetaHash:
 		pipelineCtx.Force = true
 	}
+	var (
+		seen    uint64 = 0
+		notSeen uint64 = 0
+		rt      *SyncRuntime
+	)
+	defer func() {
+		if pipelineCtx.SyncId == 0 {
+			return // not started
+		}
+		if rt != nil {
+			rt.Stop(pipelineCtx.SyncId)
+		}
+		if err != nil {
+			logging.ExitErr(logg, err)
+			cerr := dao.CloseSyncRunError(pipelineCtx.Database, ctx, pipelineCtx.SyncId, err.Error())
+			if cerr != nil {
+				logging.ExitErr(logg, cerr)
+			}
+		} else {
+			cerr := dao.CloseSyncRunSuccess(pipelineCtx.Database, ctx, pipelineCtx.SyncId, seen, notSeen)
+			if cerr != nil {
+				logging.ExitErr(logg, cerr)
+				err = cerr
+			}
+		}
 
+	}()
+
+	// FIXME: hash always empty
 	syncId, err := dao.CreateSyncRun(pipelineCtx.Database, ctx, mode, metaHash)
 	if err != nil {
-		logging.ExitErr(logg, err)
 		return err
 	}
 	pipelineCtx.SyncId = syncId
+
+	rt = Global()
+
+	if !rt.Start(syncId) {
+		return fmt.Errorf("sync already running")
+	}
 
 	cancelCtx, cancel := context.WithCancel(ctx)
 
@@ -104,28 +140,23 @@ func RunGlobalSync(ctx context.Context, cfg config.Config, cleanUp bool) error {
 		stepDBUpdate,
 	)
 	if err != nil {
-		logging.ExitErr(logg, err)
-		err = dao.CloseSyncRunError(pipelineCtx.Database, ctx, pipelineCtx.SyncId, err.Error())
-		if err != nil {
-			logging.ExitErr(logg, err)
-		}
+		return err
+	}
+	seen, err = dao.CountImageByLastSeen(pipelineCtx.Database, ctx, pipelineCtx.SyncId)
+	if err != nil {
 		return err
 	}
 	if cleanUp {
-		err = dao.DeleteImagesNotSeenAll(pipelineCtx.Database, ctx, pipelineCtx.SyncId, 1000)
+		// delete only is cleanup set
+		notSeen, err = dao.CountImageByLastNotSeen(pipelineCtx.Database, ctx, pipelineCtx.SyncId)
 		if err != nil {
-			logging.ExitErr(logg, err)
-			err = dao.CloseSyncRunError(pipelineCtx.Database, ctx, pipelineCtx.SyncId, err.Error())
-			if err != nil {
-				logging.ExitErr(logg, err)
-			}
 			return err
 		}
-	}
 
-	err = dao.CloseSyncRunSuccess(pipelineCtx.Database, ctx, pipelineCtx.SyncId, 0, 0)
-	if err != nil {
-		logging.ExitErr(logg, err)
+		err = dao.DeleteImageNotSeenAll(pipelineCtx.Database, ctx, pipelineCtx.SyncId, 1000)
+		if err != nil {
+			return err
+		}
 	}
 
 	logging.Exit(logg, "ok", nil)
@@ -157,8 +188,75 @@ func runPipeline(ctx PipelineContext, input chan WorkItem, workers ...step) erro
 			return err
 		}
 	}
-	// Sink: drain, hogy a goroutine-ok lefussanak
+	// Sink: drain
 	for range input {
 	}
 	return nil
+}
+
+type writeReason string
+
+const (
+	reasonError   writeReason = "error"
+	reasonSkipped writeReason = "skipped"
+	reasonOk      writeReason = "ok"
+)
+
+func SaveResultSkip(px *PipelineContext, job WorkItem) error {
+	return saveResult(px, job, reasonSkipped)
+}
+func SaveResultSucess(px *PipelineContext, job WorkItem) error {
+	return saveResult(px, job, reasonOk)
+}
+func SaveResultError(px *PipelineContext, job WorkItem) error {
+	return saveResult(px, job, reasonError)
+}
+
+func saveResult(px *PipelineContext, job WorkItem, reason writeReason) error {
+	dbItem := dbo.SyncFile{
+		SyncID:   px.SyncId,
+		Root:     job.RootName,
+		Path:     job.Path,
+		Filename: job.Filename,
+		Ext:      job.Ext,
+	}
+	if job.RuleResults != nil {
+		ruleResultsJSON, err := json.Marshal(job.RuleResults)
+		if err != nil {
+			return err
+		}
+		dbItem.RuleResultsJSON = ruleResultsJSON
+	}
+	if job.DirtyReason != "" {
+		dbItem.DirtyReason = (*string)(&job.DirtyReason)
+	}
+	switch reason {
+	case reasonSkipped:
+		if job.DBImage.ID != nil {
+			dbItem.Status = dbo.SyncFileStatusDeleted
+		} else {
+			dbItem.Status = dbo.SyncFileStatusFilteredOut
+		}
+	case reasonOk:
+		switch job.DirtyReason {
+		case data.DirtyHashChg, data.DirtyMetadataHashChg,
+			data.DirtySizeChg, data.DirtyTimeChg:
+			dbItem.Status = dbo.SyncFileStatusUpdated
+		case data.DirtyNewfile:
+			dbItem.Status = dbo.SyncFileStatusCreated
+		case data.DirtyForced:
+			if job.DBImage.ID != nil {
+				dbItem.Status = dbo.SyncFileStatusUpdated
+			} else {
+				dbItem.Status = dbo.SyncFileStatusCreated
+			}
+		default:
+			dbItem.Status = dbo.SyncFileStatusNotChanged
+		}
+	case reasonError:
+		dbItem.Status = dbo.SyncFileStatusError
+	}
+	err := dao.CreateSyncFile(px.Database, px.Ctx, dbItem)
+	return err
+
 }

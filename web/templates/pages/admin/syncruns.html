@@ -1,0 +1,60 @@
+{{ define "page-head" }}
+    <script src="/static/js/clickable-row.js" defer></script>        
+{{ end }}
+
+
+{{ define "main" }}
+<div class="breadcrumbs-wrapper">
+{{- with .Breadcrumbs }}
+    {{- template "partials/breadcrumbs.html" . -}}
+{{- end -}}
+</div>
+
+<div class="admin-layout syncrun-page">
+    {{- template "partials/admin/action-rail.html" . -}}
+    <div class="content">
+        <table>
+            <thead>
+                <tr>
+                <th class="col-icon"></th>
+                <th class="col-main">Started</th>
+                <th class="col-duration">Duration</th>
+                <th class="col-status">Status</th>
+                <th class="col-mode">Mode</th>
+                <th class="col-num">Seen</th>
+                <th class="col-num">Deleted</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{- range .SyncRuns -}}
+                <tr class="clickable-row" data-href="{{- adminSyncRunPath .ID -}}">
+                    <td class="col-icon">
+                        {{ if eq .Status "running"}}
+                            <i class="fa-solid fa-spinner fa-spin icon sync-run"></i>
+                        {{ end }}
+                        {{ if eq .Status "finished"}}
+                            <i class="fa-regular fa-circle-check icon sync-finish"></i>
+                        {{ end }}
+                        {{ if eq .Status "failed"}}
+                            <i class="fa-regular fa-circle-xmark icon sync-error"></i>
+                        {{ end }}
+                    </td>
+                    <td class="col-main">{{ formatTime .StartedAt }}</td>
+                    <td class="col-duration">{{ formatDuration .Duration }}</td>
+                    <td class="col-status">{{.Status}}</td>
+                    <td class="col-mode">{{.Mode}}</td>
+                    <td class="col-num">{{formatNumber .TotalSeen }}</td>
+                    <td class="col-num">{{formatNumber .TotalDeleted }}</td>
+                </tr>
+                {{- end -}}
+            </tbody>
+        </table>
+        {{- if not .SyncRuns -}}
+           <div class="no-records">No records found</div>
+        {{- end -}}
+        {{- if .Paging -}}
+            {{- template "partials/paging.html" .Paging -}}
+        {{- end -}}
+    </div>
+</div>
+{{ end }}

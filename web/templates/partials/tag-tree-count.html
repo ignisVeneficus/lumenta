@@ -1,19 +1,19 @@
-<ul class="tag-tree">
+<ul class="tag-tree tree">
   {{- range . -}}
-    <li class="tag-node">
+    <li class="tag-node tree-node">
       {{- if .Children -}}
-        <input type="checkbox" id="toggle-{{ .ID }}" class="tag-toggle" checked>
-        <label for="toggle-{{ .ID }}" class="tag-label">
-          <i class="fa-solid fa-chevron-right tag-icon icon"></i>
-          <a href="{{ tagPath .ID }}" class="tag-link">{{ .Name }}</a>
+        <input type="checkbox" id="toggle-{{ .ID }}" class="tag-toggle tree-toggle" checked>
+        <label for="toggle-{{ .ID }}" class="tag-label tree-label">
+          <i class="fa-solid fa-chevron-right tag-icon tree-icon icon" title="{{ t "nav.tree.toggle"}}"></i>
+          <a href="{{ tagPath .ID }}" class="tag-link tree-link">{{ .Name }}</a>
           {{- with .Count -}}
           <span class="tag-count">· {{ . }} photos</span>
           {{- end -}}
         </label>
         {{ template "partials/tag-tree-count.html" .Children }}
       {{- else -}}
-        <span class="tag-leaf">
-          <a href="{{ tagPath .ID }}" class="tag-link">{{ .Name }}</a>
+        <span class="tag-leaf tree-leaf">
+          <a href="{{ tagPath .ID }}" class="tag-link tree-leaf">{{ .Name }}</a>
           {{- with .Count -}}
           <span class="tag-count">· {{ . }} photos</span>
           {{- end -}}

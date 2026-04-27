@@ -3,8 +3,8 @@ package sync
 import (
 	"time"
 
-	authData "github.com/ignisVeneficus/lumenta/auth/data"
 	"github.com/ignisVeneficus/lumenta/data"
+	"github.com/ignisVeneficus/lumenta/db/dbo"
 	"github.com/ignisVeneficus/lumenta/ruleengine"
 )
 
@@ -50,7 +50,7 @@ type ExiftoolConfig struct {
 type ACLRules []ACLRule
 
 type ACLRule struct {
-	Role  authData.ACLRole        `yaml:"role"`
+	Role  dbo.ACLRole             `yaml:"role"`
 	User  *string                 `yaml:"user"`
 	Rules []*ruleengine.RuleGroup `yaml:"rules"`
 }

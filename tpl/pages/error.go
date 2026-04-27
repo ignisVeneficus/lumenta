@@ -7,12 +7,15 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/ignisVeneficus/lumenta/config"
+	"github.com/ignisVeneficus/lumenta/internal/i18n"
 	"github.com/ignisVeneficus/lumenta/tpl"
 	"github.com/ignisVeneficus/lumenta/tpl/data"
 )
 
 func Global404(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		i18n := i18n.Get()
+		loc := tpl.L(c)
 		errorCtx := data.ErrorPageContext{}
 
 		pageCtx := errorCtx.GetPage()
@@ -27,12 +30,14 @@ func Global404(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 
 		c.Status(http.StatusNotFound)
 
-		r.RenderPage(c.Writer, "404", errorCtx)
+		r.RenderPage(c.Writer, "404", errorCtx, loc, i18n)
 	}
 }
 
 func Soft404(r *tpl.TemplateResolver, cfg config.Config, c *gin.Context,
 	surface data.Surface, resource, rootURL string, resourceID uint64) {
+	i18n := i18n.Get()
+	loc := tpl.L(c)
 
 	errorCtx := data.ErrorPageContext{}
 
@@ -54,7 +59,7 @@ func Soft404(r *tpl.TemplateResolver, cfg config.Config, c *gin.Context,
 
 	c.Status(http.StatusNotFound)
 
-	r.RenderPage(c.Writer, "404", errorCtx)
+	r.RenderPage(c.Writer, "404", errorCtx, loc, i18n)
 
 	c.Abort()
 }

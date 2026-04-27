@@ -1,6 +1,7 @@
 package data
 
 import (
+	"errors"
 	"fmt"
 	"html/template"
 
@@ -8,10 +9,12 @@ import (
 	"github.com/ignisVeneficus/lumenta/db/dbo"
 
 	grid "github.com/ignisVeneficus/lumenta/tpl/grid/data"
-	gridData "github.com/ignisVeneficus/lumenta/tpl/grid/data"
 )
 
 var ThumbnailPerPage = 5
+
+var ErrMissingMandatoryValue = errors.New("missing value")
+var ErrInvalidValue = errors.New("invalid value")
 
 const (
 	QueryPaging = "page"
@@ -25,7 +28,7 @@ var (
 )
 
 type PageContexHolder interface {
-	GetPageContext() *PageContext
+	GetPage() *PageContext
 }
 
 type UserContext struct {
@@ -34,7 +37,7 @@ type UserContext struct {
 }
 
 func (uc UserContext) EnableMenu() bool {
-	return uc.HasGuestEnabled || uc.Role != authData.RoleGuest
+	return uc.HasGuestEnabled || uc.Role != dbo.RoleGuest
 }
 
 type PageContext struct {
@@ -64,27 +67,31 @@ type FooterInfo struct {
 	Note          string
 	CopyrightDate string
 }
-type AlbumPageContex struct {
+
+type MainPageContext struct {
 	PageContext
-	Images []*gridData.GridImage
+	ImageGrid ImageGrid
+}
+
+type NavigationContext struct {
+	PageContext
+	Breadcrumbs Breadcrumbs
 }
 
 type TagRootPageContext struct {
-	PageContext
-	Breadcrumbs Breadcrumbs
-	TagsTree    dbo.TagsWCountTree
+	NavigationContext
+	TagsTree dbo.TagsWCountTree
 }
 
 type ImageGrid struct {
 	Images []*grid.GridImage
-	Paging Paging
+	Paging *Paging
 }
 
 type ImageGridPageContext struct {
-	PageContext
-	Breadcrumbs Breadcrumbs
-	ImageGrid   ImageGrid
-	ImageTags   ImageTags
+	NavigationContext
+	ImageGrid ImageGrid
+	ImageTags ImageTags
 }
 
 type ImageTags dbo.TagsTree
@@ -129,11 +136,10 @@ type SingleMap struct {
 }
 
 type ImagePageContext struct {
-	PageContext
-	Breadcrumbs Breadcrumbs
-	Image       PageImage
-	Thumbnails  Thumbnails
-	Next        *Thumbnail
-	Prev        *Thumbnail
-	Up          string
+	NavigationContext
+	Image      PageImage
+	Thumbnails *Thumbnails
+	Next       *Thumbnail
+	Prev       *Thumbnail
+	Up         string
 }

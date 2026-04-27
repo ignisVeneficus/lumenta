@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	authData "github.com/ignisVeneficus/lumenta/auth/data"
+	"github.com/ignisVeneficus/lumenta/db/dbo"
 	"github.com/ignisVeneficus/lumenta/logging"
 )
 
@@ -17,7 +18,7 @@ type ForwardVerifier struct {
 	AdminRole    string
 }
 
-func (fav ForwardVerifier) ContextFromRequest(ctx context.Context, ip string, request http.Request) *authData.ACLContext {
+func (fav ForwardVerifier) ContextFromRequest(ctx context.Context, ip string, request *http.Request) *authData.ACLContext {
 	logg := logging.Enter(ctx, "auth.forward.ctxFromRequest", map[string]any{"ip": ip})
 	if !CIDRMatch(fav.Cidrs, ip) {
 		logging.Exit(logg, "NOT OK", map[string]any{"problem": "not allowed ip"})
@@ -30,17 +31,19 @@ func (fav ForwardVerifier) ContextFromRequest(ctx context.Context, ip string, re
 		return nil
 	}
 
-	role := authData.RoleUser
+	role := dbo.RoleUser
 	groups := strings.Split(headers.Get(fav.GroupsHeader), ",")
 	for _, g := range groups {
 		if strings.TrimSpace(g) == fav.AdminRole {
-			role = authData.RoleAdmin
+			role = dbo.RoleAdmin
 		}
 	}
 	logging.Exit(logg, "OK", map[string]any{"role": role, "user": &user})
 	return &authData.ACLContext{
+		ACLContext: dbo.ACLContext{
+			Role: role,
+		},
 		UserName: &user,
-		Role:     role,
 		Provider: authData.ProviderForward,
 	}
 

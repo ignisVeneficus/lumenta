@@ -128,13 +128,13 @@ func (g RuleGroup) MarshalJSON() ([]byte, error) {
 	return json.Marshal(out)
 }
 
-type SetMode string
+type SetOp string
 
 const (
-	SetAll  SetMode = "all"  // all of them
-	SetAny  SetMode = "any"  // one of them
-	SetNone SetMode = "none" // none of them
-	SetOnly SetMode = "only" // only them
+	SetAll  SetOp = "all"  // all of them
+	SetAny  SetOp = "any"  // one of them
+	SetNone SetOp = "none" // none of them
+	SetOnly SetOp = "only" // only them
 )
 
 type DateOp string
@@ -148,13 +148,13 @@ const (
 type RelationOp string
 
 const (
-	RelationBelow RelationOp = "<"
-	RelationAbove RelationOp = ">"
+	RelationBelow RelationOp = "lt"
+	RelationAbove RelationOp = "gt"
 )
 
 type TagFilter struct {
 	Type string   `json:"type" yaml:"type"`
-	Op   SetMode  `json:"op" yaml:"op"`
+	Op   SetOp    `json:"op" yaml:"op"`
 	Tags []string `json:"tags" yaml:"tags"`
 }
 
@@ -209,15 +209,16 @@ func (AspectFilter) FilterType() string { return "aspect" }
 
 type PathFilter struct {
 	Type  string   `json:"type" yaml:"type"` // "path"
-	Mode  SetMode  `json:"mode" yaml:"mode"`
+	Op    SetOp    `json:"op" yaml:"op"`
 	Paths []string `json:"paths" yaml:"paths"` // glob / prefix
+	Root  string   `json:"root" yaml:"root"`
 }
 
 func (PathFilter) FilterType() string { return "path" }
 
 type ExtensionFilter struct {
 	Type       string   `json:"type" yaml:"type"` // "extension"
-	Mode       SetMode  `json:"mode" yaml:"mode"`
+	Op         SetOp    `json:"op" yaml:"op"`
 	Extensions []string `json:"extensions" yaml:"extensions"`
 }
 
@@ -225,10 +226,9 @@ func (ExtensionFilter) FilterType() string { return "extension" }
 
 type AlbumFilter struct {
 	Type            string   `json:"type" yaml:"type"` // "album"
-	Mode            SetMode  `json:"mode" yaml:"mode"`
+	Op              SetOp    `json:"op" yaml:"op"`
 	Albums          []uint64 `json:"albums" yaml:"albums"`
 	IncludeChildren bool     `json:"include_children" yaml:"include_children"`
-	ExcludeChildren bool     `json:"exclude_children" yaml:"exclude_children"`
 }
 
 func (AlbumFilter) FilterType() string { return "album" }
@@ -238,3 +238,10 @@ type NotInChildAlbumsFilter struct {
 }
 
 func (NotInChildAlbumsFilter) FilterType() string { return "notchildren" }
+
+func CreateEmptyRuleGroup() RuleGroup {
+	return RuleGroup{
+		Op:    OpAll,
+		Rules: []Rule{},
+	}
+}

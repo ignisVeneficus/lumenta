@@ -18,7 +18,8 @@
         </div>
     </div>
 </div>
-<div class="content">
-    {{  template "partials/grid.html" . }}
+<div class="content main-page">
+    <div class="inline">Random selection · <a href="{{ albumsRootPath }}" class="hint">Explore albums →</a></div>
+    {{  template "partials/image-grid.html" .ImageGrid }}
 </div>
 {{ end }}

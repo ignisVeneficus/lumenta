@@ -8,7 +8,7 @@ import (
 
 const (
 	ApiPrefix  = "/api"
-	apiTagPath = "/tag/%d"
+	apiTagPath = "/tags/%d"
 )
 
 func GetApiTagPath() string {

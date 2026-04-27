@@ -2,6 +2,7 @@ package tpl
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"io"
@@ -9,7 +10,10 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
+	"github.com/ignisVeneficus/lumenta/internal/i18n"
+	"github.com/ignisVeneficus/lumenta/internal/locale"
 	"github.com/ignisVeneficus/lumenta/logging"
 )
 
@@ -130,12 +134,41 @@ func NewTemplateResolver(ctx context.Context, userRoot string, funcMaps ...templ
 	}, nil
 }
 
-func (r *TemplateResolver) RenderPage(w io.Writer, page string, ctx any) error {
+func (r *TemplateResolver) RenderPage(w io.Writer, page string, ctx any, loc string, i18n *i18n.Service) error {
 
 	tpl, ok := r.pages[page]
 	if !ok {
 		return fmt.Errorf("page template not prepared: %s", page)
 	}
 
-	return tpl.ExecuteTemplate(w, "layout/baseof.html", ctx)
+	t, err := tpl.Clone()
+	if err != nil {
+		return err
+	}
+
+	t = t.Funcs(template.FuncMap{
+		"formatTime": func(v time.Time) string {
+			return locale.FormatTime(v, loc)
+		},
+		"formatDuration": func(d time.Duration) string {
+			return locale.FormatDuration(&d, loc, i18n)
+		},
+		"formatNumber": func(n any) string {
+			return locale.FormatNumber(n, loc)
+		},
+		"t": func(key string, args ...any) string {
+			var params map[string]any
+			if len(args) > 0 {
+				params = args[0].(map[string]any)
+			}
+			return i18n.T(loc, key, params)
+		},
+		"i18n_js": func(selectors ...string) template.JS {
+			m := i18n.ExtractKeys(loc, selectors)
+			b, _ := json.Marshal(m)
+			return template.JS(b)
+		},
+	})
+
+	return t.ExecuteTemplate(w, "layout/baseof.html", ctx)
 }

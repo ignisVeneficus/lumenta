@@ -20,13 +20,22 @@
 
   --icon-primary:  var(--color1-text-middle);
   --icon-hover:    var(--color1-text-light);
-  --icon-muted:   var(--color1-text-dark);
+  --icon-muted:    var(--color1-text-dark);
 
-  --icon2-primary:  var(--color2-text-middle);
-  --icon2-hover:    var(--color2-text-light);
+  --icon2-primary: var(--color2-text-middle);
+  --icon2-hover:   var(--color2-text-light);
   --icon2-muted:   var(--color2-text-dark);
 
-  --text-accent:  var(--color1-text-middle);
+  --text-accent:   var(--color1-text-middle);
+
+  --icon-public:        var(--color1-text-middle);
+  --icon-public-hover:  var(--color1-text-light);
+  --icon-public-muted:  var(--color1-text-dark);
+
+  --icon-admin:         var(--color2-text-middle);
+  --icon-admin-hover:   var(--color2-text-light);
+  --icon-admin-muted:   var(--color2-text-dark);
+
 
   /* ============================================================
      BORDERS & DIVIDERS

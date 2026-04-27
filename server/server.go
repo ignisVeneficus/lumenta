@@ -7,8 +7,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/ignisVeneficus/lumenta/api/endpoint"
-	authData "github.com/ignisVeneficus/lumenta/auth/data"
 	"github.com/ignisVeneficus/lumenta/config"
+	"github.com/ignisVeneficus/lumenta/db/dbo"
+	"github.com/ignisVeneficus/lumenta/internal/i18n"
 	"github.com/ignisVeneficus/lumenta/server/routes"
 	"github.com/ignisVeneficus/lumenta/tpl"
 	"github.com/ignisVeneficus/lumenta/tpl/pages"
@@ -18,7 +19,7 @@ import (
 
 var StaticRoot string = "web/static"
 
-func Server(cfg config.Config) {
+func Server(cfg config.Config, i18n *i18n.Service) {
 	ctx := context.Background()
 	gin.SetMode(gin.ReleaseMode)
 
@@ -26,7 +27,7 @@ func Server(cfg config.Config) {
 		gin.SetMode(gin.DebugMode)
 	}
 
-	templatreResolver, err := tpl.NewTemplateResolver(ctx, "", tpl.DefaultFuncMap())
+	templatreResolver, err := tpl.NewTemplateResolver(ctx, "", tpl.DefaultFuncMap(i18n))
 	if err != nil {
 		panic(err)
 	}
@@ -36,6 +37,7 @@ func Server(cfg config.Config) {
 	r.NoRoute(pages.Global404(templatreResolver, cfg))
 
 	r.Use(
+		InputGuard(),
 		RequestID(),
 		Logger(),
 		gin.Recovery(),
@@ -64,16 +66,32 @@ func Server(cfg config.Config) {
 		publicGrp.GET(routes.GetTagPath(), public.TagPage(templatreResolver, cfg))
 		publicGrp.GET(routes.GetTagImagePath(), public.TagImagePage(templatreResolver, cfg))
 
+		publicGrp.GET(routes.GetImagePath(), public.ImagePage(templatreResolver, cfg))
+
 		/// "/img/:id/:type"
 		publicGrp.GET(routes.GetImageDerivativePath(), DerivativeHandler(cfg))
 	}
 	adminGrp := r.Group("/admin")
-	adminGrp.Use(RequireRole(authData.RoleAdmin), DefaultHTMLMime())
+	adminGrp.Use(RequireRole(dbo.RoleAdmin), DefaultHTMLMime())
 	{
 		adminGrp.GET("/", admin.MainPage(templatreResolver, cfg))
 		adminGrp.GET(routes.GetAdminFsPath(), admin.FSPage(templatreResolver, cfg))
 
 		adminGrp.GET(routes.GetAdminImgPath(), admin.ImagePage(templatreResolver, cfg))
+
+		adminGrp.GET(routes.GetAdminAlbumNewPath(), admin.NewAlbumPage(templatreResolver, cfg))
+		adminGrp.POST(routes.GetAdminAlbumNewPath(), admin.NewAlbumPage(templatreResolver, cfg))
+
+		adminGrp.GET(routes.GetAdminAlbumPath(), admin.EditAlbumPage(templatreResolver, cfg))
+		adminGrp.POST(routes.GetAdminAlbumPath(), admin.EditAlbumPage(templatreResolver, cfg))
+
+		adminGrp.GET(routes.GetAdminSyncRunsPath(), admin.SyncRunsListPage(templatreResolver, cfg))
+		adminGrp.GET(routes.GetAdminSyncRunFilesPath(), admin.SyncRunFilesListPage(templatreResolver, cfg))
+
+		adminGrp.GET(routes.GetAdminSyncFilesPath(), admin.SyncFilesListPage(templatreResolver, cfg))
+		adminGrp.GET(routes.GetAdminSyncFilesByPathPath(), admin.SyncFilesListPathPage(templatreResolver, cfg))
+		adminGrp.GET(routes.GetAdminSyncFilePath(), admin.SyncFilePage(templatreResolver, cfg))
+
 		/*
 			filesystem: /fs/
 			Albums /album/:id
@@ -81,7 +99,7 @@ func Server(cfg config.Config) {
 
 			Albums list		GET /admin/albums
 			New album form	GET /admin/albums/new
-			save new album	POST /admin/albums
+			save new album	POST /admin/albums/new
 			Album edit		GET /admin/albums/:id
 			Album edit		POST /admin/albums/:id
 		*/
@@ -89,6 +107,15 @@ func Server(cfg config.Config) {
 	apiGrp := r.Group(routes.ApiPrefix)
 	{
 		apiGrp.GET(routes.GetApiTagPath(), endpoint.ImageCoordByTags(cfg))
+	}
+	apiAdminGrp := apiGrp.Group(routes.AdminPrefix)
+	apiAdminGrp.Use(RequireAPIRole(dbo.RoleAdmin))
+	{
+		// tags
+		apiAdminGrp.GET(routes.GetApiAdminTagsPath(), endpoint.TagsQuery(cfg))
+		// albums
+		apiAdminGrp.GET(routes.GetApiAdminAlbumsPath(), endpoint.AlbumQuery(cfg))
+		apiAdminGrp.PATCH(routes.GetApiAdminAlbumPath(), endpoint.AlbumPatch(cfg))
 	}
 
 	srv := &http.Server{

@@ -33,6 +33,8 @@
   --font-size-4xl: 3rem;     /* 48px – rare, landing only */  
 
   --font-size-brand: 4rem;        /* homepage title only */
+  --font-size-paceholder: 6rem;   
+
 
   --font-size-tagline: var(--font-size-lg);  /* 18px */
   --font-size-section: var(--font-size-xl);  /* 20px */
@@ -60,25 +62,29 @@
      - Internal spacing must NOT exceed margin + padding together
   ============================================================ */
 
-  --space-1: 0.25rem; /* 4px  */
-  --space-2: 0.5rem;  /* 8px  */
-  --space-3: 0.75rem; /* 12px */
-  --space-4: 1rem;    /* 16px */
-  --space-5: 1.25rem; /* 20px */
-  --space-6: 1.5rem;  /* 24px */
-  --space-7: 2rem;    /* 32px */
-  --space-8: 3rem;    /* 48px */
-  --space-9: 4rem;    /* 64px */
-  --space-10: 5rem;   /* 80px */
-  --space-11: 6rem;   /* 96px */
-  --space-12: 8rem;   /* 128px */
-  --space-13: 10rem;  /* 160px */
-  --space-14: 12rem;  /* 192px */
-  --space-15: 16rem;  /* 256px */
+  --size-1: 0.25rem; /* 4px  */
+  --size-2: 0.5rem;  /* 8px  */
+  --size-3: 0.75rem; /* 12px */
+  --size-4: 1rem;    /* 16px */
+  --size-5: 1.25rem; /* 20px */
+  --size-6: 1.5rem;  /* 24px */
+  --size-7: 2rem;    /* 32px */
+  --size-8: 3rem;    /* 48px */
+  --size-9: 4rem;    /* 64px */
+  --size-10: 5rem;   /* 80px */
+  --size-11: 6rem;   /* 96px */
+  --size-12: 8rem;   /* 128px */
+  --size-13: 10rem;  /* 160px */
+  --size-14: 12rem;  /* 192px */
+  --size-15: 16rem;  /* 256px */
+  --size-16: 20rem;  /* 320px */
+  --size-17: 24rem;  /* 384px */
+  --size-18: 32rem;  /* 512px */
+  --size-19: 40rem;  /* 640px */
+  --size-20: 48rem;  /* 768px */
 
 
-
-  --space-page-x: var(--space-6);
+  --size-page-x: var(--size-6);
 
   /* ============================================================
      COLOR DEFINIONS
@@ -115,10 +121,8 @@
 
   --gray-hover: rgba(255,255,255,0.09);
   --gray-active: rgba(255,255,255,0.18);
-  /*
-  rgba(255,255,255,0.17)
-  */
 
+  --shadow-overlay: 0 6px 18px rgba(0, 0, 0, 0.28);
 
   /* ============================================================
      TEXT LEVELS (PURE GRAYS)

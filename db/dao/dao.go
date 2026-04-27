@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/go-sql-driver/mysql"
+	"github.com/ignisVeneficus/lumenta/db/dbo"
 	"github.com/ignisVeneficus/lumenta/logging"
 	"github.com/rs/zerolog"
 )
@@ -97,45 +98,28 @@ func CreateDatabase(db *sql.DB, ctx context.Context) error {
 	return nil
 }
 
-type ACLContext struct {
-	ViewerUserID *uint64
-	Role         string
-}
+const aclWhereClauseGuest = ` %sacl_level = 0 `
 
-func (a ACLContext) IsAnyUser() bool {
-	return a.ViewerUserID != nil
-}
+const aclWhereClauseUser = ` %sacl_level <= 1 
+AND %sacl_user_id in (0,?)
+`
+const aclWhereClauseAdmin = ` 1 = 1 `
 
-func (a ACLContext) IsAdmin() bool {
-	return a.Role == "admin"
-}
-
-func (a ACLContext) AsParamArray() []any {
-	return []any{a.IsAnyUser(), a.ViewerUserID, a.IsAdmin()}
-}
-func (a *ACLContext) MarshalZerologObjectWithLevel(e *zerolog.Event, level zerolog.Level) {
-	if level <= zerolog.DebugLevel {
-		e.Str("role", a.Role)
-		logging.Uint64If(e, "userID", a.ViewerUserID)
+func CreateAclWhere(alias string, acl dbo.ACLContext) (string, []any) {
+	if alias != "" {
+		alias += "."
+	}
+	params := make([]any, 0)
+	switch acl.Role {
+	case dbo.RoleAdmin:
+		return aclWhereClauseAdmin, params
+	case dbo.RoleUser:
+		return fmt.Sprintf(aclWhereClauseUser, alias, alias), append(params, acl.ViewerUserID)
+	//case dbo.RoleGuest
+	default:
+		return fmt.Sprintf(aclWhereClauseGuest, alias), params
 	}
 }
-
-const aclAlbumWhereClause = `
-(
-  a.acl_scope = 'public'
-  OR (a.acl_scope = 'any_user' AND ? = TRUE)
-  OR (a.acl_scope = 'user' AND a.acl_user_id = ?)
-  OR (a.acl_scope = 'admin' AND ? = TRUE)
-)
-`
-const aclImageWhereClause = `
-(
-  i.acl_scope = 'public'
-  OR (i.acl_scope = 'any_user' AND ? = TRUE)
-  OR (i.acl_scope = 'user' AND i.acl_user_id = ?)
-  OR (i.acl_scope = 'admin' AND ? = TRUE)
-)
-`
 
 func wrapNotFound(err error, entity string) error {
 	if err == nil {
@@ -167,4 +151,10 @@ func buildUint64InClause(ids []uint64) (string, []any) {
 		args[i] = id
 	}
 	return strings.Join(placeholders, ","), args
+}
+func Placeholder(qty int) string {
+	if qty < 1 {
+		return ""
+	}
+	return strings.TrimRight(strings.Repeat("?,", qty), ",")
 }

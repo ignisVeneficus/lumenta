@@ -4,9 +4,9 @@ import (
 	"errors"
 	"fmt"
 
-	authData "github.com/ignisVeneficus/lumenta/auth/data"
 	"github.com/ignisVeneficus/lumenta/config/validate"
 	"github.com/ignisVeneficus/lumenta/data"
+	"github.com/ignisVeneficus/lumenta/db/dbo"
 	"github.com/ignisVeneficus/lumenta/ruleengine"
 	"github.com/rs/zerolog/log"
 )
@@ -132,7 +132,7 @@ func (ac *ACLRules) validate(v *validate.ValidationErrors, path string) {
 func (acr *ACLRule) validate(v *validate.ValidationErrors, basePath string, idx int) {
 	path := fmt.Sprintf("%s/[%d]", basePath, idx)
 	validate.RequireString(v, path+"/role", string(acr.Role))
-	if !authData.IsValidRole(acr.Role) {
+	if !dbo.IsValidRole(acr.Role) {
 		err := fmt.Errorf("meta_acl: invalid role level")
 		validate.LogConfigError(path+"/role", acr.Role, err)
 		v.Add(err)

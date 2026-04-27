@@ -14,6 +14,7 @@ import (
 	"github.com/ignisVeneficus/lumenta/db"
 	"github.com/ignisVeneficus/lumenta/db/dao"
 	"github.com/ignisVeneficus/lumenta/db/dbo"
+	"github.com/ignisVeneficus/lumenta/internal/i18n"
 	"github.com/ignisVeneficus/lumenta/logging"
 	"github.com/ignisVeneficus/lumenta/server/routes"
 	"github.com/ignisVeneficus/lumenta/tpl"
@@ -22,7 +23,7 @@ import (
 	"github.com/ignisVeneficus/lumenta/utils"
 )
 
-func TagsImagePrevNext(database *sql.DB, c *gin.Context, dboAcl dao.ACLContext, tagId uint64, image dbo.Image) (*dbo.ImageTitle, *dbo.ImageTitle, error) {
+func TagsImagePrevNext(database *sql.DB, c *gin.Context, dboAcl dbo.ACLContext, tagId uint64, image dbo.Image) (*dbo.ImageTitle, *dbo.ImageTitle, error) {
 	logg := logging.Enter(c, "page.public.tags.prevNext", nil)
 	var prev *dbo.ImageTitle = nil
 	var next *dbo.ImageTitle = nil
@@ -48,6 +49,8 @@ func TagsImagePrevNext(database *sql.DB, c *gin.Context, dboAcl dao.ACLContext, 
 
 func TagImagePage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		i18n := i18n.Get()
+		loc := tpl.L(c)
 		tagIdStr := c.Param("tid")
 		imageIdStr := c.Param("iid")
 		iPageStr := c.DefaultQuery(data.ImagePageParam, "0")
@@ -56,16 +59,16 @@ func TagImagePage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 			"image_id":   imageIdStr,
 			"image_page": iPageStr,
 		})
-		tagId, err := strconv.Atoi(tagIdStr)
+		tagId, err := tpl.ParseID(tagIdStr)
 		if err != nil {
 			logging.ExitErr(logg, fmt.Errorf("invalid tag id"))
 			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "invalid tag id"})
 			return
 		}
 
-		imageId, err := strconv.Atoi(imageIdStr)
+		imageId, err := tpl.ParseID(imageIdStr)
 		if err != nil {
-			logging.ExitErr(logg, fmt.Errorf("invalid subTag_page"))
+			logging.ExitErr(logg, fmt.Errorf("invalid image id"))
 			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "invalid image id"})
 			return
 		}
@@ -79,51 +82,53 @@ func TagImagePage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 
 		database := db.GetDatabase()
 		acl := auth.GetAuthContex(c)
-		dboAcl := tpl.CreateDBOACL(acl)
 
-		thisTag, err := dao.GetTagByIDACL(database, c, uint64(tagId), dboAcl)
+		thisTag, err := dao.GetTagByIDACL(database, c, tagId, acl.ACLContext)
 		switch {
 		case errors.Is(err, dao.ErrDataNotFound):
 			logging.ExitErr(logg, err)
-			pages.Soft404(r, cfg, c, data.SurfacePublic, "tag", routes.CreateTagsRootPath(), uint64(tagId))
+			pages.Soft404(r, cfg, c, data.SurfacePublic, "tag", routes.CreateTagsRootPath(), tagId)
 			return
 		case err != nil:
 			logging.ExitErr(logg, err)
 			c.AbortWithStatus(http.StatusInternalServerError)
+			return
 		}
 
-		image, err := dao.GetImageByIdACLWTags(database, c, uint64(imageId), dboAcl)
+		image, err := dao.GetImageByIdACLWTags(database, c, imageId, acl.ACLContext)
 		switch {
 		case errors.Is(err, dao.ErrDataNotFound):
 			logging.ExitErr(logg, err)
-			pages.Soft404(r, cfg, c, data.SurfacePublic, "image", routes.CreateTagsRootPath(), uint64(imageId))
+			pages.Soft404(r, cfg, c, data.SurfacePublic, "image", routes.CreateTagsRootPath(), imageId)
 			return
 		case err != nil:
 			logging.ExitErr(logg, err)
 			c.AbortWithStatus(http.StatusInternalServerError)
+			return
 		}
 
 		generator := func(img uint64) *string {
-			return utils.PtrString(routes.CreateTagImagePath(uint64(tagId), img))
+			return utils.PtrString(routes.CreateTagImagePath(tagId, img))
 		}
 
 		queryNext := func(c context.Context, image dbo.Image, start int, qty int) ([]dbo.ImageTitle, error) {
-			return dao.QueryImageIDByTagACLNext(database, c, uint64(tagId), *image.ID, image.TakenAt, image.Filename, dboAcl, uint64(start), uint64(qty))
+			return dao.QueryImageIDByTagACLNext(database, c, tagId, *image.ID, image.TakenAt, image.Filename, acl.ACLContext, uint64(start), uint64(qty))
 		}
 		queryPrev := func(c context.Context, image dbo.Image, start int, qty int) ([]dbo.ImageTitle, error) {
-			return dao.QueryImageIDByTagACLPrev(database, c, uint64(tagId), *image.ID, image.TakenAt, image.Filename, dboAcl, uint64(start), uint64(qty))
+			return dao.QueryImageIDByTagACLPrev(database, c, tagId, *image.ID, image.TakenAt, image.Filename, acl.ACLContext, uint64(start), uint64(qty))
 		}
 		pagingUrlGenerator := func(imageId uint64, page int) string {
-			return routes.BuildTagImagePath(uint64(tagId), imageId).WithImagePaging(page).String()
+			return routes.BuildTagImagePath(tagId, imageId).WithImageIntPaging(page).String()
 		}
 
 		thumbnails, err := data.GenerateThumbnail(c, queryPrev, queryNext, image, iPage, generator, pagingUrlGenerator)
 		if err != nil {
 			logging.ExitErr(logg, err)
 			c.AbortWithStatus(http.StatusInternalServerError)
+			return
 		}
 
-		prev, next, err := TagsImagePrevNext(database, c, dboAcl, uint64(tagId), image)
+		prev, next, err := TagsImagePrevNext(database, c, acl.ACLContext, tagId, image)
 
 		breadcrumbs, err := tpl.BuildTagBreadcumb(database, c, thisTag, false)
 		title := image.GetTitle()
@@ -143,18 +148,23 @@ func TagImagePage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 		}
 
 		tagImagePageCtx := data.ImagePageContext{
-			Breadcrumbs: breadcrumbs,
-			Image:       tpl.CreateImage(c, cfg, image),
-			Thumbnails:  thumbnails,
-			Next:        nextThumb,
-			Prev:        prevThumb,
+			Image:      tpl.CreateImage(c, cfg, image),
+			Thumbnails: &thumbnails,
+			Next:       nextThumb,
+			Prev:       prevThumb,
+			Up:         routes.CreateTagPath(tagId),
 		}
+		tagImagePageCtx.Breadcrumbs = breadcrumbs
+
 		pageCtx := tagImagePageCtx.GetPage()
 		tpl.CreatePageContext(pageCtx, cfg, c, "tags", data.SurfacePublic)
 
-		if err := r.RenderPage(c.Writer, "public/image", tagImagePageCtx); err != nil {
-			c.String(500, err.Error())
+		if err := r.RenderPage(c.Writer, "public/image", tagImagePageCtx, loc, i18n); err != nil {
+			c.AbortWithStatus(http.StatusInternalServerError)
+			logging.ExitErr(logg, err)
+			return
 		}
+		logging.Exit(logg, "ok", nil)
 
 	}
 }

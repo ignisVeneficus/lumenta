@@ -4,15 +4,16 @@
     {{- end -}}
 {{ end }}
 
+{{ define "page-js"}}
+    {{- if .Next -}}
+        window.SLIDESHOW = {
+        next: "{{ .Next.Url }}",
+        delay: 5000
+        }
+    {{- end -}}
+{{ end }}
+
 {{ define "main" }}
-
-<script>
-window.SLIDESHOW = {
-  next: "{{ .Next.Url }}",
-  delay: 5000
-}
-</script>
-
 <div class="breadcrumbs-wrapper">
 {{- if .Breadcrumbs }}
     {{- template "partials/breadcrumbs.html" .Breadcrumbs -}}
@@ -32,13 +33,18 @@ window.SLIDESHOW = {
         <span class="action disabled off-fs"><i class="icon fa-solid fa-angle-right" title="Previous image"></i></span>
         {{- end -}}
 
+        {{- if eq .User.Role "admin" -}}
+        <a href="{{ adminImagePath .Image.Image.ID }}" class="action button admin-button accent">
+            <div class="icon fa-solid fa-up-right-from-square admin-icon" aria-label="Admin image page"></div>
+        </a>
+        {{- end -}}        
+
         <a class="ctx-btn action off-fs" id="fullscreen-on">
             <i class="icon fa-solid fa-expand" title="Fullscreen mode"></i>
         </a>
         <a class="ctx-btn action on-fs" id="fullscreen-off">
             <i class="icon fa-solid fa-compress" title="Leave fullscreen mode"></i>
         </a>
-
 
         <input type="checkbox" id="toggle-info" class="ctx-toggle">
         <label for="toggle-info" class="ctx-btn action off-fs">
@@ -56,11 +62,7 @@ window.SLIDESHOW = {
     <div class="image-wrapper">
         <div class="image" id="theImage">
             <img src="{{ imagePath .Image.Image.ID "w2400" }}"
-            {{/*
-            srcset="{ { tileImgList .Image.Image.ID 640 1024 1600 2400 } }"
-            sizes="(max-width: 900px) 100vw, 900px"
-            */}}
-            class="derivative-img"
+               class="derivative-img"
             />
             <figcaption class="caption">{{ .Image.Image.GetTitle }}</figcaption>
         </div>
@@ -112,31 +114,32 @@ window.SLIDESHOW = {
         </div>
     </div>
   </div>
-  <div class="image-thumbs">
-    {{- if .Thumbnails.BeforeUrl -}}
-        <a href="{{.Thumbnails.BeforeUrl}}" class="action"><i class="icon fa-solid fa-angle-left" title="Previous page"></i></a>
-    {{- else -}}
-        <span class="action disabled"><i class="icon fa-solid fa-angle-left" title="Previous page"></i></span>
-    {{- end -}}
-    {{- range .Thumbnails.Images -}}
-        <div class="thumbnail">
-            {{- if . -}}
-                {{- if .Url -}}
-                <a href="{{ .Url }}">
-                    <img src="{{ imagePath .ImageId "s400" }}" title="{{ .Title }}" class="derivative-img"/>
-                </a>
-                {{- else -}}
-                    <img src="{{ imagePath .ImageId "s400" }}" class="derivative-img"/>
+  {{- if .Thumbnails -}}
+    <div class="image-thumbs">
+        {{- if .Thumbnails.BeforeUrl -}}
+            <a href="{{.Thumbnails.BeforeUrl}}" class="action"><i class="icon fa-solid fa-angle-left" title="Previous page"></i></a>
+        {{- else -}}
+            <span class="action disabled"><i class="icon fa-solid fa-angle-left" title="Previous page"></i></span>
+        {{- end -}}
+        {{- range .Thumbnails.Images -}}
+            <div class="thumbnail">
+                {{- if . -}}
+                    {{- if .Url -}}
+                    <a href="{{ .Url }}">
+                        <img src="{{ imagePath .ImageId "s400" }}" title="{{ .Title }}" class="derivative-img"/>
+                    </a>
+                    {{- else -}}
+                        <img src="{{ imagePath .ImageId "s400" }}" class="derivative-img"/>
+                    {{- end -}}
                 {{- end -}}
-            {{- end -}}
-        </div>
-    {{- end -}}
-    {{- if .Thumbnails.AfterUrl -}}
-        <a href="{{.Thumbnails.AfterUrl}}" class="action"><i class="icon fa-solid fa-angle-right" title="Next page"></i></a>
-    {{- else -}}
-        <span class="action disabled"><i class="icon fa-solid fa-angle-right" title="Next page"></i></span>
-    {{- end -}}
-  </div>
-        
+            </div>
+        {{- end -}}
+        {{- if .Thumbnails.AfterUrl -}}
+            <a href="{{.Thumbnails.AfterUrl}}" class="action"><i class="icon fa-solid fa-angle-right" title="Next page"></i></a>
+        {{- else -}}
+            <span class="action disabled"><i class="icon fa-solid fa-angle-right" title="Next page"></i></span>
+        {{- end -}}
+    </div>
+  {{- end -}}        
 </div>
 {{ end }}

@@ -2,6 +2,17 @@
     {{- if .Image.SingleMap -}}
        {{template "partials/map/head.html" }}
     {{- end -}}
+    {{template "partials/dropdown-head.html" }}
+    <script src="/static/js/pathbuilder.js"></script>
+    <script src="/static/js/admin-image.js" defer></script>
+{{ end }}
+
+{{ define "page-js" }}
+    window.ROUTES = {
+      album: "{{ apiAdminAlbumPathJS }}",
+      image: "{{ apiAdminImagePath .Image.ID }}",
+    };
+    window.IMAGE_ID = {{ .Image.ID }};
 {{ end }}
 
 {{ define "main" }}
@@ -16,7 +27,7 @@
 
     <div class="content">
         <div class="column column-1">
-            <div class="image-panel panel panel-pos" style="--p12x: 0; --p12y:0; --p12w:3;--p12h:3">
+            <div class="image-panel panel panel-pos" >
                 <div class="image-preview " style="--ratio: {{.Image.ClampedAspect}};">
                     <img
                         class="derivative-img"
@@ -30,92 +41,105 @@
                     </div>
                 </div>
             </div>
-            <div class="image-subject-panel panel panel-pos" style="--p12x: 0; --p12y:3; --p12w:3;--p12h:2">
+            <div class="image-subject-panel panel panel-pos" >
                 <div class="image-title {{ if not .Image.HasTitle }}meta-empty{{ end }}">{{ .Image.NormalisedTitle }}</div>
                 <div class="image-title {{ if not .Image.HasSubject }}meta-empty{{ end }}">{{ .Image.NormalisedSubject }}</div>
             </div>
-            <div class="image-fs-panel panel panel-pos" style="--p12x: 0; --p12y:3; --p12w:3;--p12h:2">
-                <div class="title">Filesystem Info</div>
-                <div class="image-fs-info">
-                    <div class="image-path">{{.Image.Path}}/{{.Image.Filename}}.{{.Image.Ext}}</div>
-                    {{- if .Image.MetaHash -}}
-                    <div class="image-meta has-sidecard">Sidecar file detected.</div>
-                    {{- else -}}
-                    <div class="image-meta has-not-sidecard">No sidecar file detected.</div>
-                    {{- end -}}
-                </div>
-            </div>
-            <div class="image-date-panel panel panel-pos" style="--p12x: 0; --p12y:5; --p12w:3;--p12h:2">
-                <div class="title">Lifecycle</div>
+            <div class="image-fs-panel panel panel-pos" >
+                <div class="title">{{ t "page.admin.image.title.filesystem"}}</div>
                 <div class="data-table">
-                    <label>File created:</label>
-                    <div class="image-time mtime">{{ formatTime .Image.MTime}}</div>
-                    <label>Data created:</label>
-                    <div class="image-time created">{{ formatTime .Image.CreatedAt}}</div>
-                    <label>Data updated:</label>
-                    <div class="image-time updated">{{ formatTime .Image.UpdatedAt}}</div>
-                    <label>Last synced:</label>
-                    {{- if .Image.Sync.Status -}}
-                    <div class="image-time synced status-{{.Image.Sync.Status}}">{{ formatTime .Image.Sync.StartedAt}}</div>
+                    <div class="label">{{ t "page.admin.image.label.root"}}:</div>
+                    <div class="root">{{ .Image.Root}}</div>
+
+                    <div class="image-path width-2">{{.Image.Path}}/{{.Image.Filename}}.{{.Image.Ext}}</div>
+                    <div class="label">{{- t "page.admin.image.label.created"}}:</div>
+                    <div class="image-time mtime">{{- formatTime .Image.MTime }}</div>
+     
+                    {{- if .Image.MetaHash -}}
+                    <div class="image-meta has-sidecard width-2"><i class="fa-regular fa-circle-check" icon></i>{{- t "page.admin.image.data.sidecard.yes"}}</div>
                     {{- else -}}
-                    <div class="image-time synced status-failed">Never</div>
+                    <div class="image-meta has-not-sidecard width-2"><i class="fa-regular fa-circle-xmark icon"></i>{{- t "page.admin.image.data.sidecard.no"}}</div>
                     {{- end -}}
                 </div>
             </div>
-            <div class="image-grid-panel panel panel-pos" style="--p12x: 0; --p12y:7; --p12w:3;--p12h:2">
-                <div class="title">Display</div>
+            <div class="image-date-panel panel panel-pos" >
+                <div class="title">{{ t "page.admin.image.title.lifecycle"}}</div>
+                <div class="data-table">
+                    <div class="label">{{ t "page.admin.image.label.imported"}}:</div>
+                    <div class="image-time created">{{ formatTime .Image.CreatedAt }}</div>
+                    <div class="label">{{ t "page.admin.image.label.modify"}}:</div>
+                    <div class="image-time updated">{{ formatTime .Image.UpdatedAt }}</div>
+                </div>
+            </div>
+            <div class="image-history-panel panel panel-pos" >
+                <div class="title-button title"><div>{{ t "page.admin.image.title.history"}}</div><a href="{{ adminSyncFilesPathPath .Image.PathFull }}" class="action"><i class="icon fa-solid fa-clock-rotate-left" title="{{ t "nav.page.admin.sync_files.label" }}"></i></a></div>
+                <div class="data-table">
+                    <div class="last-sync width-2">{{ formatTime .Image.Sync.LastSync }} - {{ t (printf "data.sync_files.status.%s.short" .Image.Sync.LastStatus)}}</div>
+                    {{ if .Image.Sync.LastUpdated }}
+                    <div class="image-time updated label">{{ t "page.admin.image.label.modify"}}:</div>
+                    <div>{{ formatTime .Image.Sync.LastUpdated }}</div>
+                    {{- end -}}
+                </div>
+            </div>
+            <div class="image-grid-panel panel panel-pos" >
+                <div class="title">{{ t "page.admin.image.title.display"}}</div>
                 <div class="grid-panel data-table">
-                    <label>Image size:</label>
+                    <div class="label">{{ t "page.admin.image.label.image_size"}}:</div>
                     <div class="image-grid aspect">{{ .Image.Width }} &times; {{ .Image.Height }}</div>
-                    <label>Image aspect Ratio:</label>
+                    <div class="label">{{ t "page.admin.image.label.aspect"}}:</div>
                     <div class="image-grid aspect">{{ .Image.CalculatedAspectString }}</div>
-                    <label>Aspect Ratio in grid:</label>
-                    <div class="image-grid type">
-                        {{- if eq .Image.Aspect "normal" -}}
-                        Square
-                        {{- end -}}
-                        {{- if eq .Image.Aspect "tall" -}}
-                        Portrait
-                        {{- end -}}
-                        {{- if eq .Image.Aspect "landscape" -}}
-                        Landscape
-                        {{- end -}}
-                        {{- if eq .Image.Aspect "panorama" -}}
-                        Panorama
-                        {{- end -}}
-                    </div>
+                    <div class="label">{{ t "page.admin.image.label.aspect_grid"}}:</div>
+                    <div class="image-grid type">{{ t (printf "data.image.aspect.%s.short" .Image.Aspect)}}</div>
 
                 </div>
             </div>
             {{- if .Image.SingleMap -}}
             <div>
-                <div class="title">Location</div>
+                <div class="title">{{ t "page.admin.image.title.location"}}</div>
                 <div>{{ formatLatitude .Image.SingleMap.Lat }}, {{ formatLongitude .Image.SingleMap.Long }}</div>
                 {{ template "partials/map/single-map.html" .Image.SingleMap }}
             </div>
             {{- end -}}
         </div>
         <div class="column column-2">
-            <div class="image-state-panel panel panel-pos" style="--p12x: 3; --p12y:0; --p12w:3;--p12h:1">
-                <div class="title">ACL Settings</div>           
-                {{ template "partials/admin/acl-settings.html" .}}
+            <div class="image-state-panel panel panel-pos" >
+                <div class="title">{{ t "page.admin.image.title.acl_settings"}}</div>
+                {{ with .Image.Form }}           
+                    {{ template "partials/admin/acl-settings.html" .}}
+                {{ end }}
             </div>
-            <div class="image-focus-panel panel panel-pos" style="--p12x: 3; --p12y:1; --p12w:3;--p12h:1">
-                <div class="title">ACL Settings</div>           
+            <div class="image-focus-panel panel panel-pos" >
+                <div class="title">{{ t "page.admin.image.title.focus_settings"}}</div>           
                 {{ template "partials/admin/focus-settings.html" .}}
             </div>
-            <div class="image-action-panel panel panel-pos">
-                <div class="title">Actions</div>
+            <div class="image-covers-panel panel panel-pos">
+                <div class="title">{{ t "page.admin.image.title.cover"}}</div>
+                    <div
+                        id = "covers"
+                        class="xselect"
+                        data-mode="multiple"
+                        data-src='{{ apiAdminAlbumsPath "tree" }}'
+                        data-name="covers"
+                        data-label-key="name"
+                        data-pill-label-key="fullName"
+                        ><script type="application/json" class="xselect-selected">
+                        {{ .Image.CoversArray }}
+                        </script>
+                        </div>
             </div>
-            <div class="image-metadatas-panel panel panel-pos">
-                <div class="title">Metadatas</div>           
+            <div class="image-action-panel panel panel-pos">
+                <div class="title">{{ t "page.admin.image.title.actions"}}</div>
             </div>
         </div>
-        <div class="colum colum-3">
-            <div class="tag-tree-panel panel panel-size" style="--p12w: 6; --p12h:8;">
-                <div class="title">Tags</div>
+        <div class="colum column-3 width-2">
+            <div class="image-metadatas-panel panel panel-pos">
+                <div class="title">{{ t "page.admin.image.title.metadata"}}</div>           
+            </div>
+            <div class="tag-tree-panel panel panel-size" >
+                <div class="title">{{ t "page.admin.image.title.tags"}}</div>
                 <div class="tag-tree-box">
                     {{ template "partials/tag-tree.html" .Image.Tags }}
+                    <!-- end -->
                 </div>
 
             </div>

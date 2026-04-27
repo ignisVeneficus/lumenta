@@ -42,7 +42,7 @@ func (sc *SyncConfig) TransformAfterValidation() error {
 	// merge medata config with the hardoded metadata configs
 	sc.MergedMetadata = MergeMetadataConfig(DefaultDBMetadataConfig(), sc.Metadata)
 
-	metadataHash, err := utils.HashDataYAML(sc.Metadata)
+	metadataHash, err := utils.ComputeYAMLHash(sc.Metadata)
 	if err != nil {
 		sc.MetadataHash = metadataHash
 	}

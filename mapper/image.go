@@ -5,7 +5,6 @@ import (
 
 	"strings"
 
-	authData "github.com/ignisVeneficus/lumenta/auth/data"
 	"github.com/ignisVeneficus/lumenta/data"
 	"github.com/ignisVeneficus/lumenta/db/dbo"
 	"github.com/rs/zerolog/log"
@@ -67,19 +66,4 @@ func UpdateImageMetadata(i *dbo.Image, metadata data.Metadata) error {
 	}
 
 	return nil
-}
-
-func MapACL(acl authData.ACLRole, user *uint64) *dbo.ACLScope {
-	v := dbo.ACLScopeAdmin
-	switch acl {
-	case authData.RoleAdmin:
-		v = dbo.ACLScopeAdmin
-	case authData.RoleUser:
-		if user != nil {
-			v = dbo.ACLScopeUser
-		} else {
-			v = dbo.ACLScopeAnyUser
-		}
-	}
-	return &v
 }

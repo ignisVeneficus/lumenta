@@ -1,11 +1,15 @@
 <!-- buttons -->
-<!-- TODO temp, delete it-->
-<a href="{{ tagsRootPath }}" class="action button">
-    <div class="icon fa-solid fa-tags" aria-label="Browse tags"></div>
+<a href="{{ albumsRootPath }}" class="action button action-public">
+    <div class="icon fa-solid fa-images" aria-label="Browse albums" title="Browse albums"></div>
+</a>
+
+
+<a href="{{ tagsRootPath }}" class="action button action-public">
+    <div class="icon fa-solid fa-tags" aria-label="Browse tags" title="Browse tags"></div>
 </a>
 
 {{- if eq .User.Role "admin" -}}
-<a href="{{ adminRootPath }}" class="action button admin-button accent">
-    <div class="icon fa-solid fa-gear admin-icon" aria-label="Admin main"></div>
+<a href="{{ adminRootPath }}" class="action button action-admin">
+    <div class="icon fa-solid fa-gear admin-icon" aria-label="{{ t "nav.page.admin.home.label"}}" title="{{ t "nav.page.admin.home.label"}}"></div>
 </a>
 {{- end -}}

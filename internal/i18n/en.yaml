@@ -1,0 +1,308 @@
+data:
+  sync_files:
+    status:
+      deleted:
+        short: "Deleted"
+        label: "File removed"
+      created:
+        short: "Added"
+        label: "New file added"
+      not_changed:
+        short: "Unchanged"
+        label: "No changes detected"
+      updated:
+        short: "Updated"
+        label: "File updated"
+      filtered_out:
+        short: "Skipped"
+        label: "Skipped by filter rules"
+      error:
+        short: "Error"
+        label: "Processing error"
+    dirty_reason:
+      new_file:
+        short: "New"
+        label: "New file detected"
+      hash_changed:
+        short: "Changed"
+        label: "File content changed"
+      metadata_changed:
+        short: "Metadata"
+        label: "Sidecar metadata changed"
+      size_changed:
+        short: "Size"
+        label: "File size changed"
+      mtime_changed:
+        short: "Newer"
+        label: "File modification time changed"
+      forced_refresh:
+        short: "Forced"
+        label: "Forced update requested"
+  image:
+    focus:
+      auto:
+        short: Auto
+        label: Focus determined automatically
+      manual:
+        short: Manual
+        label: Focus set manually
+      center:
+        short: Center
+        label: Focus in the center of the image
+      top:
+        short: Top
+        label: Focus on the top area of the image
+      bottom:
+        short: Bottom
+        label: Focus on the bottom area of the image
+      left:
+        short: Left
+        label: Focus on the left side of the image
+      right:
+        short: Right
+        label: Focus on the right side of the image
+    aspect:
+      normal:
+        short: Square
+        label: Square image
+      tall:
+        short: Portrait
+        label: Portrait orientation (taller than wide)
+      landscape:
+        short: Landscape
+        label: Landscape orientation (wider than tall)
+      panorama:
+        short: Panorama
+        label: Panorama (very wide image)
+ruleengine:
+  rule:
+    rule_op:
+      all:
+        short: "All rules"
+        label: "All rules must match"
+      any:
+        short: "Any rules"
+        label: "Any rule matches"
+
+    album:
+      short: "Album"
+      label: "From selected albums"
+    notchildren:
+      short: "Not in children"
+      label: "Exclude from child albums"
+    tag:
+      short: "Tags"
+      label: "With matching tags"
+    date:
+      short: "Date"
+      label: "Filter by date"
+    name:
+      short: "Name"
+      label: "Match by name pattern"
+    rating:
+      short: "Rating"
+      label: "Filter by rating"
+    path:
+      short: "Path"
+      label: "Match by file path"
+    extension:
+      short: "Ext"
+      label: "Match by file extension"
+    width:
+      short: "Width"
+      label: "Filter by width"
+    height:
+      short: "Height"
+      label: "Filter by height"
+    aspect:
+      short: "Aspect"
+      label: "Filter by aspect ratio"
+
+    op:
+      all:
+        short: "All"
+        label: "All of them"
+      any:
+        short: "One"
+        label: "One of them"
+      none:
+        short: "None"
+        label: "None of them"
+      only:
+        short: "Only"
+        label: "Only them"
+      on:
+        short: "On"
+        label: "On date"
+      before:
+        short: "Before"
+        label: "Before"
+      after:
+        short: "After"
+        label: "After"
+      lt:
+        short: "<"
+        label: "Less than"
+      gt:
+        short: ">"
+        label: "Greater than"
+  results:
+    evaluation:
+      path_filter: "Database inclusion"
+      panorama: "Panorama detection"
+      acl: "Access control assignment"
+    result: "Result"
+    result-value:
+      match: "Match"
+      no-match: "No Match"
+      unknow: "Unknow"
+    rule: "Rule"
+    op: "Operator"
+    parameters: "Rule parameters"
+    input: "Input data"
+    values: "Values"
+    params:
+      tags: "Tags"
+      date: "Date"
+      pattern: "Pattern"
+      filename: "File name"
+      rating: "Rating"
+      width: "Image width"
+      height: "Image height"
+      aspect: "Aspect ratio"
+      root: "Storage root"
+      path: "File path"
+      extension: "File extension"
+      album: "Album"
+      include_children: "Include child albums"
+      image_albums: "Image albums"
+      reference_album: "Reference album"
+    value:
+      true: "Yes"
+      false: "No"
+      unknow: "Unknow"
+page:
+  common:
+    search: "Search"
+    filter: "Filter"
+    name: "Name"
+  admin:
+    common:
+      no_records: "No records found"
+    sync:
+      path:
+        short: "Image"
+        label: "Image path"
+      status:
+        short: "Status"
+        label: "Processing result"
+      dirty:
+        short: "Changed"
+        label: "Change reason"
+      time:
+        short: "Time"
+        label: "Processing time"
+      age:
+        short: "Age"
+        label: "Time since last modification"
+    sync_files:
+      search:
+        label: "Image"
+        placeholder: "Search by path or filename"
+      filter:
+        label: "Filter by status"
+    sync_file:
+      rules: "Rule evaluations"
+    image:
+      title:
+        filesystem: "Filesystem Info"
+        lifecycle: "Lifecycle"
+        history: "History"
+        display: "Display"
+        location: "Location"
+        acl_settings: "ACL Settings"
+        focus_settings: "Focus Settings"
+        cover: "Used as Album Cover"
+        actions: "Actions"
+        metadata: "Metadata"
+        tags: "Tags"
+      label:
+        root: "Storage root"
+        created: "File created"
+        imported: "Data Imported"
+        modify: "Last Modify"
+        image_size: "Image size"
+        aspect: "Image aspect Ratio"
+        aspect_grid: "Aspect Ratio in grid"
+      data:
+        sidecard:
+          yes: "Sidecar file detected."
+          no: "No sidecar file detected."
+
+nav:
+  page:
+    home:
+      short: "Home"
+      label: "Go to home"
+    admin:
+      home:
+        short: "Admin"
+        label: "Administration"
+      images:
+        short: "Images"
+        label: "Browse and manage images in the library"
+      albums:
+        short: "Albums"
+        label: "View and manage albums"
+      # all sync runs
+      sync_runs:
+        short: "Sync History"
+        label: "Past sync executions"
+      # files in one sync run
+      sync_run_files:
+        short: "Run Files"
+        label: "Files processed during this sync run"
+      # all sync file
+      sync_files:
+        short: "Image Changes"
+        label: "Change history of images across sync runs"
+      # sync files for one image
+      sync_file_history:
+        short: "History"
+        label: "Sync history for this file"
+      # one sync file event
+      sync_file:
+        short: "Sync Event"
+        label: "File processing event"
+  pagination:
+    first:
+      short: First
+      label: Go to first page
+    prev:
+      short: Previous
+      label: Go to previous page
+    next:
+      short: Next
+      label: Go to next page
+    last:
+      short: Last
+      label: Go to last page
+    jump:
+      short: Go
+      label: Go to page
+  tree:
+    toogle: "Toggle"
+common:
+  duration:
+    second:
+      short: "s"
+      label: "second"
+    minute:
+      short: "m"
+      label: "minute"
+    hour:
+      short: "h"
+      label: "hour"
+    day:
+      short: "d"
+      label: "day"

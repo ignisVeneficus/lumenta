@@ -1,7 +1,7 @@
 package config
 
 import (
-	authData "github.com/ignisVeneficus/lumenta/auth/data"
+	"github.com/ignisVeneficus/lumenta/db/dbo"
 
 	"github.com/ignisVeneficus/lumenta/config/presentation"
 	"github.com/ignisVeneficus/lumenta/config/sync"
@@ -12,7 +12,7 @@ func writeOutMetadataInfo(mACL presentation.MetadataACL, metadata sync.MetadataC
 	for mt := range metadata.Fields {
 		role, ok := mACL[mt]
 		if !ok {
-			role = authData.RoleGuest
+			role = dbo.RoleGuest
 		}
 		log.Logger.Info().
 			Str("metadata", mt).

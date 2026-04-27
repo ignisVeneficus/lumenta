@@ -6,18 +6,16 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/ignisVeneficus/lumenta/api/data"
 	"github.com/ignisVeneficus/lumenta/auth"
 	authData "github.com/ignisVeneficus/lumenta/auth/data"
 	"github.com/ignisVeneficus/lumenta/config"
 	authConfig "github.com/ignisVeneficus/lumenta/config/auth"
+	"github.com/ignisVeneficus/lumenta/db/dbo"
 	"github.com/ignisVeneficus/lumenta/utils"
 
 	"github.com/gin-gonic/gin"
 )
-
-type ExternalAuthRuntime interface {
-	ContextFromRequest(ctx context.Context, ip string, request http.Request) *authData.ACLContext
-}
 
 func ContextFromToken(token string, jwtSvc *JWTService) *authData.ACLContext {
 	if token == "" || jwtSvc == nil {
@@ -29,9 +27,11 @@ func ContextFromToken(token string, jwtSvc *JWTService) *authData.ACLContext {
 		return nil
 	}
 	ctx := authData.ACLContext{
-		UserID:   &claims.UserID,
+		ACLContext: dbo.ACLContext{
+			ViewerUserID: &claims.UserID,
+			Role:         dbo.RoleUser,
+		},
 		UserName: &claims.Subject,
-		Role:     authData.RoleUser,
 		Provider: authData.ProviderJWT,
 	}
 
@@ -64,7 +64,7 @@ func SiteAccessMiddleware(EnableGuest bool) gin.HandlerFunc {
 
 		ctx := auth.GetAuthContex(c)
 
-		if ctx.Role == authData.RoleGuest && !EnableGuest {
+		if ctx.Role == dbo.RoleGuest && !EnableGuest {
 
 			if strings.HasPrefix(c.Request.URL.Path, "/api/") {
 				c.JSON(http.StatusUnauthorized, gin.H{
@@ -96,7 +96,7 @@ func AuthContextMiddleware(ctx context.Context, issuer string, cfg authConfig.Au
 		var jwtCtx *authData.ACLContext
 		var extCtx *authData.ACLContext
 
-		extCtx = rt.ContextFromRequest(c, c.ClientIP(), *c.Request)
+		extCtx = rt.ContextFromRequest(c, c.ClientIP(), c.Request)
 
 		if JWT != nil {
 			token := auth.TokenForJWT(c.Request)
@@ -111,10 +111,10 @@ func AuthContextMiddleware(ctx context.Context, issuer string, cfg authConfig.Au
 		//use external and jwt
 		case jwtCtx != nil && extCtx != nil:
 			ctx = extCtx
-			ctx.UserID = jwtCtx.UserID
+			ctx.ViewerUserID = jwtCtx.ViewerUserID
 		// only external
 		case jwtCtx == nil && extCtx != nil:
-			//TODO db lookup
+			//TODO: db lookup
 			ctx = extCtx
 			if ok := createJWTToken(c, JWT, *ctx); !ok {
 				return
@@ -123,7 +123,7 @@ func AuthContextMiddleware(ctx context.Context, issuer string, cfg authConfig.Au
 		//only internal
 		case jwtCtx != nil:
 			ctx = jwtCtx
-			ctx.Role = authData.RoleUser
+			ctx.Role = dbo.RoleUser
 		// guest
 		default:
 			ctx = authData.GuestContext()
@@ -131,10 +131,14 @@ func AuthContextMiddleware(ctx context.Context, issuer string, cfg authConfig.Au
 
 		if env == config.EnvDevelopment {
 			ctx = &authData.ACLContext{
-				UserID:   utils.PtrUint64(uint64(1)),
+				ACLContext: dbo.ACLContext{
+					ViewerUserID: utils.PtrUint64(uint64(1)),
+					Role:         dbo.RoleAdmin,
+				},
 				UserName: utils.PtrString("dev admin"),
-				Role:     authData.RoleAdmin,
 				Provider: authData.ProviderDev,
+				Locale:   "en",
+				//Locale: "hu",
 			}
 		}
 
@@ -143,7 +147,19 @@ func AuthContextMiddleware(ctx context.Context, issuer string, cfg authConfig.Au
 	}
 }
 
-func RequireRole(required authData.ACLRole) gin.HandlerFunc {
+func RequireAPIRole(required dbo.ACLRole) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		ctx := auth.GetAuthContex(c)
+		if ctx.Role.Compare(required) == -1 {
+			c.AbortWithStatusJSON(http.StatusForbidden,
+				data.CreateError("admin access required"))
+			return
+		}
+		c.Next()
+	}
+}
+
+func RequireRole(required dbo.ACLRole) gin.HandlerFunc {
 	return func(c *gin.Context) {
 
 		ctx := auth.GetAuthContex(c)
@@ -158,7 +174,7 @@ func RequireRole(required authData.ACLRole) gin.HandlerFunc {
 	}
 }
 
-func GetAuthRuntime(ctx context.Context, cfg authConfig.AuthConfig) ExternalAuthRuntime {
+func GetAuthRuntime(ctx context.Context, cfg authConfig.AuthConfig) auth.ExternalAuthRuntime {
 	switch cfg.Mode {
 	case authData.ProviderForward:
 		return auth.ForwardVerifier{

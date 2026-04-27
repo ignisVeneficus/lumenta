@@ -1,0 +1,119 @@
+{{ define "page-head" }}
+    <script src="/static/js/clickable-row.js" defer></script>
+    {{- if .HasFilter -}}    
+        {{template "partials/dropdown-head.html" }}
+    {{- end -}}
+{{ end }}
+
+
+{{ define "main" }}
+<div class="breadcrumbs-wrapper">
+{{- with .Breadcrumbs }}
+    {{- template "partials/breadcrumbs.html" . -}}
+{{- end -}}
+</div>
+
+
+<div class="admin-layout syncfiles-page">
+    {{- template "partials/admin/action-rail.html" . -}}
+    <div class="content">
+        <form method="get">
+        {{- if or .HasSearch .HasFilter }}
+        {{- if .HasSearch -}}
+        <div class="search-wrapper">
+            <label class="headerlabel" for="search">{{- t "page.admin.sync_files.search.label" -}}:</label>
+            <input name="q" type="text" id="search" value="{{.SearchField}}" placeholder="{{- t "page.admin.sync_files.search.placeholder" }}">
+            {{- if not .HasFilter -}}
+            <button class="action"><i class="icon fa-solid fa-magnifying-glass" title="{{ t "page.common.search" }}"></i></button>
+            {{- end -}}
+        </div>
+        {{- end -}}
+        {{- if .HasFilter -}}
+        <div class="filter-wrapper">
+            <label class="headerlabel">{{- t "page.admin.sync_files.filter.label" -}}:</label>
+            <div
+                class="xselect filter-select"
+                data-mode="multiple"
+                data-name="f"
+                data-label-key="display"
+                data-pill-label-key="pill"
+                ><script type="application/json" class="xselect-selected">
+                {{- if .Filter -}}
+                    {{- .Filter | toJSON -}}
+                {{- else -}}
+                    []
+                {{- end -}}
+                </script>
+                <script type="application/json" class="xselect-data">
+                {{- if .FilterData -}}
+                    {{- .FilterData | toJSON -}}
+                {{- else -}}
+                    []
+                {{- end -}}
+                </script>
+                </div>
+            <button class="action"><i class="icon fa-solid fa-magnifying-glass" title="{{ t "page.common.search" }}"></i></button>
+        </div>
+
+        {{- end -}}
+        </form>
+        {{- end -}}
+
+        <table>
+            <thead>
+                <tr>
+                <th class="col-path" title="{{- t "page.admin.sync.path.label" }}">{{- t "page.admin.sync.path.short" }}</th>
+                <th class="col-status"title="{{- t "page.admin.sync.status.label" }}">{{- t "page.admin.sync.status.short" }}</th>
+                <th class="col-dirty" title="{{- t "page.admin.sync.dirty.label" }}">{{- t "page.admin.sync.dirty.short" }}</th>
+                <th class="col-time" title="{{- t "page.admin.sync.time.label" }}">{{- t "page.admin.sync.time.short" }}</th>
+                <th class="col-age" title="{{- t "page.admin.sync.age.label" }}">{{- t "page.admin.sync.age.short" }}</th>
+                {{- if .HasFileButton -}}
+                    <th class="col-actions"></th>
+                {{- end -}}
+                </tr>
+            </thead>
+            <tbody>
+                {{- range .SyncFiles -}}
+                <tr class="clickable-row" data-href="{{- adminSyncFilePath .ID -}}">
+                    <td class="col-path">{{ .FullPathText }}</td>
+                    <td class="col-status {{ .Status }}">
+                        {{- if eq .Status "deleted" -}}
+                            <i class="fa-solid fa-trash icon"></i>
+                        {{- else if eq .Status "created" -}}
+                            <i class="fa-solid fa-plus icon"></i>
+                        {{- else if eq .Status "not_changed" -}}
+                            <i class="fa-regular fa-circle icon"></i>
+                        {{- else if eq .Status "updated" -}}
+                            <i class="fa-regular fa-pen icon"></i>
+                        {{- else if eq .Status "filtered_out" -}}
+                            <i class="fa-solid fa-ban icon"></i>
+                        {{- end -}}
+                        {{ t (printf "data.sync_files.status.%s.short" .Status) }}
+                    </td>
+                    <td class="col-dirty">
+                        {{- if or (not .DirtyReasonText) ( not (eq .DirtyReasonText "updated")) -}}
+                            <div class="none">–</div> <!-- em dash-->
+                        {{- else -}}
+                        {{- t (printf "data.sync_files.dirty_reason.%s.label" .DirtyReasonText) -}}
+                        {{- end -}}    
+                    </td>
+                    <td class="col-time">{{ formatTime .CreatedAt }}</td>
+                    <td class="col-age">{{ formatDuration .Age }}</td>
+                    {{- if $.HasFileButton -}}
+                    <td class="col-actions">
+                        <a class="action" href="{{ adminSyncFilesPathPath .PathFull }}"><i class="icon fa-solid fa-clock-rotate-left" title="{{ t "nav.page.admin.sync_files.label" }}"></i></a>
+                    </td>
+                    {{- end -}}
+                    </tr>
+                {{- end -}}
+            </tbody>
+        </table>
+        {{- if not .SyncFiles -}}
+        <div class="no-records">{{- t "page.admin.common.no_records" }}</div>
+        {{- end -}}
+        {{- if .Paging -}}
+            {{- template "partials/paging.html" .Paging -}}
+        {{- end -}}
+    </div>
+</div>
+{{ end }}

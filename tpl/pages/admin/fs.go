@@ -8,7 +8,6 @@ import (
 	"html/template"
 	"net/http"
 	"path"
-	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -16,6 +15,7 @@ import (
 	"github.com/ignisVeneficus/lumenta/db"
 	"github.com/ignisVeneficus/lumenta/db/dao"
 	"github.com/ignisVeneficus/lumenta/db/dbo"
+	"github.com/ignisVeneficus/lumenta/internal/i18n"
 	"github.com/ignisVeneficus/lumenta/logging"
 	"github.com/ignisVeneficus/lumenta/server/routes"
 	"github.com/ignisVeneficus/lumenta/tpl"
@@ -25,11 +25,11 @@ import (
 )
 
 var (
-	dirPerPage   = 24
-	imagePerPage = 48
+	dirPerPage   uint64 = 24
+	imagePerPage uint64 = 48
 )
 
-func BuildRootDirGrid(ctx context.Context, database *sql.DB, page int, url data.URLBuilder) (adminData.FsDirs, error) {
+func BuildRootDirGrid(ctx context.Context, database *sql.DB, page uint64, url data.URLBuilder) (adminData.FsDirs, error) {
 	logg := logging.Enter(ctx, "admin.fsPage.buildRootDirGrid", map[string]any{
 		"page": page,
 	})
@@ -76,7 +76,7 @@ func BuildRootDirGrid(ctx context.Context, database *sql.DB, page int, url data.
 	return ret, nil
 }
 
-func BuildDirGrid(ctx context.Context, database *sql.DB, root, pagePath string, page int, url data.URLBuilder) (adminData.FsDirs, error) {
+func BuildDirGrid(ctx context.Context, database *sql.DB, root, pagePath string, page uint64, url data.URLBuilder) (adminData.FsDirs, error) {
 	logg := logging.Enter(ctx, "admin.fsPage.buildDirGrid", map[string]any{
 		"root": root,
 		"path": pagePath,
@@ -87,7 +87,7 @@ func BuildDirGrid(ctx context.Context, database *sql.DB, root, pagePath string, 
 		logging.ExitErr(logg, err)
 		return adminData.FsDirs{}, err
 	}
-	dirs, err := dao.QueryImagePathByParentPathPaged(database, ctx, root, pagePath, uint64((page-1)*dirPerPage), uint64(dirPerPage))
+	dirs, err := dao.QueryImagePathByParentPathPaged(database, ctx, root, pagePath, (page-1)*dirPerPage, dirPerPage)
 	if err != nil {
 		logging.ExitErr(logg, err)
 		return adminData.FsDirs{}, err
@@ -125,7 +125,7 @@ func BuildDirGrid(ctx context.Context, database *sql.DB, root, pagePath string, 
 	logging.Exit(logg, "ok", nil)
 	return ret, nil
 }
-func BuildImageGrid(ctx context.Context, database *sql.DB, root, path string, page int, url data.URLBuilder) (adminData.FsImages, error) {
+func BuildImageGrid(ctx context.Context, database *sql.DB, root, path string, page uint64, url data.URLBuilder) (adminData.FsImages, error) {
 	logg := logging.Enter(ctx, "admin.fsPage.buildImageGrid", map[string]any{
 		"root": root,
 		"path": path,
@@ -140,7 +140,7 @@ func BuildImageGrid(ctx context.Context, database *sql.DB, root, path string, pa
 		logging.ExitErr(logg, err)
 		return adminData.FsImages{}, err
 	}
-	images, err := dao.QueryImageWLastSyncWUserByPathPaged(database, ctx, root, path, uint64((page-1)*imagePerPage), uint64(imagePerPage))
+	images, err := dao.QueryImageWLastSyncWUserByPathPaged(database, ctx, root, path, (page-1)*imagePerPage, imagePerPage)
 	if err != nil {
 		logging.ExitErr(logg, err)
 		return adminData.FsImages{}, err
@@ -151,13 +151,17 @@ func BuildImageGrid(ctx context.Context, database *sql.DB, root, path string, pa
 	imageItems := []adminData.FsImage{}
 	for _, i := range images {
 		acl := ""
-		switch i.ACLScope {
-		case dbo.ACLScopePublic:
+		switch i.ACLLevel {
+		case dbo.DBACLLevelPublic:
 			acl = "Public"
-		case dbo.ACLScopeAnyUser:
-			acl = "Users"
-		case dbo.ACLScopeUser:
-			acl = "User: " + utils.FromStringPtr(i.User)
+		case dbo.DBACLLevelAuthenticated:
+			if i.User != nil {
+				acl = "User: " + utils.FromStringPtr(i.User)
+			} else {
+				acl = "Users"
+			}
+		case dbo.DBACLLevelAdmin:
+			acl = "Admin"
 		}
 		img := adminData.FsImage{
 			Image:    *i.ID,
@@ -177,7 +181,7 @@ func BuildImageGrid(ctx context.Context, database *sql.DB, root, path string, pa
 
 }
 
-func createFsBreadcrumbs(root, path string) data.Breadcrumbs {
+func createFsBreadcrumbs(root, path string, lang string, i18n *i18n.Service) data.Breadcrumbs {
 	parts := []string{}
 	if root != "" {
 		parts = append(parts, root)
@@ -185,20 +189,20 @@ func createFsBreadcrumbs(root, path string) data.Breadcrumbs {
 	if path != "" {
 		parts = append(parts, strings.Split(path, "/")...)
 	}
-	res := data.Breadcrumbs{
-		data.Breadcrumb{
-			Label: "Admin",
-			Link:  template.URL(routes.CreateAdminRootPath()),
-			Type:  "page",
-			Title: "Open Admin Dashboard",
-		},
-		data.Breadcrumb{
-			Label: "Images",
-			Link:  template.URL(routes.BuildAdminFsPath("").String()),
-			Type:  "page",
-			Title: "Browse filesystem",
-		},
+	selfRoot := data.Breadcrumb{
+		Label: i18n.T(lang, "nav.page.admin.images.short", nil),
+		Type:  "page",
+		Title: i18n.T(lang, "nav.page.admin.images.label", nil),
 	}
+	if len(parts) > 0 {
+		selfRoot.Link = template.URL(routes.BuildAdminFsPath("").String())
+
+	}
+	res := data.Breadcrumbs{
+		tpl.GetAdminMain(lang, i18n),
+		selfRoot,
+	}
+
 	if len(parts) > 0 {
 
 		for i := 0; i < len(parts)-1; i++ {
@@ -222,6 +226,8 @@ func createFsBreadcrumbs(root, path string) data.Breadcrumbs {
 
 func FSPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		i18n := i18n.Get()
+		loc := tpl.L(c)
 		path := c.Param("fsPath")
 		path = strings.TrimPrefix(path, "/")
 		dPageStr := c.DefaultQuery(data.FolderPageParam, "1")
@@ -232,14 +238,14 @@ func FSPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 			"image_page":     iPageStr,
 		})
 
-		dPage, err := strconv.Atoi(dPageStr)
+		dPage, err := tpl.ParsePaging(dPageStr)
 		if err != nil {
 			logging.ExitErr(logg, fmt.Errorf("invalid directory_page"))
 			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "invalid directory page"})
 			return
 		}
 
-		iPage, err := strconv.Atoi(iPageStr)
+		iPage, err := tpl.ParsePaging(iPageStr)
 		if err != nil {
 			logging.ExitErr(logg, fmt.Errorf("invalid image_page"))
 			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "invalid image page"})
@@ -266,26 +272,28 @@ func FSPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 			if err != nil {
 				logging.ExitErr(logg, err)
 				c.AbortWithStatus(http.StatusInternalServerError)
+				return
 			}
 		}
 		images, err := BuildImageGrid(c, database, root, path, iPage, *url)
 		if err != nil {
 			logging.ExitErr(logg, err)
 			c.AbortWithStatus(http.StatusInternalServerError)
+			return
 		}
 
-		c.Header("Content-Type", "text/html; charset=utf-8")
-		c.Status(200)
-
-		fsCtx := adminData.FsContext{}
+		fsCtx := adminData.FsPageContext{}
 		pageCtx := fsCtx.GetPage()
 		tpl.CreatePageContext(pageCtx, cfg, c, "fs", data.SurfaceAdmin)
 		fsCtx.Dirs = dirs
 		fsCtx.Images = images
-		fsCtx.Breadcrumbs = createFsBreadcrumbs(root, path)
+		fsCtx.Breadcrumbs = createFsBreadcrumbs(root, path, loc, i18n)
 
-		if err := r.RenderPage(c.Writer, "admin/fs", fsCtx); err != nil {
-			c.String(500, err.Error())
+		if err := r.RenderPage(c.Writer, "admin/fs", fsCtx, loc, i18n); err != nil {
+			c.AbortWithStatus(http.StatusInternalServerError)
+			logging.ExitErr(logg, err)
+			return
 		}
+		logging.Exit(logg, "ok", nil)
 	}
 }

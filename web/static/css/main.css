@@ -11,6 +11,7 @@ button { background: none; border: none; padding: 0; margin: 0; font: inherit; c
 p{ margin-block: 0 0; }
 figure{ margin:0; margin-block: 0 0;}
 fieldset{ border:none; margin-inline:0; padding-inline:0; padding-block:0;}
+table { border-collapse: collapse;}
 
 body {
   font-family: var(--font-serif);
@@ -18,7 +19,7 @@ body {
   color: var(--text-primary);
   background: var(--bg-deep);
   /*
-  padding-inline: var(--space-page-x);  
+  padding-inline: var(--size-page-x);  
   */
 
   min-height: 100vh;
@@ -34,23 +35,28 @@ body {
 .site-header{
   font-family: var(--font-sans);
   background: var(--bg-upper);
-  padding: var(--space-3) var(--space-page-x);  
+  padding: var(--size-3) var(--size-page-x);  
 
 }
 
 .site-main{
   flex: 1;
+  display:flex;
+  flex-direction: column;
 }
 
 .site-footer {
   font-size: var(--font-size-ui);
   font-family: var(--font-sans);
   background: var(--bg-upper);
-  padding: var(--space-4) var(--space-page-x);  
+  padding: var(--size-4) var(--size-page-x);  
 }
 
 .content{
-  padding: var(--space-4) var(--space-page-x);  
+  padding: var(--size-4) var(--size-page-x);  
+  display: flex;
+  gap: var(--size-4);
+  flex-direction: column;
 }
 
 /* ==========================================================================
@@ -80,13 +86,21 @@ body {
   display: flex;
   align-items: center;
   gap: 0;
-  padding-right: var(--space-4);
+  padding-right: var(--size-4);
 }
-.site-header-nav a {
-  color: var(--text-secondary);
-  text-decoration: none;
+.site-header-nav .action-public{
+  color: var(--icon-public);
+}
+.site-header-nav .action-public:hover{
+  color: var(--icon-public-hover);
 }
 
+.site-header-nav .action-admin{
+  color: var(--icon-admin);
+}
+.site-header-nav .action-admin:hover{
+  color: var(--icon-admin-hover);
+}
 /* ==========================================================================
    FOOTER
    ========================================================================== */
@@ -97,7 +111,7 @@ body {
   justify-content: space-between;
 
   align-items: center;
-  gap: var(--space-4);
+  gap: var(--size-4);
 
   text-align: center;
   color: var(--text-secondary);
@@ -134,7 +148,7 @@ body {
 .site-footer a{
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--size-2);
 }
 .site-footer .inline-icon svg {
     width: 20px;
@@ -151,10 +165,10 @@ body {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: var(--space-3);
+  gap: var(--size-3);
   font-family: var(--font-sans);
   font-size: var(--font-size-ui);
-  max-width: var(--space-13);
+  max-width: var(--size-13);
 }
 
 #login .name {
@@ -194,7 +208,7 @@ body {
   height: 32px;
   min-width: 32px;
 
-  padding: var(--space-2);
+  padding: var(--size-2);
   border-radius: 0;
   background: transparent;
   color: var(--icon-primary);  
@@ -209,6 +223,10 @@ body {
 .action.disabled {
   opacity: 0.35;
   pointer-events: none;
+}
+
+.admin-icon{
+  color: var(--icon2-primary)
 }
 /* ==========================================================================
    ICONS
@@ -244,15 +262,8 @@ body {
   gap: 0.5rem;
 }
 .pagination input{
-  height: 32px;
-  font-size: inherit;
   width: 3ch;
   text-align: center;
-  color: inherit;
-
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.15);
-
 }
 .pagination button{
   border: none;
@@ -268,12 +279,27 @@ body {
 .pagination .maxPage{
 }
 .pagination .pageText{
-  padding-right: var(--space-2);
+  padding-right: var(--size-2);
 }
 .formButton {
-  padding: var(--space-2);  
+  padding: var(--size-2);  
 }
 
+input{
+  height: 32px;
+}
+input, textarea{
+  font-size: inherit;
+  color: inherit;
+
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.15);
+}
+input:focus-visible,
+textarea:focus-visible {
+  outline: none;
+  border-color: var(--icon-primary);
+}
 /* ==========================================================================
    COMMON CARD GRID LAYOUT
    ========================================================================== */
@@ -282,27 +308,27 @@ body {
   color: var(--text-primary);
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);  
+  gap: var(--size-4);  
 }
 
 .card-grid{
   display: grid;
   grid-template-columns: repeat(6, 1fr);
-  gap: var(--space-4); /* 16px */
+  gap: var(--size-4); /* 16px */
 }
 @media (max-width: 1024px) {
   .card-grid {
     grid-template-columns: repeat(3, 1fr);
     grid-auto-rows: calc((100% / 6) * 4 / 5);
     grid-auto-rows: calc(var(--col-width) * 4 / 5);
-    gap: var(--space-3); /* 12px */
+    gap: var(--size-3); /* 12px */
   }
 }
 @media (max-width: 600px) {
   .card-grid {
     display: flex;
     flex-direction: column;
-    gap: var(--space-2); /* 8px */
+    gap: var(--size-2); /* 8px */
   }
 }
 /* ==========================================================================
@@ -331,11 +357,11 @@ body {
 }
 .card .meta{
   flex: 0 0 auto;
-  height: var(--space-12);
+  height: var(--size-12);
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
-  padding: var(--space-2) var(--space-3);
+  gap: var(--size-1);
+  padding: var(--size-2) var(--size-3);
 }
 .card .meta .name,
 .card .meta .info {
@@ -372,7 +398,7 @@ body {
 .breadcrumbs-wrapper{
   background: var(--bg-context);
 
-  padding: var(--space-2) var(--space-page-x); 
+  padding: var(--size-2) var(--size-page-x); 
 }
 
 .breadcrumbs {
@@ -383,7 +409,7 @@ body {
   font-size: var(--font-size-sm);
   font-family: var(--font-sans);
 
-  gap: var(--space-2);
+  gap: var(--size-2);
 }
 
 .breadcrumb {
@@ -406,43 +432,54 @@ span.breadcrumb {
   font-size: var(--font-size-xs);
   opacity: 0.7;
 }
-
 /* ==========================================================================
-   TAG TREE
+   GENERIC TREE
    ========================================================================== */
-.tag-tree{
-  padding-left: calc(var(--space-2) + 14px);
+.tree,
+.tree-leaf{
+  padding-left: calc(var(--size-2) + 14px);
 }
-.tag-toggle {
+.tree-toggle {
   display: none;
 }
-.tag-label,
-.tag-leaf {
+.tree-label,
+.tree-leaf {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--size-2);
 }
-.tag-label {
+.tree-label {
   cursor: pointer;
 }
-.tag-leaf{
-  padding-left: calc(var(--space-2) + 14px);
-}
-
-.tag-icon {
+.tree-icon {
   transition: transform 0.2s ease;
   font-size: var(--font-size-sm);
   color: var(--icon-primary);
 }
-.tag-toggle + .tag-label .tag-icon {
+.tree-toggle + .tree-label .tree-icon {
   transform: rotate(0deg);
 }
-.tag-toggle:checked + .tag-label .tag-icon {
+.tree-toggle:checked + .tree-label .tree-icon {
   transform: rotate(90deg);
 }
-.tag-toggle:not(:checked) ~ .tag-tree {
+.tree-toggle:not(:checked) ~ .tree {
   display: none;
 }
+.tree-node{
+  list-style: none;
+  padding:0;
+  margin: 0;
+}
+div > ul.tree{
+  padding-left: 0;
+  margin: 0;
+}
+
+
+/* ==========================================================================
+   TAG TREE
+   ========================================================================== */
+
 .tag-link {
   text-decoration: none;
   color: var(--text-primary);
@@ -454,15 +491,6 @@ span.breadcrumb {
 }
 .tag-link:hover {
   color: var(--text-hover);
-}
-.tag-node{
-  list-style: none;
-  padding:0;
-  margin: 0;
-}
-div > ul.tag-tree{
-  padding-left: 0;
-  margin: 0;
 }
 
 /* ==========================================================================
@@ -483,4 +511,10 @@ div > ul.tag-tree{
 
 .ctx-toggle {
   display: none;
+}
+/* ==========================================================================
+   OVERLAY
+   ========================================================================== */
+.overlay{
+  box-shadow: var(--shadow-overlay);
 }

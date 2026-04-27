@@ -3,7 +3,7 @@ package presentation
 import (
 	"fmt"
 
-	authData "github.com/ignisVeneficus/lumenta/auth/data"
+	"github.com/ignisVeneficus/lumenta/db/dbo"
 
 	"github.com/ignisVeneficus/lumenta/config/validate"
 	gridData "github.com/ignisVeneficus/lumenta/tpl/grid/data"
@@ -92,7 +92,7 @@ func (g GridConfig) validate(v *validate.ValidationErrors, path string) {
 }
 func (m MetadataACLConfig) validate(v *validate.ValidationErrors, path string) {
 	for role := range m {
-		if !authData.IsValidRole(role) {
+		if !dbo.IsValidRole(role) {
 			err := fmt.Errorf("meta_acl: invalid role level")
 			validate.LogConfigError(path, role, err)
 			v.Add(err)

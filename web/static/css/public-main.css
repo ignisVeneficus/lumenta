@@ -1,24 +1,24 @@
 
 
 /* ==========================================================================
-   Brand
+   BRAND
    ========================================================================== */
 .site-brand{
   background: var(--bg-context);
   font-size: var(--font-size-brand);
-  padding-top: var(--space-9);     
-  padding-bottom: var(--space-10);
-  padding-left:  var(--space-page-x);
-  padding-right: var(--space-page-x);  
+  padding-top: var(--size-9);     
+  padding-bottom: var(--size-10);
+  padding-left:  var(--size-page-x);
+  padding-right: var(--size-page-x);  
 }
 .site-brand-inner{
   color: var(--text-primary);
   display: flex;
   flex-direction: row;
-  gap: var(--space-4);
+  gap: var(--size-4);
 }
 .site-brand .brand-logo{
-  padding-top: var(--space-3);
+  padding-top: var(--size-3);
   opacity: 0.9;
 }
 .site-brand .brand-logo svg{
@@ -26,7 +26,7 @@
     color: var(--text-secondary)
 }
 .site-brand .brand-logo.large svg{
-    height: var(--space-12);
+    height: var(--size-12);
 }
 
 .site-brand .text{
@@ -38,7 +38,7 @@
 }
 
 .site-brand .headline {
-  padding-top: var(--space-4);
+  padding-top: var(--size-4);
   font-family: var(--font-sans);
   font-size: var(--font-size-tagline);
   line-height: var(--line-height-normal);
@@ -57,7 +57,7 @@
   grid-auto-rows: calc(var(--col-width) * 4 / 5);
   */
   grid-auto-flow: row dense; 
-  gap: var(--space-4); /* 16px */
+  gap: var(--size-4); /* 16px */
 }
 .imageGrid a{
   position: relative;
@@ -71,7 +71,7 @@
   pointer-events: none;
   opacity: 0;
   background-color: rgba(0,0,0,0.5);
-  padding: var(--space-2);
+  padding: var(--size-2);
 
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -90,14 +90,14 @@
     grid-template-columns: repeat(6, 1fr);
     grid-auto-rows: calc((100% / 6) * 4 / 5);
     grid-auto-rows: calc(var(--col-width) * 4 / 5);
-    gap: var(--space-3); /* 12px */
+    gap: var(--size-3); /* 12px */
   }
 }
 @media (max-width: 600px) {
   .imageGrid {
     display: flex;
     flex-direction: column;
-    gap: var(--space-2); /* 8px */
+    gap: var(--size-2); /* 8px */
   }
 }
 .tile > a {
@@ -165,10 +165,7 @@ TODO: merge style
    MAIN IMAGE
    ========================================================================== */
 .image-page{
-  display:flex;
-  flex-direction: column;
   align-items: center;
-  gap: var(--space-4)  
 }
 .image-content{
   position: relative;
@@ -193,7 +190,7 @@ TODO: merge style
   pointer-events: none;
   opacity: 0;
   background-color: rgba(0,0,0,0.5);
-  padding: var(--space-2);
+  padding: var(--size-2);
 
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -207,10 +204,10 @@ TODO: merge style
 .image-thumbs{
   display: grid;
   grid-template-columns: 32px repeat(5, 1fr) 32px;
-  gap: var(--space-2);
+  gap: var(--size-2);
   align-items: stretch;
   max-height: 200px;
-  max-width: calc(32px + 5 * 200px + 32px + 6 * var(--space-2));
+  max-width: calc(32px + 5 * 200px + 32px + 6 * var(--size-2));
 }
 .image-wrapper{
   display:flex;
@@ -253,10 +250,10 @@ TODO: merge style
 .image-page #info-panel{
   display:flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--size-2);
   width: 200px;
   background: var(--bg-upper);
-  padding: var(--space-4) var(--space-page-x);
+  padding: var(--size-4) var(--size-page-x);
   font-size: var(--font-size-xs);
 }
 .image-page #info-panel .title{
@@ -307,7 +304,7 @@ body:has(#toggle-info:checked) .right{
     width: clamp(330px, calc(10vw + 250px), 430px);
 }
 body:has(#toggle-info:checked) .overlay{
-    right: calc(-1*var(--space-page-x))
+    right: calc(-1*var(--size-page-x))
 }
 
 
@@ -324,12 +321,12 @@ html.is-fullscreen .image-content{
   z-index: 7000;
   background: var(--bg-deep);
   overflow: auto;
-  padding: var(--space-4) var(--space-page-x);
+  padding: var(--size-4) var(--size-page-x);
 }
 html.is-fullscreen .ctx-menu{
   position: fixed;
-  right: var(--space-page-x);
-  top: var(--space-4);
+  right: var(--size-page-x);
+  top: var(--size-4);
   z-index: 9500;
   background: var(--bg-deep);
   overflow: auto;
@@ -348,7 +345,7 @@ html.is-fullscreen .image-wrapper{
   height:100%;
 }
 html.is-fullscreen .image-page .overlay{
-  margin: var(--space-4) var(--space-page-x);
+  margin: var(--size-4) var(--size-page-x);
 }
 html.slideshow-ui-hidden .ctx-menu{
   display: none;
@@ -361,13 +358,16 @@ html.slideshow-ui-hidden .image-page .overlay{
    FOLDER (TAGS, ALBUMS, ETC) PAGE
    ========================================================================== */
 
-.folder-page{
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
 .image-grid{
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--size-4);
 }
+
+/* ==========================================================================
+   MAIN PAGE
+   ========================================================================== */
+
+   .main-page a.hint{
+    color: var(--icon-primary);
+   }

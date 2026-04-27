@@ -10,9 +10,9 @@ import (
 
 const syncRunFields = `s.id, s.is_active, s.started_at, s.finished_at, s.mode, s.total_seen, s.total_deleted, s.status, s.error, s.meta_hash `
 
-const createSync = `INSERT INTO sync_runs (started_at, mode, meta_hash) VALUES (NOW(), ?, ?)`
+const createSyncRun = `INSERT INTO sync_runs (started_at, mode, meta_hash) VALUES (NOW(), ?, ?)`
 
-const closeSyncSuccess = `UPDATE sync_runs SET
+const closeSyncRunSuccess = `UPDATE sync_runs SET
   finished_at = NOW(),
   status = 'finished',
   total_seen = ?,
@@ -20,7 +20,7 @@ const closeSyncSuccess = `UPDATE sync_runs SET
   is_active = null
 WHERE id = ?`
 
-const closeSyncError = `UPDATE sync_runs
+const closeSyncRunError = `UPDATE sync_runs
 SET
   finished_at = NOW(),
   status = 'failed',
@@ -31,6 +31,9 @@ WHERE id = ?`
 const getSyncRunLastHash = "SELECT meta_hash FROM sync_runs WHERE status='finished' ORDER BY started_at desc LIMIT 1"
 
 const getSyncRunByID = `SELECT ` + syncRunFields + ` FROM sync_runs s WHERE s.id = ?`
+
+const querySyncRunPaged = `SELECT ` + syncRunFields + ` FROM sync_runs s ORDER BY s.started_at DESC LIMIT ?,? `
+const countSyncRun = `SELECT count(*) FROM sync_runs s`
 
 /*
 UPDATE sync_runs
@@ -50,23 +53,36 @@ func parseSyncRunRow(row *sql.Row) (dbo.SyncRun, error) {
 	return s, err
 }
 
+func parseSyncRunRows(rows *sql.Rows) ([]dbo.SyncRun, error) {
+	out := make([]dbo.SyncRun, 0)
+	for rows.Next() {
+		var s dbo.SyncRun
+		err := rows.Scan(&s.ID, &s.IsActive, &s.StartedAt, &s.FinishedAt, &s.Mode, &s.TotalSeen, &s.TotalDeleted, &s.Status, &s.Error, &s.MetaHash)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, s)
+	}
+	return out, rows.Err()
+}
+
 func (q *Queries) GetSyncRunByID(ctx context.Context, id uint64) (dbo.SyncRun, error) {
 	row := q.db.QueryRowContext(ctx, getSyncRunByID, id)
 	return parseSyncRunRow(row)
 }
 
-func (q *Queries) CreateSync(ctx context.Context, mode dbo.SyncMode, metaHash string) error {
-	_, err := q.db.ExecContext(ctx, createSync, mode, metaHash)
+func (q *Queries) CreateRunSync(ctx context.Context, mode dbo.SyncMode, metaHash string) error {
+	_, err := q.db.ExecContext(ctx, createSyncRun, mode, metaHash)
 	return err
 }
 
-func (q *Queries) CloseSyncSuccess(ctx context.Context, syncID uint64, totalSeen uint64, totalDeleted uint64) error {
-	_, err := q.db.ExecContext(ctx, closeSyncSuccess, totalSeen, totalDeleted, syncID)
+func (q *Queries) CloseSyncRunSuccess(ctx context.Context, syncID uint64, totalSeen uint64, totalDeleted uint64) error {
+	_, err := q.db.ExecContext(ctx, closeSyncRunSuccess, totalSeen, totalDeleted, syncID)
 	return err
 }
 
-func (q *Queries) CloseSyncError(ctx context.Context, syncID uint64, errorMsg string) error {
-	_, err := q.db.ExecContext(ctx, closeSyncError, errorMsg, syncID)
+func (q *Queries) CloseSyncRunError(ctx context.Context, syncID uint64, errorMsg string) error {
+	_, err := q.db.ExecContext(ctx, closeSyncRunError, errorMsg, syncID)
 	return err
 }
 
@@ -76,6 +92,27 @@ func (q *Queries) GetSyncRunLastHash(ctx context.Context) (string, error) {
 	err := row.Scan(&hash)
 	return hash, err
 }
+
+func (q *Queries) QuerySyncRunPaged(ctx context.Context, from, qty uint64) ([]dbo.SyncRun, error) {
+	rows, err := q.db.QueryContext(ctx, querySyncRunPaged, from, qty)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return parseSyncRunRows(rows)
+}
+func (q *Queries) CountSyncRun(ctx context.Context) (uint64, error) {
+	row := q.db.QueryRowContext(ctx, countSyncRun)
+	var count uint64
+	err := row.Scan(&count)
+	return count, err
+}
+
+//
+// =========================================================
+// Public API functions
+// =========================================================
+//
 
 func GetSyncRunByID(db *sql.DB, ctx context.Context, id uint64) (dbo.SyncRun, error) {
 	logg := logging.Enter(ctx, "dao.sync_run.getById", map[string]any{"id": id})
@@ -94,7 +131,7 @@ func CreateSyncRun(db *sql.DB, ctx context.Context, mode dbo.SyncMode, metaHash 
 	}
 	defer tx.Rollback()
 	q := NewQueries(tx)
-	if err = q.CreateSync(ctx, mode, metaHash); err != nil {
+	if err = q.CreateRunSync(ctx, mode, metaHash); err != nil {
 		err = NormalizeSQLError(err)
 		logging.ExitErr(logg, err)
 		return 0, err
@@ -107,7 +144,7 @@ func CreateSyncRun(db *sql.DB, ctx context.Context, mode dbo.SyncMode, metaHash 
 	return id, logging.Return(logg, tx.Commit())
 }
 func CloseSyncRunSuccess(db *sql.DB, ctx context.Context, syncID uint64, totalSeen uint64, totalDeleted uint64) error {
-	logg := logging.Enter(ctx, "dao.sync_run.success", map[string]any{"sync_id": syncID})
+	logg := logging.Enter(ctx, "dao.sync_run.close.success", map[string]any{"sync_id": syncID})
 	tx, err := GetTx(db, ctx)
 	if err != nil {
 		logging.ExitErr(logg, err)
@@ -115,14 +152,14 @@ func CloseSyncRunSuccess(db *sql.DB, ctx context.Context, syncID uint64, totalSe
 	}
 	defer tx.Rollback()
 	q := NewQueries(tx)
-	if err := q.CloseSyncSuccess(ctx, syncID, totalSeen, totalDeleted); err != nil {
+	if err := q.CloseSyncRunSuccess(ctx, syncID, totalSeen, totalDeleted); err != nil {
 		logging.ExitErr(logg, err)
 		return err
 	}
 	return logging.Return(logg, tx.Commit())
 }
 func CloseSyncRunError(db *sql.DB, ctx context.Context, syncID uint64, errorMsg string) error {
-	logg := logging.Enter(ctx, "dao.sync_run.error", map[string]any{"sync_id": syncID, "error": errorMsg})
+	logg := logging.Enter(ctx, "dao.sync_run.close.error", map[string]any{"sync_id": syncID, "error": errorMsg})
 	tx, err := GetTx(db, ctx)
 	if err != nil {
 		logging.ExitErr(logg, err)
@@ -130,7 +167,7 @@ func CloseSyncRunError(db *sql.DB, ctx context.Context, syncID uint64, errorMsg 
 	}
 	defer tx.Rollback()
 	q := NewQueries(tx)
-	if err := q.CloseSyncError(ctx, syncID, errorMsg); err != nil {
+	if err := q.CloseSyncRunError(ctx, syncID, errorMsg); err != nil {
 		logging.ExitErr(logg, err)
 		return err
 	}
@@ -141,4 +178,37 @@ func GetSyncRunLastHash(db *sql.DB, ctx context.Context) (string, error) {
 	q := NewQueries(db)
 	hash, err := q.GetSyncRunLastHash(ctx)
 	return hash, returnWrapNotFound(logg, err, "sync_run")
+}
+func QuerySyncRunPaged(db *sql.DB, ctx context.Context, from, qty uint64) ([]dbo.SyncRun, error) {
+	logg := logging.Enter(ctx, "dao.sync_run.query.PathPaged", map[string]any{
+		"from": from,
+		"qty":  qty,
+	})
+
+	q := NewQueries(db)
+
+	runs, err := q.QuerySyncRunPaged(ctx, from, qty)
+	if err != nil {
+		logging.ExitErr(logg, err)
+		return nil, err
+	}
+
+	logging.Exit(logg, "ok", map[string]any{
+		"found": len(runs),
+	})
+
+	return runs, nil
+}
+
+func CountSyncRun(db *sql.DB, ctx context.Context) (uint64, error) {
+	logg := logging.Enter(ctx, "dao.sync_run.count", nil)
+	q := NewQueries(db)
+	qty, err := q.CountSyncRun(ctx)
+	if err != nil {
+		logging.ExitErr(logg, err)
+		return 0, err
+	}
+	logging.Exit(logg, "ok", map[string]any{"return": qty})
+	return qty, nil
+
 }

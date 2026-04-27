@@ -12,18 +12,23 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+type ImageAlbum []uint64
+
 type ImageFacts struct {
 	Path     string
 	Filename string
 	Ext      string
+	Root     string
 
 	TakenAt *time.Time
 	Rating  *int
 	Width   uint32
 	Height  uint32
 
-	// hierarchikus tagek: "Travel/Iceland/Winter"
 	Tags []string
+
+	// nill-> not given
+	Albums []ImageAlbum
 }
 
 func (i *ImageFacts) MarshalZerologObjectWithLevel(e *zerolog.Event, level zerolog.Level) {
@@ -39,7 +44,9 @@ func (i *ImageFacts) MarshalZerologObjectWithLevel(e *zerolog.Event, level zerol
 	}
 }
 
-type CompiledFilter func(f ImageFacts) bool
+type CompiledFilter func(f ImageFacts, refAlbum ImageAlbum) (TriState, RuleResult)
+
+type CompiledGroupFilter func(f ImageFacts, refAlbum ImageAlbum) (bool, GroupRuleResult)
 
 func compileAtomicFilter(flt Rule) (CompiledFilter, error) {
 	switch f := flt.(type) {
@@ -56,9 +63,9 @@ func compileAtomicFilter(flt Rule) (CompiledFilter, error) {
 	case *ExtensionFilter:
 		return compileExtensionFilter(f)
 	case *AlbumFilter:
-		return nil, fmt.Errorf("album filter is not atomic-image-evaluable")
+		return compileAlbumFilter(f)
 	case *NotInChildAlbumsFilter:
-		return nil, fmt.Errorf("notchildren filter is not atomic-image-evaluable")
+		return compileNotInChildAlbumsFilter(f)
 	case *WidthFilter:
 		return compileWidthFilter(f)
 	case *HeightFilter:
@@ -68,6 +75,19 @@ func compileAtomicFilter(flt Rule) (CompiledFilter, error) {
 	default:
 		return nil, fmt.Errorf("unknown filter type: %T", flt)
 	}
+}
+
+func returnValue(ruleLog RuleResult, result TriState) (TriState, RuleResult) {
+	ruleLog.Result = result
+	return result, ruleLog
+}
+func returnBool(ruleLog RuleResult, result bool) (TriState, RuleResult) {
+	ret := EvalResultFalse
+	if result {
+		ret = EvalResultTrue
+	}
+	ruleLog.Result = ret
+	return ret, ruleLog
 }
 
 func tagMatches(tag, wanted string) bool {
@@ -81,8 +101,19 @@ func compileTagFilter(f *TagFilter) (CompiledFilter, error) {
 	if len(f.Tags) == 0 {
 		return nil, fmt.Errorf("tag filter without tags")
 	}
+	name := fmt.Sprintf("tag:%s:%s", f.Op, strings.Join(f.Tags, ";"))
+	base := RuleResult{
+		Name: name,
+		Op:   string(f.Op),
+		Type: "tag",
+		Params: []RuleParam{
+			CreateRuleParamStrings("tags", f.Tags),
+		},
+	}
 
-	return func(img ImageFacts) bool {
+	return func(img ImageFacts, refAlbum ImageAlbum) (TriState, RuleResult) {
+		rr := base
+		rr.Actual = append(rr.Actual, CreateRuleParamStrings("tags", img.Tags))
 		matchCount := 0
 		for _, wanted := range f.Tags {
 			found := false
@@ -100,17 +131,17 @@ func compileTagFilter(f *TagFilter) (CompiledFilter, error) {
 
 		switch f.Op {
 		case SetAny:
-			return matchCount > 0
+			return returnBool(rr, matchCount > 0)
 
 		case SetAll:
-			return matchCount == len(f.Tags)
+			return returnBool(rr, matchCount == len(f.Tags))
 
 		case SetNone:
-			return matchCount == 0
+			return returnBool(rr, matchCount == 0)
 
 		case SetOnly:
 			if len(img.Tags) == 0 {
-				return false
+				return returnBool(rr, false)
 			}
 			for _, t := range img.Tags {
 				ok := false
@@ -121,13 +152,12 @@ func compileTagFilter(f *TagFilter) (CompiledFilter, error) {
 					}
 				}
 				if !ok {
-					return false
+					return returnBool(rr, false)
 				}
 			}
-			return true
-
+			return returnBool(rr, true)
 		default:
-			return false
+			return returnBool(rr, false)
 		}
 	}, nil
 }
@@ -166,23 +196,37 @@ func compileDateFilter(f *DateFilter) (CompiledFilter, error) {
 	if err != nil {
 		return nil, err
 	}
+	name := fmt.Sprintf("date:%s:%s", f.Op, f.Date)
+	base := RuleResult{
+		Name: name,
+		Op:   string(f.Op),
+		Type: "date",
+		Params: []RuleParam{
+			CreateRuleParamString("date", f.Date),
+		},
+	}
 
-	return func(img ImageFacts) bool {
+	return func(img ImageFacts, refAlbum ImageAlbum) (TriState, RuleResult) {
+		rr := base
 		if img.TakenAt == nil {
-			return false
+			rr.Actual = append(rr.Actual,
+				CreateRuleParamEmpty("date"))
+			return returnValue(rr, EvalResultUnknow)
 		}
+		rr.Actual = append(rr.Actual,
+			CreateRuleParamDate("date", (*img.TakenAt)))
 
 		t := *img.TakenAt
 
 		switch f.Op {
 		case DateOn:
-			return !t.Before(start) && t.Before(end)
+			return returnBool(rr, !t.Before(start) && t.Before(end))
 		case DateBefore:
-			return t.Before(start)
+			return returnBool(rr, t.Before(start))
 		case DateAfter:
-			return !t.Before(end)
+			return returnBool(rr, !t.Before(end))
 		default:
-			return false
+			return returnBool(rr, false)
 		}
 	}, nil
 }
@@ -215,73 +259,132 @@ func compileNameFilter(f *NameFilter) (CompiledFilter, error) {
 	if err != nil {
 		return nil, err
 	}
+	name := fmt.Sprintf("name::%s", f.Pattern)
+	base := RuleResult{
+		Name: name,
+		Op:   "",
+		Type: "name",
+		Params: []RuleParam{
+			CreateRuleParamString("pattern", f.Pattern),
+		},
+	}
 
-	return func(img ImageFacts) bool {
-		return re.MatchString(img.Filename)
+	return func(img ImageFacts, refAlbum ImageAlbum) (TriState, RuleResult) {
+		rr := base
+		rr.Actual = append(rr.Actual,
+			CreateRuleParamString("filename", img.Filename))
+		return returnBool(rr, re.MatchString(img.Filename))
 	}, nil
 }
 
 func compileRatingFilter(f *RatingFilter) (CompiledFilter, error) {
-	return func(img ImageFacts) bool {
+	name := fmt.Sprintf("rating:%s:%d", f.Op, f.Value)
+	base := RuleResult{
+		Name: name,
+		Op:   string(f.Op),
+		Type: "rating",
+		Params: []RuleParam{
+			CreateRuleParamInt("rating", f.Value),
+		},
+	}
+
+	return func(img ImageFacts, refAlbum ImageAlbum) (TriState, RuleResult) {
+		rr := base
 		rating := 0
 		if img.Rating != nil {
 			rating = *img.Rating
+			rr.Actual = append(rr.Actual, CreateRuleParamInt("rating", rating))
+		} else {
+			rr.Actual = append(rr.Actual, CreateRuleParamEmpty("rating"))
+			returnValue(rr, EvalResultUnknow)
 		}
 		switch f.Op {
 		case RelationAbove:
-			return rating > f.Value
+			return returnBool(rr, rating > f.Value)
 		case RelationBelow:
-			return rating < f.Value
+			return returnBool(rr, rating < f.Value)
 		default:
-			return false
+			return returnBool(rr, false)
 		}
 	}, nil
 }
 
 func compileWidthFilter(f *WidthFilter) (CompiledFilter, error) {
-	return func(img ImageFacts) bool {
+	name := fmt.Sprintf("width:%s:%d", f.Op, f.Value)
+	base := RuleResult{
+		Name: name,
+		Op:   string(f.Op),
+		Type: "width",
+		Params: []RuleParam{
+			CreateRuleParamInt("width", f.Value),
+		},
+	}
+	return func(img ImageFacts, refAlbum ImageAlbum) (TriState, RuleResult) {
+		rr := base
 		width := int(img.Width)
+		rr.Actual = append(rr.Actual, CreateRuleParamInt("width", width))
 		switch f.Op {
 		case RelationAbove:
-			return width > f.Value
+			return returnBool(rr, width > f.Value)
 		case RelationBelow:
-			return width < f.Value
+			return returnBool(rr, width < f.Value)
 		default:
-			return false
+			return returnBool(rr, false)
 		}
 	}, nil
 }
 
 func compileHeightFilter(f *HeightFilter) (CompiledFilter, error) {
-	return func(img ImageFacts) bool {
+	name := fmt.Sprintf("height:%s:%d", f.Op, f.Value)
+	base := RuleResult{
+		Name: name,
+		Op:   string(f.Op),
+		Type: "height",
+		Params: []RuleParam{
+			CreateRuleParamInt("height", f.Value),
+		},
+	}
+	return func(img ImageFacts, refAlbum ImageAlbum) (TriState, RuleResult) {
+		rr := base
 		height := int(img.Height)
+		rr.Actual = append(rr.Actual, CreateRuleParamInt("height", height))
 		switch f.Op {
 		case RelationAbove:
-			return height > f.Value
+			return returnBool(rr, height > f.Value)
 		case RelationBelow:
-			return height < f.Value
+			return returnBool(rr, height < f.Value)
 		default:
-			return false
+			return returnBool(rr, false)
 		}
 	}, nil
 }
 
 func compileAspectFilter(f *AspectFilter) (CompiledFilter, error) {
-	return func(img ImageFacts) bool {
+	name := fmt.Sprintf("aspect:%s:%f", f.Op, f.Value)
+	base := RuleResult{
+		Name: name,
+		Op:   string(f.Op),
+		Type: "aspect",
+		Params: []RuleParam{
+			CreateRuleParamFloat64("aspect", f.Value),
+		},
+	}
+	return func(img ImageFacts, refAlbum ImageAlbum) (TriState, RuleResult) {
+		rr := base
 		h := int(img.Height)
 		w := int(img.Width)
 		if h == 0 {
-			return false
+			return returnValue(rr, EvalResultUnknow)
 		}
 		r := float64(w) / float64(h)
-
+		rr.Actual = append(rr.Actual, CreateRuleParamFloat64("aspect", r))
 		switch f.Op {
 		case RelationAbove:
-			return r > f.Value
+			return returnBool(rr, r > f.Value)
 		case RelationBelow:
-			return r < f.Value
+			return returnBool(rr, r < f.Value)
 		default:
-			return false
+			return returnBool(rr, false)
 		}
 	}, nil
 }
@@ -290,27 +393,44 @@ func compilePathFilter(f *PathFilter) (CompiledFilter, error) {
 	if len(f.Paths) == 0 {
 		return nil, fmt.Errorf("path filter without paths")
 	}
+	name := fmt.Sprintf("path:%s:%s:%s", f.Op, f.Root, strings.Join(f.Paths, ";"))
+	base := RuleResult{
+		Name: name,
+		Op:   string(f.Op),
+		Type: "path",
+		Params: []RuleParam{
+			CreateRuleParamString("root", f.Root),
+			CreateRuleParamStrings("path", f.Paths),
+		},
+	}
 
-	return func(img ImageFacts) bool {
+	return func(img ImageFacts, refAlbum ImageAlbum) (TriState, RuleResult) {
+		rr := base
+		rr.Actual = append(rr.Actual, CreateRuleParamString("root", img.Root),
+			CreateRuleParamString("path", img.Path))
 		match := false
+		matchRoot := true
+		if f.Root != "" {
+			matchRoot = (img.Root == f.Root)
+		}
 		for _, p := range f.Paths {
 			if strings.HasPrefix(img.Path, p) {
-				match = true
+				match = matchRoot && true
 				break
 			}
 		}
 
-		switch f.Mode {
+		switch f.Op {
 		case SetAny:
-			return match
+			return returnBool(rr, match)
 		case SetNone:
-			return !match
+			return returnBool(rr, !match)
 		case SetOnly:
-			return match // path egyértékű → any == only
+			return returnBool(rr, match)
 		case SetAll:
-			return match // path egyértékű → all == any
+			return returnBool(rr, match)
 		default:
-			return false
+			return returnBool(rr, false)
 		}
 	}, nil
 }
@@ -320,22 +440,199 @@ func compileExtensionFilter(f *ExtensionFilter) (CompiledFilter, error) {
 	for _, e := range f.Extensions {
 		set[strings.ToLower(e)] = struct{}{}
 	}
+	name := fmt.Sprintf("extension:%s:%s", f.Op, strings.Join(f.Extensions, ";"))
+	base := RuleResult{
+		Name: name,
+		Op:   string(f.Op),
+		Type: "extension",
+		Params: []RuleParam{
+			CreateRuleParamStrings("extension", f.Extensions),
+		},
+	}
 
-	return func(img ImageFacts) bool {
+	return func(img ImageFacts, refAlbum ImageAlbum) (TriState, RuleResult) {
+		rr := base
+		rr.Actual = append(rr.Actual, CreateRuleParamString("extension", img.Ext))
 		_, ok := set[strings.ToLower(img.Ext)]
 
-		switch f.Mode {
+		switch f.Op {
 		case SetAny, SetOnly, SetAll:
-			return ok
+			return returnBool(rr, ok)
 		case SetNone:
-			return !ok
+			return returnBool(rr, !ok)
 		default:
-			return false
+			return returnBool(rr, false)
 		}
 	}, nil
 }
 
-func CompileGroupFilter(group RuleGroup) (CompiledFilter, error) {
+func compileAlbumFilter(f *AlbumFilter) (CompiledFilter, error) {
+	if len(f.Albums) == 0 {
+		return nil, fmt.Errorf("album filter without albums")
+	}
+
+	name := fmt.Sprintf("album:%s:%v:%t", f.Op, f.Albums, f.IncludeChildren)
+
+	base := RuleResult{
+		Name: name,
+		Op:   string(f.Op),
+		Type: "album",
+		Params: []RuleParam{
+			CreateRuleParamInts("albums", f.Albums),
+			CreateRuleParamString("include_children", strconv.FormatBool(f.IncludeChildren)),
+		},
+	}
+
+	return func(img ImageFacts, refAlbum ImageAlbum) (TriState, RuleResult) {
+		rr := base
+
+		if img.Albums == nil {
+			rr.Actual = append(rr.Actual, CreateRuleParamEmpty("albums"))
+			return returnValue(rr, EvalResultUnknow)
+		}
+
+		// actual: leaf ids
+		var actual []uint64
+		for _, a := range img.Albums {
+			if len(a) > 0 {
+				actual = append(actual, a[len(a)-1])
+			}
+		}
+		rr.Actual = append(rr.Actual, CreateRuleParamInts("image_albums", actual))
+
+		// helper: target -> matched?
+		matchedTargets := make(map[uint64]bool)
+
+		// helper: image album matches any target?
+		imageMatches := make([]bool, len(img.Albums))
+
+		for i, imgAlbum := range img.Albums {
+			if len(imgAlbum) == 0 {
+				continue
+			}
+
+			imgLeaf := imgAlbum[len(imgAlbum)-1]
+
+			for _, target := range f.Albums {
+				match := false
+
+				if f.IncludeChildren {
+					// path contains target
+					for _, id := range imgAlbum {
+						if id == target {
+							match = true
+							break
+						}
+					}
+				} else {
+					// exact leaf
+					if imgLeaf == target {
+						match = true
+					}
+				}
+
+				if match {
+					matchedTargets[target] = true
+					imageMatches[i] = true
+				}
+			}
+		}
+
+		// counts
+		targetCount := len(f.Albums)
+		matchedCount := len(matchedTargets)
+
+		allMatched := matchedCount == targetCount
+		anyMatched := matchedCount > 0
+		noneMatched := matchedCount == 0
+
+		// only: minden image album match-el ÉS van legalább egy
+		onlyMatched := true
+		hasAnyAlbum := len(img.Albums) > 0
+
+		for _, m := range imageMatches {
+			if !m {
+				onlyMatched = false
+				break
+			}
+		}
+		if !hasAnyAlbum {
+			onlyMatched = false
+		}
+
+		var result bool
+
+		switch f.Op {
+		case SetAny:
+			result = anyMatched
+		case SetAll:
+			result = allMatched
+		case SetNone:
+			result = noneMatched
+		case SetOnly:
+			result = onlyMatched
+		default:
+			result = false
+		}
+
+		return returnBool(rr, result)
+	}, nil
+}
+
+func compileNotInChildAlbumsFilter(f *NotInChildAlbumsFilter) (CompiledFilter, error) {
+	name := "not_in_child_albums"
+
+	base := RuleResult{
+		Name: name,
+		Op:   "",
+		Type: "notinchildren",
+	}
+
+	return func(img ImageFacts, refAlbum ImageAlbum) (TriState, RuleResult) {
+		rr := base
+		rr.Actual = append(rr.Actual, CreateRuleParamInts("reference_album", refAlbum))
+
+		if refAlbum == nil {
+			return returnValue(rr, EvalResultUnknow)
+		}
+		if img.Albums == nil {
+			return returnValue(rr, EvalResultUnknow)
+		}
+
+		var actual []uint64
+		for _, a := range img.Albums {
+			if len(a) > 0 {
+				actual = append(actual, a[len(a)-1])
+			}
+		}
+		rr.Actual = append(rr.Actual, CreateRuleParamInts("image_albums", actual))
+
+		inChild := false
+
+		for _, imgAlbum := range img.Albums {
+			if len(imgAlbum) <= len(refAlbum) {
+				continue
+			}
+
+			// prefix check
+			match := true
+			for i := 0; i < len(refAlbum); i++ {
+				if imgAlbum[i] != refAlbum[i] {
+					match = false
+					break
+				}
+			}
+
+			if match {
+				inChild = true
+				break
+			}
+		}
+		return returnBool(rr, !inChild)
+	}, nil
+}
+
+func CompileGroupFilter(group RuleGroup, name string) (CompiledGroupFilter, error) {
 	if len(group.Rules) == 0 {
 		return nil, fmt.Errorf("empty filter group")
 	}
@@ -352,23 +649,40 @@ func CompileGroupFilter(group RuleGroup) (CompiledFilter, error) {
 
 	switch group.Op {
 	case OpAll:
-		return func(img ImageFacts) bool {
+		return func(img ImageFacts, refAlbum ImageAlbum) (bool, GroupRuleResult) {
+			ret := GroupRuleResult{
+				Name: name,
+				Op:   group.Op,
+			}
 			for _, p := range preds {
-				if !p(img) {
-					return false
+				ts, rr := p(img, refAlbum)
+				ret.RuleResults = append(ret.RuleResults, rr)
+				if !ts.Bool() {
+					ret.Result = false
+					return false, ret
 				}
 			}
-			return true
+			ret.Result = true
+			return true, ret
 		}, nil
 
 	case OpAny:
-		return func(img ImageFacts) bool {
+		return func(img ImageFacts, refAlbum ImageAlbum) (bool, GroupRuleResult) {
+			ret := GroupRuleResult{
+				Name: name,
+				Op:   group.Op,
+			}
 			for _, p := range preds {
-				if p(img) {
-					return true
+				ts, rr := p(img, refAlbum)
+				ret.RuleResults = append(ret.RuleResults, rr)
+
+				if ts.Bool() {
+					ret.Result = true
+					return true, ret
 				}
 			}
-			return false
+			ret.Result = false
+			return false, ret
 		}, nil
 
 	default:

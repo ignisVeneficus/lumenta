@@ -28,6 +28,15 @@
   --icon2-muted:   var(--color2-text-dark);
 
   --text-accent:  var(--color2-text-middle);
+
+  --icon-public:        var(--color1-text-middle);
+  --icon-public-hover:  var(--color1-text-light);
+  --icon-public-muted:  var(--color1-text-dark);
+
+  --icon-admin:         var(--color2-text-middle);
+  --icon-admin-hover:   var(--color2-text-light);
+  --icon-admin-muted:   var(--color2-text-dark);
+  
   /* ============================================================
      HOVER & INTERACTION (NON-DECORATIVE)
      ------------------------------------------------------------
@@ -35,4 +44,7 @@
   ============================================================ */
 
   --status-failed: #f06f6f;
+  --status-success: #6fcf97;
+  --flash-success-bg: #274236;
+  --flash-failed-bg: #3a2626;
 }

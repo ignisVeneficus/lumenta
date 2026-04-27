@@ -1,6 +1,9 @@
 package data
 
-import "math"
+import (
+	"html/template"
+	"math"
+)
 
 type Paging struct {
 	Url     URLBuilder
@@ -9,11 +12,48 @@ type Paging struct {
 	ActPage uint64
 }
 
-func CreatePaging(url URLBuilder, name string, page int, qty uint64, perPage int) Paging {
+func (p Paging) First() template.URL {
+	page := p.ActPage
+	if page > 1 {
+		page = 1
+	}
+	url := p.Url
+	url.WithIntQuery(p.Name, int(page))
+	return template.URL(url.String())
+}
+func (p Paging) Prev() template.URL {
+	page := p.ActPage
+	if page > 1 {
+		page--
+	}
+	url := p.Url
+	url.WithIntQuery(p.Name, int(page))
+	return template.URL(url.String())
+}
+func (p Paging) Next() template.URL {
+	page := p.ActPage
+	if page < p.MaxPage {
+		page++
+	}
+	url := p.Url
+	url.WithIntQuery(p.Name, int(page))
+	return template.URL(url.String())
+}
+func (p Paging) Last() template.URL {
+	page := p.ActPage
+	if page < p.MaxPage {
+		page = p.MaxPage
+	}
+	url := p.Url
+	url.WithIntQuery(p.Name, int(page))
+	return template.URL(url.String())
+}
+
+func CreatePaging(url URLBuilder, name string, page, qty, perPage uint64) Paging {
 	return Paging{
 		Url:     url,
 		Name:    name,
-		ActPage: uint64(page),
+		ActPage: page,
 		MaxPage: uint64(math.Ceil(float64(qty) / float64(perPage))),
 	}
 }

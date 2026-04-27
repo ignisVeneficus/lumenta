@@ -99,8 +99,8 @@ func (s *JWTService) Issue(acl authData.ACLContext) (string, error) {
 		UserName:         *acl.UserName,
 		Role:             string(acl.Role),
 	}
-	if acl.UserID != nil {
-		claims.UserID = *acl.UserID
+	if acl.ViewerUserID != nil {
+		claims.UserID = *acl.ViewerUserID
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString(s.secret)

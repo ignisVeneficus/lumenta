@@ -1,7 +1,7 @@
 package presentation
 
 import (
-	authData "github.com/ignisVeneficus/lumenta/auth/data"
+	"github.com/ignisVeneficus/lumenta/db/dbo"
 	gridData "github.com/ignisVeneficus/lumenta/tpl/grid/data"
 )
 
@@ -11,9 +11,9 @@ type PresentationConfig struct {
 	MetadataACL          MetadataACLConfig `yaml:"metadata_acl"`
 	ConvertedMetadataACL MetadataACL       `yaml:"-"`
 }
-type MetadataACLConfig map[authData.ACLRole][]string
+type MetadataACLConfig map[dbo.ACLRole][]string
 
-type MetadataACL map[string]authData.ACLRole
+type MetadataACL map[string]dbo.ACLRole
 
 type GridConfig map[int]RoleConfig
 

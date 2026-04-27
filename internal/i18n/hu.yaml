@@ -1,0 +1,241 @@
+data:
+  sync_files:
+    status:
+      deleted:
+        short: "Törölt"
+        label: "Fájl törölve"
+      created:
+        short: "Hozzáadva"
+        label: "Új fájl hozzáadva"
+      not_changed:
+        short: "Változatlan"
+        label: "Nem történt változás"
+      updated:
+        short: "Frissítve"
+        label: "Fájl frissítve"
+      filtered_out:
+        short: "Kihagyva"
+        label: "Szűrés miatt kihagyva"
+      error:
+        short: "Hiba"
+        label: "Feldolgozási hiba"
+    dirty_reason:
+      new_file:
+        short: "Új"
+        label: "Új fájl észlelve"
+      hash_changed:
+        short: "Módosult"
+        label: "Fájl tartalma megváltozott"
+      metadata_changed:
+        short: "Metaadat"
+        label: "Sidecar metaadat megváltozott"
+      size_changed:
+        short: "Méret"
+        label: "Fájl mérete megváltozott"
+      mtime_changed:
+        short: "Újabb"
+        label: "Fájl módosítási ideje megváltozott"
+      forced_refresh:
+        short: "Kényszer"
+        label: "Kényszerített frissítés"
+
+ruleengine:
+  rule:
+    rule_op:
+      all:
+        short: "Összes"
+        label: "Minden szabálynak teljesülnie kell"
+      any:
+        short: "Bármely"
+        label: "Legalább egy szabálynak teljesülnie kell"
+
+    album:
+      short: "Album"
+      label: "Kiválasztott albumokból"
+    notchildren:
+      short: "Al-albumok nélkül"
+      label: "Al-albumok kizárása"
+    tag:
+      short: "Címkék"
+      label: "Megfelelő címkékkel"
+    date:
+      short: "Dátum"
+      label: "Szűrés dátum alapján"
+    name:
+      short: "Név"
+      label: "Illesztés névminta alapján"
+    rating:
+      short: "Értékelés"
+      label: "Szűrés értékelés alapján"
+    path:
+      short: "Útvonal"
+      label: "Illesztés fájlútvonal alapján"
+    extension:
+      short: "Kiterj."
+      label: "Illesztés fájlkiterjesztés alapján"
+    width:
+      short: "Szélesség"
+      label: "Szűrés szélesség alapján"
+    height:
+      short: "Magasság"
+      label: "Szűrés magasság alapján"
+    aspect:
+      short: "Arány"
+      label: "Szűrés képarány alapján"
+
+    op:
+      all:
+        short: "Összes"
+        label: "Mindegyik"
+      any:
+        short: "Egy"
+        label: "Legalább egy"
+      none:
+        short: "Egyik sem"
+        label: "Egyik sem"
+      only:
+        short: "Csak"
+        label: "Csak ezek"
+      on:
+        short: "Ekkor"
+        label: "Adott napon"
+      before:
+        short: "Előtte"
+        label: "Dátum előtt"
+      after:
+        short: "Utána"
+        label: "Dátum után"
+      lt:
+        short: "<"
+        label: "Kisebb mint"
+      gt:
+        short: ">"
+        label: "Nagyobb mint"
+
+  results:
+    evaluation:
+      path_filter: "Adatbázisba kerülés"
+      panorama: "Panoráma felismerés"
+      acl: "Hozzáférési szint meghatározása"
+
+    result: "Eredmény"
+
+    result-value:
+      match: "Egyezik"
+      no-match: "Nem egyezik"
+      unknow: "Ismeretlen"
+
+    rule: "Szabály"
+    op: "Operátor"
+    parameters: "Szabály paraméterei"
+    input: "Bemeneti adatok"
+    values: "Értékek"
+
+    params:
+      tags: "Címkék"
+      date: "Dátum"
+      pattern: "Minta"
+      filename: "Fájlnév"
+      rating: "Értékelés"
+      width: "Kép szélessége"
+      height: "Kép magassága"
+      aspect: "Képarány"
+      root: "Forrás"
+      path: "Fájl útvonal"
+      extension: "Kiterjesztés"
+      album: "Album"
+      include_children: "Al-albumokkal együtt"
+      image_albums: "Kép albumai"
+      reference_album: "Referencia album"
+
+    value:
+      true: "Igen"
+      false: "Nem"
+      unknow: "Ismeretlen"
+
+page:
+  common:
+    search: "Keresés"
+    filter: "Szűrés"
+    name: "Név"
+
+  admin:
+    common:
+      no_records: "Nincs találat"
+
+    sync:
+      path:
+        short: "Kép"
+        label: "Kép elérési útja"
+      status:
+        short: "Állapot"
+        label: "Feldolgozás eredménye"
+      dirty:
+        short: "Változás"
+        label: "Változás oka"
+      time:
+        short: "Idő"
+        label: "Feldolgozás ideje"
+      age:
+        short: "Kor"
+        label: "Utolsó módosítás óta eltelt idő"
+
+    sync_files:
+      search:
+        label: "Kép"
+        placeholder: "Keresés útvonal vagy fájlnév alapján"
+      filter:
+        label: "Szűrés állapot szerint"
+
+    sync_file:
+      rules: "Szabály kiértékelések"
+
+nav:
+  page:
+    admin:
+      home:
+        short: "Admin"
+        label: "Adminisztráció"
+
+      images:
+        short: "Képek"
+        label: "Képek böngészése és kezelése"
+
+      albums:
+        short: "Albumok"
+        label: "Albumok megtekintése és kezelése"
+
+      sync_runs:
+        short: "Szinkronok"
+        label: "Korábbi szinkron futások"
+
+      sync_run_files:
+        short: "Fájlok"
+        label: "Az adott szinkron során feldolgozott fájlok"
+
+      sync_files:
+        short: "Változások"
+        label: "Képek változásai a szinkronok során"
+
+      sync_file_history:
+        short: "Előzmények"
+        label: "A kép szinkron előzményei"
+
+      sync_file:
+        short: "Esemény"
+        label: "Fájl feldolgozási esemény"
+
+common:
+  duration:
+    second:
+      short: "mp"
+      label: "másodperc"
+    minute:
+      short: "p"
+      label: "perc"
+    hour:
+      short: "ó"
+      label: "óra"
+    day:
+      short: "n"
+      label: "nap"

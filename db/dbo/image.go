@@ -55,9 +55,8 @@ type Image struct {
 
 	ExifJSON json.RawMessage
 
-	ACLScope   ACLScope
-	ACLUserID  *uint64
-	ACLGroupID *uint64
+	ACLLevel  DBACLLevel
+	ACLUserID uint64
 
 	CreatedAt time.Time
 	UpdatedAt time.Time
@@ -73,13 +72,17 @@ func (i Image) GetTitle() string {
 	}
 	return i.Filename
 }
+func (i Image) PathFull() string {
+	return BuildFullPath(i.Root, i.Path, i.Filename, i.Ext)
+}
 
 func (i *Image) MarshalZerologObjectWithLevel(e *zerolog.Event, level zerolog.Level) {
 	if level <= zerolog.DebugLevel {
 		e.Str("path", i.Path).
 			Str("filename", i.Filename).
 			Str("ext", i.Ext).
-			Str("acl_scope", string(i.ACLScope)).
+			Uint64("acl_level", uint64(i.ACLLevel)).
+			Uint64("acl_user_id", i.ACLUserID).
 			Str("root", i.Root)
 		logging.Uint64If(e, "id", i.ID)
 		logging.StrIf(e, "title", i.Title)
@@ -99,13 +102,11 @@ func (i *Image) MarshalZerologObjectWithLevel(e *zerolog.Event, level zerolog.Le
 		logging.TimeIf(e, "taken_at", i.TakenAt)
 		logging.StrIf(e, "camera", i.Camera)
 		logging.StrIf(e, "lens", i.Lens)
-		logging.Uint64If(e, "acl_user_id", i.ACLUserID)
-		logging.Uint64If(e, "acl_group_id", i.ACLGroupID)
 		logging.StrIf(e, "subject", i.Caption)
 	}
 }
 
-func (i *Image) AddTags(tags []Tag) {
+func (i *Image) AddTags(tags []*Tag) {
 	i.Tags = BuildTagsTree(tags)
 }
 
@@ -120,3 +121,5 @@ type ImageCoord struct {
 	Latitude  *float64
 	Longitude *float64
 }
+
+type ImageACLCount map[DBACLLevel]uint64

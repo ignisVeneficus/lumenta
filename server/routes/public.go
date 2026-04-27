@@ -10,9 +10,11 @@ const (
 	derivativePath = "/img/%d/%s"
 	albumImagePath = "/album/%d/img/%d"
 	albumPath      = "/album/%d"
+	albumsRootPath = "/album/"
 	tagsRootPath   = "/tag/"
 	tagPath        = "/tag/%d"
 	tagImagePath   = "/tag/%d/img/%d"
+	imagePath      = "/img/%d"
 )
 
 func GetAlbumImagePath() string {
@@ -27,6 +29,13 @@ func GetImageDerivativePath() string {
 }
 func CreateDerivativePath(id uint64, derivative string) string {
 	return fmt.Sprintf(derivativePath, id, derivative)
+}
+
+func GetAlbumsRootPath() string {
+	return albumsRootPath
+}
+func CreateAlbumsRootPath() string {
+	return albumsRootPath
 }
 
 func GetAlbumPath() string {
@@ -61,4 +70,10 @@ func CreateTagImagePath(tid, iid uint64) string {
 }
 func BuildTagImagePath(tid, iid uint64) *data.URLBuilder {
 	return data.NewURL(CreateTagImagePath(tid, iid))
+}
+func GetImagePath() string {
+	return getPath(imagePath, ":id")
+}
+func CreateImagePath(id uint64) string {
+	return fmt.Sprintf(imagePath, id)
 }

@@ -1,10 +1,12 @@
 package auth
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strings"
 
+	authData "github.com/ignisVeneficus/lumenta/auth/data"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -12,6 +14,10 @@ const (
 	// DefaultBcryptCost is a balanced default for interactive logins
 	DefaultBcryptCost = bcrypt.DefaultCost // jelenleg 10
 )
+
+type ExternalAuthRuntime interface {
+	ContextFromRequest(ctx context.Context, ip string, request *http.Request) *authData.ACLContext
+}
 
 // HashPassword hashes a plaintext password using bcrypt.
 // The returned value is safe to store in the database.

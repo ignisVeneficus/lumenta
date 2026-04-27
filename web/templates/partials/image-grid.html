@@ -1,4 +1,6 @@
         <div class="image-grid">
             {{  template "partials/grid.html" . }}
-            {{- template "partials/paging.html" .Paging -}}
+            {{- if .Paging -}}
+                {{- template "partials/paging.html" .Paging -}}
+            {{- end -}}
         </div>

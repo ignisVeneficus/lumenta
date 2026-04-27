@@ -13,9 +13,7 @@ import (
 	"github.com/ignisVeneficus/lumenta/db/dao"
 	"github.com/ignisVeneficus/lumenta/logging"
 	"github.com/ignisVeneficus/lumenta/server/routes"
-	"github.com/ignisVeneficus/lumenta/tpl"
 	tlpData "github.com/ignisVeneficus/lumenta/tpl/data"
-	"github.com/ignisVeneficus/lumenta/utils"
 )
 
 var (
@@ -26,7 +24,7 @@ func ImageCoordByTags(cfg config.Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		tagIdStr := c.Param("tid")
 		iPageStr := c.DefaultQuery(tlpData.ImagePageParam, "1")
-		logg := logging.Enter(c, "page.public.tags", map[string]any{
+		logg := logging.Enter(c, "api.public.images.tags", map[string]any{
 			"tag_id":     tagIdStr,
 			"image_page": iPageStr,
 		})
@@ -35,27 +33,27 @@ func ImageCoordByTags(cfg config.Config) gin.HandlerFunc {
 		tagId, err := strconv.Atoi(tagIdStr)
 		if err != nil {
 			logging.ExitErr(logg, fmt.Errorf("invalid tag id"))
-			ret.Error = utils.PtrString("invalid tag id")
-			c.JSON(http.StatusBadRequest, ret)
+			ret.HandleError("invalid tag id")
+			c.AbortWithStatusJSON(http.StatusBadRequest, ret)
 			return
 		}
 
 		iPage, err := strconv.Atoi(iPageStr)
 		if err != nil {
 			logging.ExitErr(logg, fmt.Errorf("invalid image_page"))
-			ret.Error = utils.PtrString("invalid image page")
-			c.JSON(http.StatusBadRequest, ret)
+			ret.HandleError("invalid image page")
+			c.AbortWithStatusJSON(http.StatusBadRequest, ret)
 			return
 		}
 
 		database := db.GetDatabase()
 		acl := auth.GetAuthContex(c)
 
-		images, err := dao.QueryImageCoordByTagACL(database, c, uint64(tagId), tpl.CreateDBOACL(acl))
+		images, err := dao.QueryImageCoordByTagByACL(database, c, uint64(tagId), acl.ACLContext)
 		if err != nil {
 			logging.ExitErr(logg, err)
-			ret.Error = utils.PtrString("internal error")
-			c.JSON(http.StatusInternalServerError, ret)
+			ret.HandleError("internal error")
+			c.AbortWithStatusJSON(http.StatusInternalServerError, ret)
 		}
 		coords := make([]data.ImageCoord, 0, len(images))
 		start := (iPage - 1) * imagePerPage
@@ -74,6 +72,7 @@ func ImageCoordByTags(cfg config.Config) gin.HandlerFunc {
 			coords = append(coords, coord)
 		}
 		ret.Data = coords
+		ret.Status = data.StatuszOK
 
 		c.IndentedJSON(http.StatusOK, ret)
 		logging.Exit(logg, "ok", map[string]any{"coords": len(coords)})

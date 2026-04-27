@@ -136,6 +136,7 @@ The complete filesystem → database ingestion path is implemented and under act
 - Database schema and access layer, focused on the `images` domain model
 - Filesystem scanning and synchronization pipeline
 - Deterministic import driven by a rule engine
+- Rule evaluation tracing and debug logging for full decision transparency
 - Structured configuration loading and validation
 
 Together, these form the backbone of the system: the authoritative **filesystem → database** data flow.
@@ -150,12 +151,22 @@ The server-side web foundation is functional:
 - Tag tree rendering
 - Tag browser page
 - Generic image page with openable info panel, fullscreen capatible and slideshow
-- Admin image browser and image information
 - Map (leaflet) integration for single image
+- Internationalization (i18n) support with structured translation keys
+
+Admin interface:
+
+- Image browser with detailed metadata and filesystem information
+- Album editor with rule-based configuration
+- Sync run and file-level logging views
+- Rule evaluation debug and tracing interface
 
 These components provide the foundation for browsing and interacting with the indexed collection, while higher-level UI features and refinements will evolve over time.
 
 ## Showcase
+
+### Main page
+![main page](./doc/img/lumenta.png)
 
 ### Public hierarchical tag tree
 ![public tag tree](./doc/img/tags.png)
@@ -172,6 +183,7 @@ These components provide the foundation for browsing and interacting with the in
 ### Admin image details page
 ![admin image page](./doc/img/admin-img.png)
 
+More image int the [Ui section](doc/_ui.md)
 
 ## Build
 

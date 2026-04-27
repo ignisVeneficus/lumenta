@@ -1,5 +1,6 @@
 <div class="breadcrumbs">
-    <a class="breadcrumb" href="/" title="Go to Home"><span class="fa-solid fa-house"></span></a>
+    <a class="breadcrumb" href="/" title="{{ t "nav.page.home.label"}}">
+        <span class="fa-solid fa-house"></span></a>
 {{- $p:= "page" -}}
 {{- range $i, $v := . -}}
     {{- if eq $v.Type $p -}}

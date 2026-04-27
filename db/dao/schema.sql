@@ -20,27 +20,6 @@ CREATE TABLE IF NOT EXISTS users (
 ) ENGINE=InnoDB COMMENT='Application users';
 
 -- =========================================================
--- GROUPS not used yet
--- =========================================================
-
-CREATE TABLE IF NOT EXISTS groups (
-  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY 
-    COMMENT 'Internal group identifier',
-  name VARCHAR(100) NOT NULL UNIQUE 
-    COMMENT 'Human-readable unique group name'
-) ENGINE=InnoDB COMMENT='User groups for ACL and permission extension';
-
-CREATE TABLE IF NOT EXISTS user_groups (
-  user_id BIGINT UNSIGNED NOT NULL 
-    COMMENT 'Referenced user ID',
-  group_id BIGINT UNSIGNED NOT NULL 
-    COMMENT 'Referenced group ID',
-  PRIMARY KEY (user_id, group_id),
-  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-  FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE CASCADE
-) ENGINE=InnoDB COMMENT='Many-to-many relation between users and groups';
-
--- =========================================================
 -- ALBUMS (categories)
 -- =========================================================
 
@@ -65,18 +44,18 @@ CREATE TABLE IF NOT EXISTS albums (
     COMMENT 'Cached recursive count of child albums',
   image_count INT UNSIGNED NOT NULL DEFAULT 0
     COMMENT 'Cached recursive count of images in this album',
-  acl_scope ENUM('public','any_user','user','group','admin') NOT NULL DEFAULT 'public'
-    COMMENT 'Album-level access control scope',
-  acl_user_id BIGINT UNSIGNED NULL
-    COMMENT 'User ID for user-scoped album access',
-  acl_group_id BIGINT UNSIGNED NULL
-    COMMENT 'Group ID for group-scoped album access',
+  acl_level INT NOT NULL DEFAULT 0
+    COMMENT 'Album-level access control level',
+  acl_user_id BIGINT UNSIGNED DEFAULT 0
+    COMMENT 'User ID for user-level album access, 0: not set',
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     COMMENT 'Last modification timestamp',
   FOREIGN KEY (parent_id) REFERENCES albums(id) ON DELETE CASCADE,
+  FOREIGN KEY (cover_image_id) REFERENCES images(id) ON DELETE SET NULL,
+
   INDEX idx_albums_parent (parent_id),
-  INDEX idx_albums_acl_user (acl_user_id),
-  INDEX idx_albums_acl_group (acl_group_id)
+  INDEX idx_albums_acl (acl_level, acl_user_id),
+  INDEX idx_albumc_cover (cover_image_id)
 ) ENGINE=InnoDB COMMENT='Hierarchical albums with dynamic rule-based contents';
 
 -- =========================================================
@@ -151,12 +130,10 @@ CREATE TABLE IF NOT EXISTS images (
   exif_json JSON NULL
     COMMENT 'EXIF/XMP metadata dump in key-value format',
 
-  acl_scope ENUM('public','any_user','user','group','admin') NOT NULL DEFAULT 'public'
-    COMMENT 'Final image-level access control scope',
-  acl_user_id BIGINT UNSIGNED NULL
-    COMMENT 'User ID for user-scoped access',
-  acl_group_id BIGINT UNSIGNED NULL
-    COMMENT 'Group ID for group-scoped access',
+  acl_level INT NOT NULL DEFAULT 0
+    COMMENT 'Final image-level access control level',
+  acl_user_id BIGINT UNSIGNED DEFAULT 0
+    COMMENT 'User ID for user-level access 0: no user assigned',
 
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     COMMENT 'Image record creation timestamp',
@@ -166,20 +143,20 @@ CREATE TABLE IF NOT EXISTS images (
   last_seen_sync BIGINT UNSIGNED NULL
     COMMENT 'Sync run ID in which the image was last observed',
 
-  COLUMN order_date DATETIME
-    AS (COALESCE(taken_at, '1000-01-01 00:00:00'))
-    STORED
-    COMMENT 'Navigation sort key (taken_at fallback date_available). Non-NULL. Used in ORDER BY (order_date, filename, id).'
+  order_date DATETIME NOT NULL
+    COMMENT 'Navigation sort key (taken_at fallback date_available). Non-NULL. Used in ORDER BY (order_date, filename, id).',
 
   UNIQUE KEY uniq_image_path (root, path, filename, ext),
   INDEX idx_images_taken_at (taken_at),
   INDEX idx_images_camera (camera),
   INDEX idx_images_lens (lens),
   INDEX idx_images_gps (latitude, longitude),
-  INDEX idx_images_acl_user (acl_user_id),
-  INDEX idx_images_acl_group (acl_group_id),
-  INDEX idx_images_last_seen_sync (last_seen_sync)
-  INDEX idx_images_order ON images (order_date, filename, id);
+  INDEX idx_images_acl (acl_level, acl_user_id),
+  INDEX idx_images_last_seen_sync (last_seen_sync),
+  INDEX idx_images_order_acl (acl_level, acl_user_id, order_date, filename, id),
+  INDEX idx_images_order (order_date, filename, id),
+  INDEX idx_hash_order (acl_level, acl_user_id, file_hash, id),
+  INDEX ixd_last_seen (last_seen_sync)
 ) ENGINE=InnoDB COMMENT='Images with filesystem identity, metadata, and ACL';
 
 -- =========================================================
@@ -254,14 +231,14 @@ CREATE TABLE IF NOT EXISTS sync_runs (
     COMMENT 'Sync run unique identifier',
 
   is_active TINYINT NULL DEFAULT 1
-    COMMENT '1 = currently active run, NULL = historical run (unique index ensures only one active)'
+    COMMENT '1 = currently active run, NULL = historical run (unique index ensures only one active)',
 
   started_at DATETIME NOT NULL
     COMMENT 'Sync start timestamp',
   finished_at DATETIME NULL
     COMMENT 'Sync completion timestamp',
 
-  mode ENUM('full','incremental','partial','dry-run') NOT NULL DEFAULT 'full'
+  mode TEXT(50) NOT NULL DEFAULT 'full'
     COMMENT 'Execution mode of the sync run',
 
   total_seen INT UNSIGNED NOT NULL DEFAULT 0
@@ -275,10 +252,41 @@ CREATE TABLE IF NOT EXISTS sync_runs (
   error TEXT NULL COMMENT 'Optional error details if sync failed',
 
   meta_hash CHAR(64) NULL
-    COMMENT 'Hash of the used metadata settings'
+    COMMENT 'Hash of the used metadata settings',
 
   UNIQUE KEY uniq_sync_active (is_active),
   INDEX idx_sync_runs_started (started_at),
   INDEX idx_sync_runs_success (status, started_at),  
   INDEX idx_sync_runs_status (status)
 ) ENGINE=InnoDB COMMENT='Filesystem synchronization runs and diagnostics';
+
+
+-- =========================================================
+-- FILE SYNC RUNS
+-- =========================================================
+
+CREATE TABLE IF NOT EXISTS sync_files (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+
+  sync_id BIGINT UNSIGNED NOT NULL,
+
+  root     VARCHAR(50)  NOT NULL,
+  path     VARCHAR(600) NOT NULL,
+  filename VARCHAR(64)  NOT NULL,
+  ext      VARCHAR(8)   NOT NULL,
+
+  status VARCHAR(50) NOT NULL,
+  dirty_reason VARCHAR(64) NULL,
+
+  ruleresults_json   JSON NULL,
+
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+  INDEX idx_sync_files_sync (sync_id),
+  INDEX idx_sync_files_file_history (root, path, filename, ext),
+  INDEX idx_sync_files_sync_path ( sync_id, root, path, filename, ext),
+
+  CONSTRAINT fk_sync_files_run
+    FOREIGN KEY (sync_id) REFERENCES sync_runs(id)
+    ON DELETE CASCADE
+) ENGINE=InnoDB ;

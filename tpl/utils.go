@@ -6,27 +6,22 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
 
-	authData "github.com/ignisVeneficus/lumenta/auth/data"
+	"github.com/ignisVeneficus/lumenta/auth"
 	"github.com/ignisVeneficus/lumenta/config"
 	"github.com/ignisVeneficus/lumenta/data"
 	"github.com/ignisVeneficus/lumenta/db/dao"
 	"github.com/ignisVeneficus/lumenta/db/dbo"
+	"github.com/ignisVeneficus/lumenta/internal/i18n"
 	"github.com/ignisVeneficus/lumenta/logging"
 	"github.com/ignisVeneficus/lumenta/server/routes"
 	tplData "github.com/ignisVeneficus/lumenta/tpl/data"
 	"github.com/ignisVeneficus/lumenta/utils"
 )
-
-func CreateDBOACL(acl authData.ACLContext) dao.ACLContext {
-	return dao.ACLContext{
-		ViewerUserID: acl.UserID,
-		Role:         string(acl.Role),
-	}
-}
 
 func CreateImage(ctx context.Context, cfg config.Config, image dbo.Image) tplData.PageImage {
 	// TODO: use visibility settings
@@ -142,7 +137,6 @@ func BuildTagBreadcumb(database *sql.DB, c *gin.Context, tag dbo.Tag, last bool)
 		path = append([]dbo.Tag{tag}, path...)
 	}
 	return createTagsBreadcrumbs(path, last), nil
-
 }
 
 func createTagsBreadcrumbs(tags []dbo.Tag, last bool) tplData.Breadcrumbs {
@@ -186,4 +180,48 @@ func GetImageMetadata(ctx context.Context, img dbo.Image) (data.Metadata, error)
 		})
 	}
 	return m, err
+}
+
+func ParseID(s string) (uint64, error) {
+	if s == "" {
+		return 0, tplData.ErrMissingMandatoryValue
+	}
+	return strconv.ParseUint(s, 10, 64)
+}
+func ParsePaging(s string) (uint64, error) {
+	if s == "" {
+		return 1, nil
+	}
+	v, err := strconv.ParseUint(s, 10, 64)
+	if err != nil {
+		return 0, err
+	}
+	if v == 0 {
+		return 0, tplData.ErrInvalidValue
+	}
+	return v, nil
+}
+
+func UintToString(val *uint64) string {
+	if val == nil {
+		return ""
+	}
+	return strconv.FormatUint(*val, 10)
+}
+
+func CreateSpacePath(fullpath string) string {
+	return strings.ReplaceAll(fullpath, "/", "/\u200B")
+}
+func L(c *gin.Context) string {
+	a := auth.GetAuthContex(c)
+	return a.Locale
+}
+
+func GetAdminMain(lang string, i18n *i18n.Service) tplData.Breadcrumb {
+	return tplData.Breadcrumb{
+		Label: i18n.T(lang, "nav.page.admin.home.short", nil),
+		Link:  template.URL(routes.CreateAdminRootPath()),
+		Type:  "page",
+		Title: i18n.T(lang, "nav.page.admin.home.label", nil),
+	}
 }

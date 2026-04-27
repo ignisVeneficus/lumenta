@@ -48,5 +48,10 @@
 
 
   {{ block "page-head" . }}{{ end }}
+  <!-- TODO: replace it to template -->
   {{ block "head-extra" . }}{{ end }}
+
+  <script>
+    {{ block "page-js" . }}{{ end }}
+  </script>
 </head>

@@ -1,0 +1,95 @@
+.xselect{
+    position: relative;   
+}
+.xselect .xselect-control{
+    display:flex;
+    flex-direction: row;
+    font-size: inherit;
+    color: inherit;
+    min-height: 32px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.15);    
+}
+.xselect .xselect-tree-wrapper{
+    font-size: var(--font-size-sm);
+}
+.xselect .xselect-tree-row{
+    display:flex;
+    flex-direction: row;
+    gap: var(--size-1);
+}
+
+.xselect .tree-node input{
+    display:none;
+}
+.xselect .selection:checked + label.tree-label{
+    color: var(--icon-muted);
+    font-weight: 500;    
+}
+.xselect .xselect-tree-row:has(+ ul input.selection:checked) > .xselect-selection-label {
+    color: var(--icon-muted);
+    opacity: 0.6;
+}
+.xselect .xselect-tree-row:not(:has(> .toggle:checked)) ~ .tree {
+    display: none;
+}
+.xselect .xselect-placeholder{
+    width: 17px;
+}
+.xselect .xselect-pills{
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--size-2);
+    justify-content: center;
+}
+.xselect .xselect-pill{
+    position: relative;
+    min-height: 32px;
+}
+.xselect .xselect-pill-label{
+    color: var(--icon-primary);
+}
+.xselect .xselect-pill.error{
+    background-color: var(--flash-failed-bg);
+}
+
+.xselect .xselect-pill-label.error{
+    color: var(--status-failed);
+}
+.xselect .xselect-pill.error .xselect-delete{
+    color: var(--status-failed);
+}
+.xselect .xselect-pill.error .xselect-delete:hover{
+    color: var(--status-failed);
+}
+
+
+.xselect .xselect-delete{
+    position: absolute;
+    top:0;
+    right:0;
+    display:none;
+}
+.xselect .xselect-pill:hover .xselect-delete{
+    display:flex;
+}
+.xselect-dropdown{
+    display:none;
+    position: absolute;
+    top: calc(100% + var(--size-2));
+    left: 0;
+    width: 100%;
+    max-height: 300px;
+    overflow: auto;
+
+    background: var(--bg-context);
+    z-index: 1000;
+    padding: var(--size-2);
+}
+.xselect-dropdown.open {
+    display: block;
+}
+.xselect .xselect-icon{
+    align-self: flex-start;
+}

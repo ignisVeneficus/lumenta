@@ -14,17 +14,10 @@ import (
 	"github.com/ignisVeneficus/lumenta/utils"
 )
 
-func createDBOACL(acl authData.ACLContext) dao.ACLContext {
-	return dao.ACLContext{
-		ViewerUserID: acl.UserID,
-		Role:         string(acl.Role),
-	}
-}
-
 func GetDerivativesPathWithACL(ctx context.Context, acl authData.ACLContext, imageId uint64, cfg derivativeConfig.DerivativeConfig, roots fsConfig.FilesystemConfig) (string, error) {
 	logg := logging.Enter(ctx, "middleware.getderivatives", map[string]any{"image_id": imageId, "derivative": cfg.Name})
 	db := db.GetDatabase()
-	image, err := dao.GetImageByIdACL(db, context.Background(), imageId, createDBOACL(acl))
+	image, err := dao.GetImageByIdACL(db, context.Background(), imageId, acl.ACLContext)
 	if err != nil {
 		logging.ExitErr(logg, err)
 		return "", err

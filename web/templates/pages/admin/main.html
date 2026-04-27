@@ -1,9 +1,17 @@
 {{ define "main" }}
 <div class="content admin-main">
+    {{ range .Cards }}
     <div class="card">
-        <a href="/admin/fs/"><i class="icon fa-regular fa-folder" title="Image browser"></i>
-        <div class="label">Image browser</div>
+        <a href="{{ .URL }}"><i class="icon {{ .Icon }}" title {{.IconTitle}}></i>
+        <div class="label">{{ .Title }}</div>
+        <div class="stats">
+            {{ range .Stats }}
+            <div>{{ .Label }}: {{ .Value }}</div>
+            {{ end }}
+        </div>
         </a>
     </div>
+    {{ end }}
+
 </div>
 {{ end }}

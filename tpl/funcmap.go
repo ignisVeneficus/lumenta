@@ -1,6 +1,7 @@
 package tpl
 
 import (
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"math"
@@ -8,11 +9,13 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/ignisVeneficus/lumenta/server/routes"
+	"github.com/ignisVeneficus/lumenta/definitions"
+	i18n "github.com/ignisVeneficus/lumenta/internal/i18n"
+	"github.com/ignisVeneficus/lumenta/internal/locale"
 	"github.com/ignisVeneficus/lumenta/tpl/functions"
 )
 
-func DefaultFuncMap() template.FuncMap {
+func DefaultFuncMap(i18n *i18n.Service) template.FuncMap {
 	return template.FuncMap{
 		"icon":          Icon,
 		"siteIcon":      SiteIcon,
@@ -21,28 +24,68 @@ func DefaultFuncMap() template.FuncMap {
 		"gridTileRole":  functions.TileRole,
 		"toPercent":     ToPercent,
 
-		"pagingFirst": functions.PagingFirst,
-		"pagingPrev":  functions.PagingPrev,
-		"pagingNext":  functions.PagingNext,
-		"pagingLast":  functions.PagingLast,
+		"imagePath":      functions.ImagePath,
+		"tagsRootPath":   functions.TagsRootPath,
+		"tagPath":        functions.TagPath,
+		"albumsRootPath": functions.AlbumsRootPath,
 
-		"imagePath": ImagePath,
-		"tagsRootPath": func() template.URL {
-			return template.URL(routes.CreateTagsRootPath())
-		},
-		"tagPath": TagPath,
+		"adminRootPath":     functions.AdminRootPath,
+		"adminImagePath":    functions.AdminImagePath,
+		"adminAlbumsPath":   functions.AdminAlbumsPath,
+		"adminFsPath":       functions.AdminFsPath,
+		"adminSyncRunsPath": functions.AdminSyncRunsPath,
+		"adminSyncRunPath":  functions.AdminSyncRunPath,
 
-		"adminRootPath": func() template.URL {
-			return template.URL(routes.CreateAdminRootPath())
-		},
+		"adminSyncFilesPathPath": functions.AdminSyncFilesPathPath,
+		"adminSyncFilesPath":     functions.AdminSyncFilesPath,
+		"adminSyncFilePath":      functions.AdminSyncFilePath,
 
-		"formatTime": func(t time.Time) string {
-			return t.Format("2006-01-02 15:04:05")
-		},
+		"apiAdminAlbumPathJS": functions.ApiAdminAlbumPathJS,
+		"apiAdminAlbumsPath":  functions.ApiAdminAlbumsPathView,
+		"apiAdminImagePath":   functions.ApiAdminImagePath,
+		"apiAdminTagsPath":    functions.ApiAdminTagsPathView,
+
 		"reticleOffset": functions.FocusOffset,
 
 		"formatLatitude":  FormatLatDMS,
 		"formatLongitude": FormatLonDMS,
+
+		"toJS": func(v string) template.JS {
+			return template.JS(v)
+		},
+		"toJSON": func(v any) template.JS {
+			b, _ := json.Marshal(v)
+			return template.JS(b)
+		},
+
+		"fieldName": func(fn string) definitions.FieldName {
+			return definitions.FieldName(fn)
+		},
+
+		"warpPath": CreateSpacePath,
+
+		// placeholderek
+		"formatTime": func(v time.Time) string {
+			return locale.FormatTime(v, "_")
+		},
+		"formatDuration": func(d time.Duration) string {
+			return locale.FormatDuration(&d, "_", i18n)
+		},
+		"formatNumber": func(n any) string {
+			return locale.FormatNumber(n, "_")
+		},
+		"t": func(key string, args ...any) string {
+			var params map[string]any
+			if len(args) > 0 {
+				params = args[0].(map[string]any)
+			}
+			return i18n.T("_", key, params)
+		},
+		"i18n_js": func(selectors ...string) template.JS {
+			m := i18n.ExtractKeys("_", selectors)
+			b, _ := json.Marshal(m)
+			return template.JS(b)
+		},
 	}
 }
 
@@ -96,13 +139,6 @@ func SiteIcon(path string) template.HTML {
 	}
 	svg := string(data)
 	return template.HTML(svg)
-}
-
-func ImagePath(imageId uint64, derivative string) template.URL {
-	return template.URL(routes.CreateDerivativePath(imageId, derivative))
-}
-func TagPath(tagId uint64) template.URL {
-	return template.URL(routes.CreateTagPath(uint64(tagId)))
 }
 
 func FormatLatDMS(lat float64) string {

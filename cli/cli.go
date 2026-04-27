@@ -7,20 +7,21 @@ import (
 	"os"
 
 	"github.com/ignisVeneficus/lumenta/config"
+	"github.com/ignisVeneficus/lumenta/internal/i18n"
 	"github.com/ignisVeneficus/lumenta/pipeline"
 	"github.com/ignisVeneficus/lumenta/server"
 )
 
-func Run(cfg config.Config) error {
+func Run(cfg config.Config, i18n *i18n.Service) error {
 	if len(os.Args) == 1 {
-		return runServe(cfg)
+		return runServe(cfg, i18n)
 	}
 
 	cmd := os.Args[1]
 
 	switch cmd {
 	case "serve":
-		return runServe(cfg)
+		return runServe(cfg, i18n)
 
 	case "rebuild":
 		return runRebuild(cfg, os.Args[2:])
@@ -55,8 +56,8 @@ Use "%s <command> --help" for command-specific options.
 `, os.Args[0], os.Args[0])
 }
 
-func runServe(cfg config.Config) error {
-	server.Server(cfg)
+func runServe(cfg config.Config, i18n *i18n.Service) error {
+	server.Server(cfg, i18n)
 	return nil
 }
 

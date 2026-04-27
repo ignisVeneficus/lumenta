@@ -12,8 +12,10 @@ function enableEventuallyAvailableImage(img, {
   let timer = null;
 
   function scheduleRetry() {
+    if (timer) return;
     if (attempt >= maxRetries) {
       console.warn("Image retry exhausted:", img.src);
+      retrying = false;
       return;
     }
 
@@ -35,9 +37,13 @@ function enableEventuallyAvailableImage(img, {
 
     }, delay);
   }
+  let retrying = false;
 
   img.addEventListener("error", () => {
-    scheduleRetry();
+    if (!retrying) {
+      retrying = true;
+      scheduleRetry();
+    }
   });
 
   img.addEventListener("load", () => {

@@ -3,10 +3,10 @@ package pipeline
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"os"
 	"sort"
 
-	authData "github.com/ignisVeneficus/lumenta/auth/data"
 	fileConfig "github.com/ignisVeneficus/lumenta/config/filesystem"
 	syncConfig "github.com/ignisVeneficus/lumenta/config/sync"
 	"github.com/ignisVeneficus/lumenta/data"
@@ -14,17 +14,6 @@ import (
 	"github.com/ignisVeneficus/lumenta/logging"
 	"github.com/ignisVeneficus/lumenta/ruleengine"
 	"github.com/rs/zerolog"
-)
-
-type dirtyReason string
-
-const (
-	dirtyNewfile         dirtyReason = "new_file"
-	dirtyHashChg         dirtyReason = "hash_changed"
-	dirtyMetadataHashChg dirtyReason = "metadata_hash_changed"
-	dirtySizeChg         dirtyReason = "size_changed"
-	dirtyTimeChg         dirtyReason = "mtime_changed"
-	dirtyForced          dirtyReason = "forced_refresh"
 )
 
 // WorkItem is a pipeline state object that flows through the sync pipeline.
@@ -58,8 +47,8 @@ type WorkItem struct {
 	// DIRTY CHECK / CHANGE DETECTION
 	// =========================================================
 
-	IsDirty     bool        // true if file must be re-processed
-	DirtyReason dirtyReason // human-readable reason (debug / metrics)
+	IsDirty     bool             // true if file must be re-processed
+	DirtyReason data.DirtyReason // human-readable reason (debug / metrics)
 
 	// =========================================================
 	// CONTENT HASH (optional, policy-driven)
@@ -72,8 +61,8 @@ type WorkItem struct {
 	// ACL
 	// =========================================================
 
-	ACLRole *dbo.ACLScope
-	ACLUser *uint64
+	ACLLevel *dbo.DBACLLevel
+	ACLUser  uint64
 
 	// =========================================================
 	// METADATA EXTRACTION (EXIF / XMP / IPTC)
@@ -81,6 +70,12 @@ type WorkItem struct {
 
 	Metadata data.Metadata
 	Panorama bool
+
+	// =========================================================
+	// RULE ENGINE RESULTS
+	// =========================================================
+
+	RuleResults ruleengine.RuleResults
 
 	// =========================================================
 	// ERROR / DIAGNOSTICS
@@ -164,10 +159,29 @@ type PipelineContext struct {
 type ACLRules []ACLRule
 
 type ACLRule struct {
-	Role   authData.ACLRole
+	Role   dbo.ACLRole
 	User   *string
 	UserId *uint64
-	Rules  []ruleengine.CompiledFilter
+	Rules  []ruleengine.CompiledGroupFilter
+}
+
+func (a ACLRule) GetACLLevel() *dbo.DBACLLevel {
+	v := dbo.DBACLLevelAdmin
+	switch a.Role {
+	case dbo.RoleGuest:
+		v = dbo.DBACLLevelPublic
+	case dbo.RoleUser:
+		if a.User != nil {
+			v = dbo.DBACLLevelUser
+		} else {
+			v = dbo.DBACLLevelAuthenticated
+		}
+	case dbo.RoleAdmin:
+		v = dbo.DBACLLevelAdmin
+	default:
+		v = dbo.DBACLLevelAdmin
+	}
+	return &v
 }
 
 func (pc *PipelineContext) MarshalZerologObjectWithLevel(e *zerolog.Event, level zerolog.Level) {
@@ -192,11 +206,46 @@ func (pc *PipelineContext) MarshalZerologObjectWithLevel(e *zerolog.Event, level
 }
 
 func createImageFact(job WorkItem) ruleengine.ImageFacts {
+	if job.IsDirty {
+		return createImageFactReaded(job)
+	}
+	return createImageFactDb(job)
+}
+
+func createImageFactDb(job WorkItem) ruleengine.ImageFacts {
+	rating := 0
+	if job.DBImage.Rating != nil {
+		rating = int(*job.DBImage.Rating)
+	}
+	tags := make([]string, 0)
+	if job.DBImage.ExifJSON != nil {
+		metadata := data.Metadata{}
+		err := json.Unmarshal(job.DBImage.ExifJSON, &metadata)
+		if err != nil {
+			tags = metadata.GetTags()
+		}
+	}
+	return ruleengine.ImageFacts{
+		Root:     job.DBImage.Root,
+		Path:     job.DBImage.Path,
+		Filename: job.DBImage.Filename,
+		Ext:      job.DBImage.Ext,
+		TakenAt:  job.DBImage.TakenAt,
+		Rating:   &rating,
+		Tags:     tags,
+		Width:    job.DBImage.Width,
+		Height:   job.DBImage.Height,
+	}
+
+}
+
+func createImageFactReaded(job WorkItem) ruleengine.ImageFacts {
 	rating := 0
 	if job.Metadata.GetRating() != nil {
 		rating = int(*job.Metadata.GetRating())
 	}
 	return ruleengine.ImageFacts{
+		Root:     job.RootName,
 		Path:     job.Path,
 		Filename: job.Filename,
 		Ext:      job.Ext,

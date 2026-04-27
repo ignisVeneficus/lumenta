@@ -8,6 +8,7 @@ type PageImage struct {
 	Metadata  Metadata
 	Tags      dbo.TagsTree
 }
+
 type Metadata struct {
 	Title          string
 	Description    string

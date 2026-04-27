@@ -1,43 +1,30 @@
 <fieldset class="acl-group radio-group">
   <label class="acl-item radio-item">
     <div class="radio-row">
-      <input type="radio" name="acl" value="public"
-      {{ if eq .Image.ACLScope "public" }}checked{{ end }}
+      <input type="radio" name="acl_level" value="0"
+      {{ if eq .ACLLevel "0" }}checked{{ end }}
       >
       <i class="fa-solid fa-globe"></i>
       <span>Public</span>
     </div>
   </label>
-
-  <label class="acl-item radio-item">
-    <div class="radio-row">
-      <input type="radio" name="acl" value="users"
-      {{ if eq .Image.ACLScope "any_user" }}checked{{ end }}
-      >
-      <i class="fa-solid fa-users"></i>
-      <span>All Users</span>
-    </div>
-  </label>
-
   <label class="acl-item acl-user radio-item">
     <div class="radio-row">
-      <input type="radio" name="acl" value="user"
-      {{ if eq .Image.ACLScope "user" }}checked{{ end }}
+      <input type="radio" name="acl_level" value="1"
+      {{ if eq .ACLLevel "1" }}checked{{ end }}
       >
-      
       <i class="fa-solid fa-user"></i>
       <span>User</span>
     </div>
-    <select class="acl-select radio-option">
-      <option>John</option>
-      <option>Anna</option>
+    <!-- TODO replace dynamic select-->
+    <select name="acl_user" class="acl-select radio-option">
     </select>
   </label>
 
   <label class="acl-item radio-item">
     <div class="radio-row">
-      <input type="radio" name="acl" value="admin"
-      {{ if eq .Image.ACLScope "admin" }}checked{{ end }}
+      <input type="radio" name="acl_level" value="2"
+      {{ if eq .ACLLevel "2" }}checked{{ end }}
       >
       <i class="fa-solid fa-lock"></i>
       <span>Admin Only</span>

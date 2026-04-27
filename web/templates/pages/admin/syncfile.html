@@ -1,0 +1,109 @@
+
+{{ define "main" }}
+<div class="breadcrumbs-wrapper">
+{{- with .Breadcrumbs }}
+    {{- template "partials/breadcrumbs.html" . -}}
+{{- end -}}
+</div>
+
+<div class="admin-layout syncfile-page">
+    {{- template "partials/admin/action-rail.html" . -}}
+    <div class="content">
+        <div class="data-header">
+            <div class="label">{{- t "page.admin.sync.path.label" }}:</div><div class="filename">{{ .File.FullPathText }}</div>
+            <div class="label">{{- t "page.admin.sync.time.label" }}:</div><div class="date">{{formatTime .File.CreatedAt }} ({{ formatDuration .File.Age }})</div>
+            <div class="label">{{- t "page.admin.sync.status.label" }}:</div><div class="sync-status {{.File.Status}}">
+                {{- if eq .File.Status "deleted" -}}
+                    <i class="fa-solid fa-trash icon"></i>
+                {{- else if eq .File.Status "created" -}}
+                    <i class="fa-solid fa-plus icon"></i>
+                {{- else if eq .File.Status "not_changed" -}}
+                    <i class="fa-regular fa-circle icon"></i>
+                {{- else if eq .File.Status "updated" -}}
+                    <i class="fa-regular fa-pen icon"></i>
+                {{- else if eq .File.Status "filtered_out" -}}
+                    <i class="fa-solid fa-ban icon"></i>
+                {{- end -}}
+                {{ t (printf "data.sync_files.status.%s.label" .File.Status) }}
+            </div>
+            {{- if and ( .File.DirtyReasonText) ( eq .File.DirtyReasonText "updated") -}}
+            <div class="label">{{- t "page.admin.sync.dirty.label" }}:</div><div class="dirty">
+                {{ .File.DirtyReason }}
+            </div>
+            {{- end -}}
+        </div>
+        <div class="rules-block"><div class="rules-block-label">{{- t "page.admin.sync_file.rules" }}</div>
+        {{ range .File.ResultOrder }}
+            {{- $key := . -}}
+            {{- with index $.File.RuleResult . -}}
+            <div class="evaluation-block">
+                <div class="evaluation-label">{{- t (printf "ruleengine.results.evaluation.%s" $key )}}:</div>
+                <div class="evaluation">
+                    {{ range . }}
+                        <div class="rulegroup">
+                            <div class="rule-value">{{ .Name }}</div>
+                            <div class="rule-value">
+                                {{ if .Result}}
+                                    <i class="fa-regular fa-circle-check icon match"></i> {{- t "ruleengine.results.result-value.match" }}
+                                {{ else }}
+                                    <i class="fa-regular fa-circle-xmark icon no-match"></i> {{- t "ruleengine.results.result-value.no-match" }}
+                                {{ end }}
+                            </div>
+                            <div class="rule-value">{{- t (printf "ruleengine.rule.rule_op.%s.label" .Op )}}</div>
+                            {{ range .RuleResults}}
+                                <div class="rulegroup-rules">
+                                    <div class="rule-label">{{- t (printf "ruleengine.rule.%s.label" .Type )}}:</div>
+                                    <div class="rule-evaluation-block">
+                                        <div class="rule-evaluation-block-header">
+                                            <div class="rule-value">{{ .Name }}</div>
+                                            <div class="rule-value">
+                                                {{ if eq .Result "true"}}
+                                                    <i class="fa-regular fa-circle-check icon match"></i> {{- t "ruleengine.results.result-value.match" }}
+                                                {{ else if eq .Result "false" }}
+                                                    <i class="fa-regular fa-circle-xmark icon no-match"></i> {{- t "ruleengine.results.result-value.no-match" }}
+                                                {{ else }}
+                                                    <i class="solid fa-ban icon unknow"></i> {{- t "ruleengine.results.result-value.unknow" }} ({{- t "ruleengine.results.result-value.no-match" }})
+                                                {{ end }}
+                                            </div>
+                                            <div class="rule-value">{{- t (printf "ruleengine.rule.op.%s.label" .Op )}}</div>
+                                        </div>
+                                        <div class="rule-params">
+                                            <div class="rule-label">{{- t "ruleengine.results.parameters" }}:</div>
+                                            <div class="rule-label">{{- t "ruleengine.results.input" }}:</div>
+                                            <div class="rule-excepted rule-param-block">
+                                                {{- range .Params -}}
+                                                <div class="rule-label">{{- t (printf "ruleengine.results.params.%s" .Name )}}:</div>
+                                                <div class="rule-param">
+                                                    {{- range .Value -}}
+                                                        <div class="rule-value">{{ warpPath . }}</div>
+                                                    {{- end -}}
+                                                </div>
+                                                {{- end -}}
+                                            </div>
+                                            <div class="rule-actual rule-param-block">
+                                                {{- range .Actual -}}
+                                                <div class="rule-label">{{- t (printf "ruleengine.results.params.%s" .Name )}}:</div>
+                                                <div class="rule-param">
+                                                    {{- range .Value -}}
+                                                        <div class="rule-value">{{ . }}</div>
+                                                    {{- end -}}
+                                                </div>
+                                                {{- end -}}
+                                                
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            {{ end }}
+                        </div>                        
+                    {{- end -}}
+                </div>
+            </div>
+            {{- end -}}
+        {{ end }}
+
+        </div>
+
+    </div>
+</div>
+{{ end }}

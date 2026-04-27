@@ -1,18 +1,59 @@
 package dbo
 
 import (
-	"encoding/json"
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/ignisVeneficus/lumenta/logging"
-	"github.com/ignisVeneficus/lumenta/utils"
 	"github.com/rs/zerolog"
 )
 
 type SyncMode string
 type TagSource string
 type ImageFocusMode string
+type DBACLLevel int
 type ACLScope string
+
+type ACLRole string
+
+func (r ACLRole) Compare(role ACLRole) int {
+	if r == role {
+		return 0
+	}
+	switch r {
+	case RoleGuest:
+		return -1
+	case RoleAdmin:
+		return 1
+	}
+	if role == RoleGuest {
+		return 1
+	}
+	return -1
+}
+
+func ParseRole(s string) (ACLRole, error) {
+	switch strings.ToLower(s) {
+	case "guest":
+		return RoleGuest, nil
+	case "user":
+		return RoleUser, nil
+	case "admin":
+		return RoleAdmin, nil
+	default:
+		return "", fmt.Errorf("invalid role: %s", s)
+	}
+}
+
+func IsValidRole(s ACLRole) bool {
+	switch strings.ToLower(string(s)) {
+	case string(RoleGuest), string(RoleUser), string(RoleAdmin):
+		return true
+	default:
+		return false
+	}
+}
 
 const (
 	SyncModeFull        SyncMode = "full"
@@ -29,11 +70,19 @@ const (
 	ImageFocusModeLeft   ImageFocusMode = "left"
 	ImageFocusModeRight  ImageFocusMode = "right"
 
-	ACLScopePublic  ACLScope = "public"
-	ACLScopeAnyUser ACLScope = "any_user"
-	ACLScopeUser    ACLScope = "user"
-	ACLScopeGroup   ACLScope = "group"
-	ACLScopeAdmin   ACLScope = "admin"
+	DBACLLevelPublic        DBACLLevel = 0
+	DBACLLevelAuthenticated DBACLLevel = 1
+	DBACLLevelUser          DBACLLevel = 1
+	DBACLLevelAdmin         DBACLLevel = 2
+
+	ACLScopePublic        ACLScope = "public"
+	ACLScopeAuthenticated ACLScope = "authenticated"
+	ACLScopeUser          ACLScope = "user"
+	ACLScopeAdmin         ACLScope = "admin"
+
+	RoleGuest ACLRole = "guest"
+	RoleUser  ACLRole = "user"
+	RoleAdmin ACLRole = "admin"
 )
 
 type User struct {
@@ -59,94 +108,6 @@ func (u *User) MarshalZerologObjectWithLevel(e *zerolog.Event, level zerolog.Lev
 	}
 }
 
-type Album struct {
-	ID          *uint64
-	ParentID    *uint64
-	Name        string
-	Description *string
-
-	Rank *uint64
-
-	AncestorIDs  []uint64
-	RuleJSON     json.RawMessage
-	CoverImageID *uint64
-
-	ChildAlbumCount uint32
-	ImageCount      uint32
-
-	ACLScope   ACLScope
-	ACLUserID  *uint64
-	ACLGroupID *uint64
-
-	UpdatedAt time.Time
-
-	Images []Image
-}
-
-func (a *Album) MarshalZerologObjectWithLevel(e *zerolog.Event, level zerolog.Level) {
-	if level <= zerolog.DebugLevel {
-		e.Str("name", a.Name).
-			Str("acl_scope", string(a.ACLScope)).
-			Uint32("child_album_count", a.ChildAlbumCount).
-			Uint32("image_count", a.ImageCount)
-
-		logging.Uint64If(e, "parent_id", a.ParentID)
-		logging.Uint64If(e, "cover_image_id", a.CoverImageID)
-		logging.Uint64If(e, "id", a.ID)
-
-	}
-	if level == zerolog.TraceLevel {
-		e.RawJSON("rule", a.RuleJSON).
-			Time("updated_at", a.UpdatedAt)
-		logging.Uint64If(e, "acl_user_id", a.ACLUserID)
-		logging.Uint64If(e, "acl_group_id", a.ACLGroupID)
-		logging.StrIf(e, "description", a.Description)
-	}
-}
-
-func (a *Album) IsDescendantOf(parent *Album) bool {
-	if len(a.AncestorIDs) < len(parent.AncestorIDs) {
-		return false
-	}
-	for i := range parent.AncestorIDs {
-		if a.AncestorIDs[i] != parent.AncestorIDs[i] {
-			return false
-		}
-	}
-	return true
-}
-func (a *Album) AncestorPrefixJSON() string {
-	if len(a.AncestorIDs) == 0 {
-		return "[]"
-	}
-	b, _ := json.Marshal(a.AncestorIDs)
-	return string(b[:len(b)-1])
-}
-
-func (a *Album) IsRoot() bool {
-	return a.ParentID == nil
-}
-
-func ReplaceAncestorPrefix(oldAncestors, newAncestors, current []uint64) []uint64 {
-	if len(current) < len(oldAncestors) {
-		return current
-	}
-	return append(
-		append([]uint64{}, newAncestors...),
-		current[len(oldAncestors):]...,
-	)
-}
-func BuildAncestorIDs(parent *Album, selfID uint64) []uint64 {
-	if parent == nil {
-		return []uint64{selfID}
-	}
-
-	out := make([]uint64, 0, len(parent.AncestorIDs)+1)
-	out = append(out, parent.AncestorIDs...)
-	out = append(out, selfID)
-	return out
-}
-
 //
 // =========================================================
 // GROUPS
@@ -164,164 +125,6 @@ func (g *Group) MarshalZerologObjectWithLevel(e *zerolog.Event, level zerolog.Le
 		e.Uint64("id", g.ID).
 			Str("name", g.Name)
 	}
-}
-
-//
-// =========================================================
-// TAGS
-// =========================================================
-//
-
-type TagsTree []*Tag
-
-func (tt TagsTree) MarshalZerologObjectWithLevel(e *zerolog.Event, level zerolog.Level) {
-	array := zerolog.Arr()
-	for _, t := range tt {
-		array.Object(logging.WithLevel(level, t))
-	}
-	e.Array("tags", array)
-}
-
-func MergeTagsTrees(trees ...TagsTree) TagsTree {
-	idMap := map[uint64]*Tag{}
-	flat := []Tag{}
-	queu := []*Tag{}
-	for _, tree := range trees {
-		queu = append(queu, tree...)
-	}
-	for len(queu) > 0 {
-		tag := queu[len(queu)-1]
-		queu = queu[:len(queu)-1]
-		id := tag.ID
-		_, found := idMap[*id]
-		if !found {
-			cloned := &Tag{
-				ID:       tag.ID,
-				ParentID: tag.ParentID,
-				Name:     tag.Name,
-				Children: TagsTree{},
-			}
-			idMap[*id] = cloned
-			queu = append(queu, tag.Children...)
-			flat = append(flat, *tag)
-		} else {
-			queu = append(queu, tag.Children...)
-		}
-	}
-	utils.SortByStringKey(flat, Tag.GetSorting)
-	ret := TagsTree{}
-	for _, tag := range flat {
-		t := idMap[*tag.ID]
-		if t.ParentID == nil {
-			ret = append(ret, t)
-		} else {
-			f, ok := idMap[*t.ParentID]
-			if !ok {
-				ret = append(ret, t)
-			} else {
-				f.Children = append(f.Children, t)
-			}
-		}
-	}
-	return ret
-}
-
-type Tag struct {
-	ID       *uint64
-	Name     string
-	ParentID *uint64
-	Source   TagSource
-	Children TagsTree
-}
-
-func (t Tag) GetSorting() string {
-	return t.Name
-}
-
-func (t *Tag) MarshalZerologObjectWithLevel(e *zerolog.Event, level zerolog.Level) {
-	if level <= zerolog.DebugLevel {
-		e.Str("name", t.Name).
-			Str("source", string(t.Source))
-		logging.Uint64If(e, "id", t.ID)
-		logging.Uint64If(e, "parent_id", t.ParentID)
-	}
-}
-
-func BuildTagsTree(tags []Tag) TagsTree {
-	utils.SortByStringKey(tags, Tag.GetSorting)
-	tm := make(map[uint64]*Tag, len(tags))
-	ret := TagsTree{}
-	for idx := range tags {
-		t := &tags[idx]
-		tm[*t.ID] = t
-		t.Children = t.Children[:0]
-	}
-	for _, t := range tags {
-		tag := tm[*t.ID]
-		if tag.ParentID == nil {
-			ret = append(ret, tag)
-			continue
-		}
-		if p := tm[*tag.ParentID]; p != nil {
-			p.Children = append(p.Children, tag)
-		}
-	}
-	return ret
-}
-
-type TagsWCountTree []*TagWCount
-
-func (tt TagsWCountTree) MarshalZerologObjectWithLevel(e *zerolog.Event, level zerolog.Level) {
-	array := zerolog.Arr()
-	for _, t := range tt {
-		array.Object(logging.WithLevel(level, t))
-	}
-	e.Array("tags", array)
-}
-
-type TagWCount struct {
-	ID       *uint64
-	Name     string
-	ParentID *uint64
-	Source   TagSource
-	Count    uint64
-	Children TagsWCountTree
-}
-
-func (t TagWCount) GetSorting() string {
-	return t.Name
-}
-
-func (t *TagWCount) MarshalZerologObjectWithLevel(e *zerolog.Event, level zerolog.Level) {
-	if level <= zerolog.DebugLevel {
-		e.Str("name", t.Name).
-			Str("source", string(t.Source)).
-			Uint64("count", t.Count)
-		logging.Uint64If(e, "id", t.ID)
-		logging.Uint64If(e, "parent_id", t.ParentID)
-	}
-}
-
-func BuildTagsWCountTree(tags []TagWCount) TagsWCountTree {
-	utils.SortByStringKey(tags, TagWCount.GetSorting)
-	tm := make(map[uint64]*TagWCount, len(tags))
-	ret := TagsWCountTree{}
-	for idx := range tags {
-		t := &tags[idx]
-		tm[*t.ID] = t
-		t.Children = t.Children[:0]
-	}
-	for _, t := range tags {
-		tag := tm[*t.ID]
-		if tag.ParentID == nil {
-			ret = append(ret, tag)
-			continue
-		}
-		if p := tm[*tag.ParentID]; p != nil {
-			p.Children = append(p.Children, tag)
-		}
-	}
-	return ret
 }
 
 //
@@ -368,6 +171,73 @@ func (s *SyncRun) MarshalZerologObjectWithLevel(e *zerolog.Event, level zerolog.
 	}
 }
 
+type SyncFileStatus string
+
+const (
+	SyncFileStatusDeleted     SyncFileStatus = "deleted"
+	SyncFileStatusCreated     SyncFileStatus = "created"
+	SyncFileStatusNotChanged  SyncFileStatus = "not_changed"
+	SyncFileStatusUpdated     SyncFileStatus = "updated"
+	SyncFileStatusFilteredOut SyncFileStatus = "filtered_out"
+	SyncFileStatusError       SyncFileStatus = "error"
+)
+
+var (
+	AllSyncFileStatus = []SyncFileStatus{
+		SyncFileStatusDeleted,
+		SyncFileStatusCreated,
+		SyncFileStatusNotChanged,
+		SyncFileStatusUpdated,
+		SyncFileStatusFilteredOut,
+		SyncFileStatusError,
+	}
+
+// SyncFileStatusForced      SyncFileStatus = "forced"
+)
+
+type SyncFile struct {
+	ID     *uint64
+	SyncID uint64
+
+	Root     string
+	Path     string
+	Filename string
+	Ext      string
+
+	Status      SyncFileStatus
+	DirtyReason *string
+
+	RuleResultsJSON []byte
+
+	CreatedAt time.Time
+}
+
+func (s *SyncFile) MarshalZerologObjectWithLevel(e *zerolog.Event, level zerolog.Level) {
+	if level <= zerolog.DebugLevel {
+		logging.Uint64If(e, "id", s.ID)
+
+		e.Uint64("sync_id", s.SyncID).
+			Str("root", s.Root).
+			Str("path", s.Path).
+			Str("filename", s.Filename).
+			Str("ext", s.Ext).
+			Str("status", string(s.Status))
+
+		logging.StrIf(e, "dirty_reason", s.DirtyReason)
+
+		e.Time("created_at", s.CreatedAt)
+
+		if level <= zerolog.TraceLevel {
+			if len(s.RuleResultsJSON) > 0 {
+				e.RawJSON("results", s.RuleResultsJSON)
+			}
+		}
+	}
+}
+func (s SyncFile) PathFull() string {
+	return BuildFullPath(s.Root, s.Path, s.Filename, s.Ext)
+}
+
 //
 // =========================================================
 // MIXED
@@ -378,4 +248,52 @@ type ImageWLastSyncWUser struct {
 	Image
 	LastSyncDate *time.Time
 	User         *string
+}
+
+func ParseACLScope(s string) (DBACLLevel, error) {
+	scope := ACLScope(s)
+
+	switch scope {
+	case ACLScopePublic:
+		return DBACLLevelPublic, nil
+	case ACLScopeAuthenticated:
+		return DBACLLevelAuthenticated, nil
+	case ACLScopeUser:
+		return DBACLLevelUser, nil
+	case ACLScopeAdmin:
+		return DBACLLevelAdmin, nil
+	default:
+		return DBACLLevelAdmin, fmt.Errorf("invalid ACL scope: %s", s)
+	}
+}
+func ValidateACLLevel(level DBACLLevel) bool {
+	switch level {
+	case DBACLLevelAdmin,
+		DBACLLevelAuthenticated,
+		DBACLLevelPublic:
+		return true
+	default:
+		return false
+	}
+}
+
+type ACLContext struct {
+	ViewerUserID *uint64
+	Role         ACLRole
+}
+
+func (a *ACLContext) MarshalZerologObjectWithLevel(e *zerolog.Event, level zerolog.Level) {
+	if level <= zerolog.DebugLevel {
+		e.Str("role", string(a.Role))
+		logging.Uint64If(e, "userID", a.ViewerUserID)
+	}
+}
+func BuildFullPath(root, path, filename, ext string) string {
+	ret := ""
+	ret += root + "/"
+	if path != "" {
+		ret += path + "/"
+	}
+	ret += filename + "." + ext
+	return ret
 }

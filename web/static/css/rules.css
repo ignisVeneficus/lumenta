@@ -1,0 +1,50 @@
+
+.xrules{
+    display: flex;
+    gap: var(--size-2);
+    flex-direction: column;
+}
+.xrule-label{
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.xrule-row{
+    display: grid;
+    grid-template-columns: 10rem 2fr 5fr 32px;
+    gap: var(--size-2);
+    align-items: start;
+}
+.xrule-wrapper{
+    display: flex;
+    padding: 1px 0px;
+}
+.xrule-block{
+    display: flex;
+    flex-direction: column;
+    gap: var(--size-2);
+}
+
+.xrule-toggle {
+    display: inline-flex;
+    align-items: center;
+}
+
+.xrule-toggle-label .icon-on {
+    display: none;
+}
+
+.xrule-toggle input:checked + .xrule-toggle-label .icon-off {
+    display: none;
+}
+
+.xrule-toggle input:checked + .xrule-toggle-label .icon-on {
+    display: inline-block;
+}
+
+.xrule-toggle-label {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--size-1);
+    cursor: pointer;
+}

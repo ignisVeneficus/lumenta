@@ -1,22 +1,40 @@
-package data
+package admin
 
 import (
 	"fmt"
 	"html/template"
 
-	focusdata "github.com/ignisVeneficus/lumenta/data"
-	"github.com/ignisVeneficus/lumenta/db/dbo"
+	"github.com/ignisVeneficus/lumenta/definitions"
+	"github.com/ignisVeneficus/lumenta/logging"
 	"github.com/ignisVeneficus/lumenta/tpl/data"
-	grid "github.com/ignisVeneficus/lumenta/tpl/grid/data"
+	"github.com/ignisVeneficus/lumenta/validate"
+	"github.com/rs/zerolog"
 )
 
 var EMDash = "–"
 
-type FsContext struct {
-	data.PageContext
-	Breadcrumbs data.Breadcrumbs
-	Dirs        FsDirs
-	Images      FsImages
+type FormState string
+
+var (
+	StateNew      FormState = "new"
+	StateEdit     FormState = "edit"
+	StateValidate FormState = "validate"
+	StateSaved    FormState = "saved"
+)
+
+type Flash string
+
+var (
+	FlashNone    Flash = ""
+	FlashCreated Flash = "created"
+	FlashSaved   Flash = "saved"
+	FlashDeleted Flash = "deleted"
+)
+
+type FsPageContext struct {
+	data.NavigationContext
+	Dirs   FsDirs
+	Images FsImages
 }
 type FsDirs struct {
 	Directories []FsDir
@@ -65,50 +83,50 @@ func (i FsImage) Info() string {
 	return i.LastSync
 }
 
-type ImageContext struct {
-	data.PageContext
-	Breadcrumbs data.Breadcrumbs
-	Image       PageImage
-	Users       []dbo.User
+type AlbumForm struct {
+	DBOID       *uint64 `form:"-"`
+	ID          string  `form:"id"`
+	Name        string  `form:"name"`
+	Description string  `form:"description"`
+	ParentID    string  `form:"parent_id"`
+	RuleJSON    string  `form:"json_rules"`
+	ACLLevel    string  `form:"acl_level"`
+	ACLUserID   string  `form:"acl_user"`
+	Rank        string  `form:"rank"`
+
+	Errors validate.ValidationErrors `form:"-"`
 }
 
-type PageImage struct {
-	dbo.Image
-	Realpath      string
-	ComputedFocus focusdata.Focus
-	Aspect        grid.Aspect
-	Sync          dbo.SyncRun
-	SingleMap     *data.SingleMap
+func (a *AlbumForm) MarshalZerologObjectWithLevel(e *zerolog.Event, level zerolog.Level) {
+	if level <= zerolog.DebugLevel {
+		e.Str(string(definitions.AlbumFieldName), a.Name).
+			Str(string(definitions.AlbumFieldID), a.ID).
+			Str(string(definitions.AlbumFieldDescription), a.Description).
+			Str(string(definitions.AlbumFieldParentID), a.ParentID).
+			Str(string(definitions.AlbumFieldRuleJSON), a.RuleJSON).
+			Str(string(definitions.AlbumFieldACLLevel), a.ACLLevel).
+			Str(string(definitions.AlbumFieldACLUserID), a.ACLUserID).
+			Str(string(definitions.AlbumFieldRank), a.Rank)
+		errors := zerolog.Dict()
+		for k, v := range a.Errors {
+			errors.Strs(string(k), v)
+		}
+		e.Dict("Error", errors)
+		logging.Uint64If(e, "DBOID", a.DBOID)
+	}
+
 }
 
-func (pi PageImage) ClampedAspect() float64 {
-	ratio := pi.CalculatedAspect()
-	if ratio < 1 {
-		return 1
-	}
-	return ratio
+type AlbumContext struct {
+	AlbumForm
+	CoverImage *uint64
+	AlbumCount uint64
+	ImageCount uint64
+	State      FormState
+	Flash      Flash
 }
-func (pi PageImage) CalculatedAspect() float64 {
-	return float64(pi.Width) / float64(pi.Height)
-}
-func (pi PageImage) CalculatedAspectString() string {
-	return fmt.Sprintf("%.2f", pi.CalculatedAspect())
-}
-func (pi PageImage) HasTitle() bool {
-	return pi.Title != nil && (*pi.Title) != ""
-}
-func (pi PageImage) NormalisedTitle() string {
-	if pi.HasTitle() {
-		return *pi.Title
-	}
-	return EMDash
-}
-func (pi PageImage) HasSubject() bool {
-	return pi.Caption != nil && (*pi.Caption) != ""
-}
-func (pi PageImage) NormalisedSubject() string {
-	if pi.HasSubject() {
-		return *pi.Caption
-	}
-	return EMDash
+
+type AlbumPageContext struct {
+	data.NavigationContext
+	Album AlbumContext
 }

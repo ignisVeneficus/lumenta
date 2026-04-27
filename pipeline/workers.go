@@ -7,7 +7,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
+	"github.com/ignisVeneficus/lumenta/data"
 	"github.com/ignisVeneficus/lumenta/db/dao"
 	"github.com/ignisVeneficus/lumenta/db/dbo"
 	"github.com/ignisVeneficus/lumenta/logging"
@@ -136,10 +138,10 @@ func dBLoopupByPathWorker(ctx *PipelineContext) error {
 			log.Logger.Info().Str("path", job.RealPath).Msg("Old image found")
 		case errors.Is(err, dao.ErrDataNotFound):
 			job.IsDirty = true
-			job.DirtyReason = dirtyNewfile
+			job.DirtyReason = data.DirtyNewfile
 			job.DBImage = &dbo.Image{
 				FocusMode: dbo.ImageFocusModeAuto,
-				ACLScope:  dbo.ACLScopePublic,
+				ACLLevel:  dbo.DBACLLevelPublic,
 			}
 
 			log.Logger.Info().Str("path", job.RealPath).Msg("New Image found")
@@ -150,7 +152,7 @@ func dBLoopupByPathWorker(ctx *PipelineContext) error {
 		}
 		if ctx.Force {
 			job.IsDirty = true
-			job.DirtyReason = dirtyForced
+			job.DirtyReason = data.DirtyForced
 		}
 		logging.Exit(logg, "ok", nil)
 		ctx.Out <- job
@@ -181,22 +183,22 @@ func dirtyCheckWorker(ctx *PipelineContext) error {
 			for {
 				if job.FileHash != job.DBImage.FileHash {
 					job.IsDirty = true
-					job.DirtyReason = dirtyHashChg
+					job.DirtyReason = data.DirtyHashChg
 					break
 				}
 				if job.FileMetadataHash != job.DBImage.MetaHash {
 					job.IsDirty = true
-					job.DirtyReason = dirtyMetadataHashChg
+					job.DirtyReason = data.DirtyMetadataHashChg
 					break
 				}
 				if job.DBImage.FileSize != uint64(job.Info.Size()) {
 					job.IsDirty = true
-					job.DirtyReason = dirtySizeChg
+					job.DirtyReason = data.DirtySizeChg
 					break
 				}
-				if !job.Info.ModTime().Equal(job.DBImage.MTime) {
+				if !utils.SameTime(job.Info.ModTime(), job.DBImage.MTime) {
 					job.IsDirty = true
-					job.DirtyReason = dirtyTimeChg
+					job.DirtyReason = data.DirtyTimeChg
 					break
 				}
 				break
@@ -215,10 +217,10 @@ func metadataReaderWorker(ctx *PipelineContext) error {
 		logging.ExitErr(logg, err)
 		return err
 	}
-	var panoramaCheck ruleengine.CompiledFilter = nil
+	var panoramaCheck ruleengine.CompiledGroupFilter = nil
 	if ctx.Panorama != nil {
 		var err error
-		panoramaCheck, err = ruleengine.CompileGroupFilter(*ctx.Panorama)
+		panoramaCheck, err = ruleengine.CompileGroupFilter(*ctx.Panorama, "Panorama")
 		if err != nil {
 			logging.ErrorContinue(logg, err, map[string]any{"filter": "panorama"})
 			panoramaCheck = nil
@@ -246,12 +248,14 @@ func metadataReaderWorker(ctx *PipelineContext) error {
 			metadata, err := metadata.ExtractMetadata(ctx.Ctx, path...)
 			if err != nil {
 				logging.ExitErr(logg, err)
+				SaveResultError(ctx, job)
 				continue
 			}
 			job.Metadata = metadata
 			if panoramaCheck != nil {
 				facts := createImageFact(job)
-				panorama := panoramaCheck(facts)
+				panorama, panoramafilterResult := panoramaCheck(facts, nil)
+				job.RuleResults.AddResult(ruleengine.EvaluationPanorama, panoramafilterResult)
 				job.Panorama = panorama
 			}
 		}
@@ -268,18 +272,19 @@ func filterWorker(ctx *PipelineContext) error {
 		logging.ExitErr(logg, err)
 		return err
 	}
-	type Dirkey struct {
+	type DirKey struct {
 		Root string
 		Path string
 	}
-	filters := map[Dirkey]ruleengine.CompiledFilter{}
+	filters := map[DirKey]ruleengine.CompiledGroupFilter{}
 	for _, f := range ctx.Filters {
-		key := Dirkey{
+		key := DirKey{
 			Root: f.Root,
 			Path: f.Path,
 		}
+		name := fmt.Sprintf("PathFilter:%s:%s", f.Root, f.Path)
 		filterGrp := f.Filters
-		cf, err := ruleengine.CompileGroupFilter(filterGrp)
+		cf, err := ruleengine.CompileGroupFilter(filterGrp, name)
 		if err != nil {
 			logging.ErrorContinue(logg, err, map[string]any{
 				"filter": key,
@@ -299,20 +304,28 @@ func filterWorker(ctx *PipelineContext) error {
 			"path": job.RealPath,
 		})
 		facts := createImageFact(job)
+		logging.Inside(logg, map[string]any{"facts": facts, "job": job}, "Imagefacts")
 		match := true
-		notKey := Dirkey{}
+		notKey := DirKey{}
 		for key, filter := range filters {
 			root := key.Root
 			path := key.Path
 			if job.RootName == root && strings.HasPrefix(job.Path, path) {
-				match = filter(facts)
-				if !match {
+				res, pathFilterResult := filter(facts, nil)
+				pathFilterResult.Params = append(pathFilterResult.Params,
+					ruleengine.CreateRuleParamString("root", root),
+					ruleengine.CreateRuleParamString("path", path),
+				)
+				job.RuleResults.AddResult(ruleengine.EvaluationFilesystem, pathFilterResult)
+				if !res {
+					match = false
 					notKey = key
 					break
 				}
 			}
 		}
 		if !match {
+			SaveResultSkip(ctx, job)
 			log.Logger.Info().Str("path", job.RealPath).Str("rule path", notKey.Path).Str("rule root", notKey.Root).Msg("Filtered out")
 			log.Logger.Debug().Str("path", job.RealPath).Msg("filterWorker finished a job")
 			continue
@@ -338,9 +351,10 @@ func aclWorker(ctx *PipelineContext) error {
 			User: acl.User,
 		}
 		// TODO: db lookup for userId by username
-		rules := []ruleengine.CompiledFilter{}
+		rules := []ruleengine.CompiledGroupFilter{}
 		for j, rawRule := range acl.Rules {
-			r, err := ruleengine.CompileGroupFilter(*rawRule)
+			name := fmt.Sprintf("ACL Filter:%s:%s:%d", acl.Role, "", j)
+			r, err := ruleengine.CompileGroupFilter(*rawRule, name)
 			if err != nil {
 				logging.ErrorContinue(logg, err, map[string]any{"aclRule": i, "ruleSeq": j})
 				continue
@@ -365,7 +379,9 @@ func aclWorker(ctx *PipelineContext) error {
 			match := false
 			for i, aclRule := range ACLRules {
 				for j, rule := range aclRule.Rules {
-					match := rule(facts)
+					var ruleResult ruleengine.GroupRuleResult
+					match, ruleResult = rule(facts, nil)
+					job.RuleResults.AddResult(ruleengine.EvaluationACL, ruleResult)
 					logging.Inside(logg, map[string]any{
 						"acl_rule": i,
 						"rule":     j,
@@ -376,8 +392,12 @@ func aclWorker(ctx *PipelineContext) error {
 							job.IsDirty = true
 							job.DirtyReason = "ACL setting"
 						}
-						job.ACLRole = mapper.MapACL(aclRule.Role, aclRule.UserId)
-						job.ACLUser = aclRule.UserId
+						job.ACLLevel = aclRule.GetACLLevel()
+						job.ACLUser = 0
+						if aclRule.UserId != nil {
+							job.ACLUser = *aclRule.UserId
+						}
+
 						lg := log.Logger.Info()
 						lg.Str("path", job.RealPath).Int("ACL_rule", i).
 							Int("rule", j).Str("acl", string(aclRule.Role))
@@ -434,7 +454,7 @@ func dBUpdateWorker(ctx *PipelineContext) error {
 			job.DBImage.Path = job.Path
 			job.DBImage.Filename = job.Filename
 			job.DBImage.FileSize = uint64(job.Info.Size())
-			job.DBImage.MTime = job.Info.ModTime()
+			job.DBImage.MTime = job.Info.ModTime().UTC().Truncate(time.Second)
 			job.DBImage.Ext = job.Ext
 			job.DBImage.FileHash = job.FileHash
 			job.DBImage.MetaHash = job.FileMetadataHash
@@ -444,16 +464,15 @@ func dBUpdateWorker(ctx *PipelineContext) error {
 			} else {
 				job.DBImage.Panorama = 0
 			}
-			if job.ACLRole != nil {
-				job.DBImage.ACLScope = dbo.ACLScope(*job.ACLRole)
+			if job.ACLLevel != nil {
+				job.DBImage.ACLLevel = dbo.DBACLLevel(*job.ACLLevel)
 			}
-			if job.ACLUser != nil {
-				job.DBImage.ACLUserID = job.ACLUser
-			}
+			job.DBImage.ACLUserID = job.ACLUser
 			mapper.UpdateImageMetadata(job.DBImage, job.Metadata)
 			updateID, err := dao.CreateOrUpdateImage(ctx.Database, ctx.Ctx, job.DBImage)
 			if err != nil {
 				logging.ExitErrParams(logg, err, map[string]any{"is_dirty": job.IsDirty})
+				SaveResultError(ctx, job)
 				continue
 			} else {
 				job.DBImage.ID = &updateID
@@ -462,6 +481,13 @@ func dBUpdateWorker(ctx *PipelineContext) error {
 		err := dao.UpdateImageSyncId(ctx.Database, ctx.Ctx, *job.DBImage.ID, ctx.SyncId)
 		if err != nil {
 			logging.ExitErrParams(logg, err, map[string]any{"is_dirty": job.IsDirty})
+			SaveResultError(ctx, job)
+			continue
+		}
+		err = SaveResultSucess(ctx, job)
+		if err != nil {
+			logging.ExitErrParams(logg, err, map[string]any{"is_dirty": job.IsDirty})
+			SaveResultError(ctx, job)
 			continue
 		}
 		logging.Exit(logg, "ok", nil)
