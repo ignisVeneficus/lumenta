@@ -255,9 +255,14 @@ TODO: merge style
   background: var(--bg-upper);
   padding: var(--size-4) var(--size-page-x);
   font-size: var(--font-size-xs);
+  pointer-events: auto;
 }
 .image-page #info-panel .title{
   font-size: var(--font-size-m);
+}
+.image-page #info-panel .tag-tree-box{
+  --tree-size-base: var(--font-size-meta);
+  --tree-size-secondary: var(--font-size-small);
 }
 
 .image-nav.up {

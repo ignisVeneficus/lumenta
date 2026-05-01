@@ -5,6 +5,8 @@
 {{- end -}}
 </div>
 <div class="content">
-    {{  template "partials/tag-tree-count.html" .TagsTree }}
+    <div class="tree-wrapper">
+        {{  template "partials/tag-forrest.html" .TagsTree.Roots }}
+    </div>
 </div>
 {{ end }}

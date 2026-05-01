@@ -1,0 +1,102 @@
+data:
+  acl:
+    level:
+      l0: "fa-solid fa-globe"
+      l1: "fa-solid fa-user"
+      l2: "fa-solid fa-lock"
+  image:
+    focus:
+      top: "fa-solid fa-arrows-up-to-line"
+      bottom: "fa-solid fa-arrows-down-to-line"
+      left: "fa-solid fa-arrows-up-to-line rotate-270"
+      right: "fa-solid fa-arrows-down-to-line rotate-270"
+      center: "fa-solid fa-bullseye"
+      manual: "fa-solid fa-crosshairs"
+      auto: "fa-solid fa-wand-magic-sparkles"
+  sync_file:
+    status:
+      deleted: "fa-solid fa-trash"
+      created: "fa-solid fa-plus"
+      not_changed: "fa-regular fa-circle"
+      updated: "fa-regular fa-pen"
+      filtered_out: "fa-solid fa-ban"
+  sync_runs:
+    status:
+      running: "fa-solid fa-spinner fa-spin"
+      finished: "fa-regular fa-circle-check"
+      failed: "fa-regular fa-circle-xmark"
+  sync:
+    "true": "fa-regular fa-circle-check"
+    "false": "fa-regular fa-circle-xmark"
+    unknow: "fa-solid fa-ban"
+  tag:
+    meaning:
+      location: "fa-solid fa-earth-europe"
+      subject: "fa-solid fa-cubes"
+      people: "fa-solid fa-user-group"
+      project: "fa-solid fa-diagram-project"
+      mood: "fa-solid fa-face-smile"
+      time: "fa-solid fa-clock"
+      gear: "fa-solid fa-camera"
+
+action:
+  ctx:
+    tags: "fa-solid fa-tags"
+  common:
+    first: "fa-solid fa-angles-left"
+    prev: "fa-solid fa-angle-left"
+    next: fa-solid fa-angle-right
+    last: "fa-solid fa-angles-right"
+    jump: "fa-solid fa-angle-down"
+    top: "fa-solid fa-angle-up"
+    save: "fa-solid fa-floppy-disk"
+    cancel: "fa-solid fa-xmark"
+    delete: "fa-solid fa-xmark"
+  public:
+    image:
+      back: "fa-solid fa-angle-up"
+      open_admin: "fa-solid fa-up-right-from-square"
+      fullscreen_on: "fa-solid fa-expand"
+      fullscreen_off: "fa-solid fa-compress"
+      info: "fa-solid fa-circle-info"
+      slideshow: "fa-solid fa-play"
+  tree:
+    tag:
+      toogle: "fa-solid fa-chevron-right"
+
+nav:
+  page:
+    public:
+      home: "fa-solid fa-house"
+      albums: "fa-solid fa-images"
+      tags: "fa-solid fa-tags"
+      admin_main: "fa-solid fa-gear"
+    admin:
+      images:
+        large: "fa-regular fa-folder"
+        small: "fa-solid fa-folder"
+      albums:
+        large: "fa-regular fa-images"
+        small: "fa-solid fa-images"
+      sync_runs:
+        large: "fa-regular fa-file-lines"
+        small: "fa-solid fa-file-lines"
+      sync_files:
+        large: "fa-solid fa-clock-rotate-left"
+        small: "fa-solid fa-clock-rotate-left"
+status:
+  user:
+    quest: "fa-solid fa-user"
+    user: "fa-solid fa-user-check"
+    admin: "fa-solid fa-user-shield"
+ui:
+  breadcrumbs:
+    separator: "fa-solid fa-angle-right"
+    heavy_separator: "fa-solid fa-angles-right"
+page:
+  admin:
+    album:
+      cover_placeholder: "fa-regular fa-image"
+    fs:
+      directories: "fa-solid fa-folder"
+      images: "fa-solid fa-image"

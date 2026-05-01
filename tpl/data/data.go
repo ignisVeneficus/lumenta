@@ -53,6 +53,7 @@ func (p *PageContext) GetPage() *PageContext {
 type PageInfo struct {
 	PageRole string
 	Surface  Surface
+	Title    string
 }
 type SiteInfo struct {
 	Title       string
@@ -80,7 +81,7 @@ type NavigationContext struct {
 
 type TagRootPageContext struct {
 	NavigationContext
-	TagsTree dbo.TagsWCountTree
+	TagsTree Forrest
 }
 
 type ImageGrid struct {
@@ -91,10 +92,8 @@ type ImageGrid struct {
 type ImageGridPageContext struct {
 	NavigationContext
 	ImageGrid ImageGrid
-	ImageTags ImageTags
+	ImageTags Forrest
 }
-
-type ImageTags dbo.TagsTree
 
 type PageTags struct {
 	Tags   []PageTag
@@ -143,3 +142,11 @@ type ImagePageContext struct {
 	Prev       *Thumbnail
 	Up         string
 }
+
+type IconSpec struct {
+	Key   string
+	Title string
+	Class string
+}
+
+type IconMap map[string]string

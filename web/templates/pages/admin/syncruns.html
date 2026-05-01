@@ -29,15 +29,7 @@
                 {{- range .SyncRuns -}}
                 <tr class="clickable-row" data-href="{{- adminSyncRunPath .ID -}}">
                     <td class="col-icon">
-                        {{ if eq .Status "running"}}
-                            <i class="fa-solid fa-spinner fa-spin icon sync-run"></i>
-                        {{ end }}
-                        {{ if eq .Status "finished"}}
-                            <i class="fa-regular fa-circle-check icon sync-finish"></i>
-                        {{ end }}
-                        {{ if eq .Status "failed"}}
-                            <i class="fa-regular fa-circle-xmark icon sync-error"></i>
-                        {{ end }}
+                        {{ template "icon" (i (printf "data.sync_runs.status.%s" .Status) (t (printf "data.sync_run.status.%s.label" .Status)) (printf "sync-%s" .Status))}}
                     </td>
                     <td class="col-main">{{ formatTime .StartedAt }}</td>
                     <td class="col-duration">{{ formatDuration .Duration }}</td>

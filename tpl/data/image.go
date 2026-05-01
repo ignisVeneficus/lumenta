@@ -1,12 +1,14 @@
 package data
 
-import "github.com/ignisVeneficus/lumenta/db/dbo"
+import (
+	"github.com/ignisVeneficus/lumenta/db/dbo"
+)
 
 type PageImage struct {
 	Image     dbo.Image
 	SingleMap *SingleMap
 	Metadata  Metadata
-	Tags      dbo.TagsTree
+	Tags      Forrest
 }
 
 type Metadata struct {

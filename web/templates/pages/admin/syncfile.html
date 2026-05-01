@@ -13,17 +13,9 @@
             <div class="label">{{- t "page.admin.sync.path.label" }}:</div><div class="filename">{{ .File.FullPathText }}</div>
             <div class="label">{{- t "page.admin.sync.time.label" }}:</div><div class="date">{{formatTime .File.CreatedAt }} ({{ formatDuration .File.Age }})</div>
             <div class="label">{{- t "page.admin.sync.status.label" }}:</div><div class="sync-status {{.File.Status}}">
-                {{- if eq .File.Status "deleted" -}}
-                    <i class="fa-solid fa-trash icon"></i>
-                {{- else if eq .File.Status "created" -}}
-                    <i class="fa-solid fa-plus icon"></i>
-                {{- else if eq .File.Status "not_changed" -}}
-                    <i class="fa-regular fa-circle icon"></i>
-                {{- else if eq .File.Status "updated" -}}
-                    <i class="fa-regular fa-pen icon"></i>
-                {{- else if eq .File.Status "filtered_out" -}}
-                    <i class="fa-solid fa-ban icon"></i>
-                {{- end -}}
+                {{ template "icon" (i (printf "data.sync_file.%s" .File.Status)
+                (t (printf "data.sync_files.status.%s.label" .File.Status))
+                )}}
                 {{ t (printf "data.sync_files.status.%s.label" .File.Status) }}
             </div>
             {{- if and ( .File.DirtyReasonText) ( eq .File.DirtyReasonText "updated") -}}
@@ -43,11 +35,11 @@
                         <div class="rulegroup">
                             <div class="rule-value">{{ .Name }}</div>
                             <div class="rule-value">
-                                {{ if .Result}}
-                                    <i class="fa-regular fa-circle-check icon match"></i> {{- t "ruleengine.results.result-value.match" }}
-                                {{ else }}
-                                    <i class="fa-regular fa-circle-xmark icon no-match"></i> {{- t "ruleengine.results.result-value.no-match" }}
-                                {{ end }}
+                                {{ template "icon" (i 
+                                    (printf "data.sync.%t" .Result)
+                                    (t (printf "ruleengine.results.result_value.%t" .Result))
+                                    (printf "match-%t" .Result)
+                                )}}{{- t (printf "ruleengine.results.result_value.%t" .Result) }}
                             </div>
                             <div class="rule-value">{{- t (printf "ruleengine.rule.rule_op.%s.label" .Op )}}</div>
                             {{ range .RuleResults}}
@@ -57,13 +49,11 @@
                                         <div class="rule-evaluation-block-header">
                                             <div class="rule-value">{{ .Name }}</div>
                                             <div class="rule-value">
-                                                {{ if eq .Result "true"}}
-                                                    <i class="fa-regular fa-circle-check icon match"></i> {{- t "ruleengine.results.result-value.match" }}
-                                                {{ else if eq .Result "false" }}
-                                                    <i class="fa-regular fa-circle-xmark icon no-match"></i> {{- t "ruleengine.results.result-value.no-match" }}
-                                                {{ else }}
-                                                    <i class="solid fa-ban icon unknow"></i> {{- t "ruleengine.results.result-value.unknow" }} ({{- t "ruleengine.results.result-value.no-match" }})
-                                                {{ end }}
+                                                {{ template "icon" (i 
+                                                    (printf "data.sync.%s" .Result)
+                                                    (t (printf "ruleengine.results.result_value.%s" .Result))
+                                                    (printf "match-%s" .Result)
+                                                )}}{{- t (printf "ruleengine.results.result_value.%s" .Result) }}
                                             </div>
                                             <div class="rule-value">{{- t (printf "ruleengine.rule.op.%s.label" .Op )}}</div>
                                         </div>

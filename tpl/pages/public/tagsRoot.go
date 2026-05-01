@@ -1,11 +1,13 @@
 package public
 
 import (
+	"html/template"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/ignisVeneficus/lumenta/auth"
 	"github.com/ignisVeneficus/lumenta/internal/i18n"
+	"github.com/ignisVeneficus/lumenta/server/routes"
 
 	"github.com/ignisVeneficus/lumenta/config"
 	"github.com/ignisVeneficus/lumenta/db"
@@ -35,13 +37,37 @@ func TagsRootPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 			c.AbortWithStatus(http.StatusInternalServerError)
 			return
 		}
-		tagTree := dbo.BuildTagsWCountTree(dbo.TagsWCountToPointer(tags))
+		flatForrest := data.NewFlatForrest()
+		tagsList := data.MapToViewNodes(tags,
+			func(t dbo.TagWCount) data.ViewTreeNode {
+				return data.ViewTreeNode{
+					ID:       *t.ID,
+					ParentID: t.ParentID,
+					Label:    t.Name,
+					Notes: []string{
+						i18n.T(loc, "page.public.tags.nr_images", map[string]any{
+							"count": t.Count,
+						}),
+					},
+					URL: template.URL(routes.CreateTagPath(*t.ID)),
+				}
+			})
+		flatForrest.Add(tagsList)
+		forrest := flatForrest.Build()
+		if cfg.Presentation.TagMeaningConfig != nil {
+			types := make(map[string][]string)
+			for k, v := range cfg.Presentation.TagMeaningConfig.MeaningMap {
+				types[string(k)] = v
+			}
+			forrest.SetTags(types)
+		}
+		forrest.Populate()
 
 		trCtx := data.TagRootPageContext{}
 		pageCtx := trCtx.GetPage()
 		tpl.CreatePageContext(pageCtx, cfg, c, "tags", data.SurfacePublic)
 		trCtx.Breadcrumbs = breadCrumbs
-		trCtx.TagsTree = tagTree
+		trCtx.TagsTree = *forrest
 
 		logging.Exit(logg, "ok", nil)
 

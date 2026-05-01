@@ -2,10 +2,10 @@
 {{- if .ImageTags -}}
 <details class="image-tag-panel context-panel">
   <summary class="image-tag-trigger context-trigger action button">
-    <i class="icon fa-solid fa-tags" aria-label="Browse tags"></i>
+    {{ template "icon" (i "action.ctx.tags" (t "action.ctx.tags.label"))}}
   </summary>
-  <div class="tag-content context-content">
-    {{- template "partials/tag-tree.html" .ImageTags }}
+  <div class="tag-content context-content tree-wrapper">
+    {{- template "partials/tag-forrest.html" .ImageTags.Roots }}
   </div>
 </details>
 {{- end -}}

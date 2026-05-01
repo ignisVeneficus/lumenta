@@ -31,8 +31,12 @@
 
         <form method="POST" action="">
             <div class="form-action">
-                <button type="submit" class="action button"><i class="icon fa-solid fa-floppy-disk"></i>Save</button>
-                <a class="action button" href="{{ adminAlbumsPath }}"><i class="icon fa-solid fa-xmark"></i>Cancel</a>
+                <button type="submit" class="action button">
+                    {{- template "icon" (i "action.common.save" (t "action.common.save.label")) -}}
+                    {{- t "action.common.save.short" -}}</button>
+                <a class="action button" href="{{ adminAlbumsPath }}">
+                    {{- template "icon" (i "action.common.cancel" (t "action.common.cancel.label")) -}}
+                    {{- t "action.common.cancel.short" -}}</a>
             </div>
             <div class="colums">
                 <div class="column column-1">
@@ -47,7 +51,7 @@
                             >
                             {{- else -}}
                             <div class="no-image">
-                                <i class="icon fa-regular fa-image" title="No cover image"></i>
+                                {{ template "icon" (i "page.admin.album.cover_placeholder" (t "page.admin.album.cover_placeholder"))}}
                             </div>
                             {{- end -}}
                         </div>
@@ -62,7 +66,7 @@
                         {{ end }}
 
                         <div class="block">
-                            <label>Name</label>
+                            <label>{{ t "page.common.name"}}:</label>
                             <input name="name" required value="{{ .Album.Name }}">
 
                             {{ with index .Album.Errors (fieldName "name") }}
@@ -72,7 +76,7 @@
                             {{ end }}
                         </div>
                         <div class="block">
-                            <label>Description</label>
+                            <label>{{ t "page.common.description"}}:</label>
                             <textarea name="description">{{ .Album.Description }}</textarea>
                             {{ with index .Album.Errors (fieldName "description") }}
                                 {{ range . }}
@@ -81,7 +85,7 @@
                             {{ end }}
                         </div>
                         <div class="block">
-                            <label>Parent Album</label>
+                            <label>{{ t "page.admin.album.parent_album"}}:</label>
                             <div
                                 class="xselect"
                                 data-mode="single"
@@ -104,7 +108,7 @@
                 </div>
                 <div class="column column-3">
                     <div class="ACL-panel panel">
-                        <div class="title">ACL Settings</div>
+                        <div class="title">{{ t "admin.common.acl_settings"}}:</div>
                         {{ with .Album }}           
                             {{ template "partials/admin/acl-settings.html" .}}
                         {{ end }}
@@ -112,7 +116,7 @@
                 </div>
             </div>
             <div class="rule-panel panel">
-                <div class="title">Rules</div>
+                <div class="title">{{ t "page.admin.album.rules"}}:</div>
                 <div
                     class="xrules"
                     data-output-input="json_rules"

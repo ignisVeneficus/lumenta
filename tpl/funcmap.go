@@ -7,17 +7,19 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/ignisVeneficus/lumenta/definitions"
 	i18n "github.com/ignisVeneficus/lumenta/internal/i18n"
 	"github.com/ignisVeneficus/lumenta/internal/locale"
+	"github.com/ignisVeneficus/lumenta/tpl/data"
 	"github.com/ignisVeneficus/lumenta/tpl/functions"
 )
 
-func DefaultFuncMap(i18n *i18n.Service) template.FuncMap {
+func DefaultFuncMap(i18n *i18n.Service, iconMap data.IconMap) template.FuncMap {
 	return template.FuncMap{
-		"icon":          Icon,
+		"svgIcon":       Icon,
 		"siteIcon":      SiteIcon,
 		"tileImgList":   functions.TileImgList,
 		"gridRectToVar": functions.RectsToStyleVars,
@@ -63,6 +65,34 @@ func DefaultFuncMap(i18n *i18n.Service) template.FuncMap {
 		},
 
 		"warpPath": CreateSpacePath,
+
+		"dict": func(values ...any) map[string]any {
+			m := make(map[string]any)
+			for i := 0; i < len(values); i += 2 {
+				m[values[i].(string)] = values[i+1]
+			}
+			return m
+		},
+		"i": func(key, title string, classes ...string) data.IconSpec {
+			ic := make([]string, 0, len(classes))
+			for _, c := range classes {
+				if c != "" {
+					ic = append(ic, c)
+				}
+			}
+			return data.IconSpec{
+				Key:   key,
+				Title: title,
+				Class: strings.Join(ic, " "),
+			}
+		},
+		"iconLookup": func(key, failback string) string {
+			v, ok := iconMap[key]
+			if !ok {
+				return failback
+			}
+			return v
+		},
 
 		// placeholderek
 		"formatTime": func(v time.Time) string {

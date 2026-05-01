@@ -84,15 +84,21 @@ func GenerateThumbnail(c context.Context,
 ) (Thumbnails, error) {
 	logg := logging.Enter(c, "tpl.image.thumbnail", nil)
 	var err error
+	// starting point for the query for before/after queries
 	thumbnailAfterQty := 0
 	thumbnailAfterStart := 0
+	// qty for the before after row: display + 1
+	// if query return this qty => there are more pages on that side
 	thumbnailBeforeQty := 0
 	thumbnailBeforeStart := 0
 	urlBefore := ""
 	urlAfter := ""
+	// image of one side the displayed if page is 0 (displayed in middle)
 	oneSide := (ThumbnailPerPage - 1) / 2
 	var img *uint64 = nil
 	if page == 0 {
+		// diplayed in middle: both side have same amout images
+		// starting point are 0
 		thumbnailBeforeQty = oneSide + 1
 		thumbnailAfterQty = oneSide + 1
 		img = image.ID
@@ -118,29 +124,30 @@ func GenerateThumbnail(c context.Context,
 	after := []dbo.ImageTitle{}
 	if thumbnailAfterQty > 0 {
 		after, err = queryNext(c, image, thumbnailAfterStart, thumbnailAfterQty)
-		// dao.QueryImageIDByTagACLNext(database, c, uint64(tagId), *image.ID, image.TakenAt, image.Filename, dboAcl, uint64(thumbnailAfterStart), uint64(thumbnailAfterQty))
+
 		if err != nil {
 			return Thumbnails{}, err
 		}
-		if len(after) == oneSide+1 {
+		// we got all the images => next page
+		if len(after) == thumbnailAfterQty {
 			urlAfter = pagingUrlGenerator(*image.ID, page+1)
-			//routes.BuildTagImagePath(tagId, *image.ID).WithIntQuery(imagePageName, page+1).String()
 		}
 	} else if page < 0 {
+		// always have next page
 		urlAfter = pagingUrlGenerator(*image.ID, page+1)
 	}
 	before := []dbo.ImageTitle{}
 	if thumbnailBeforeQty > 0 {
 		before, err = queryPrev(c, image, thumbnailBeforeStart, thumbnailBeforeQty)
-		//dao.QueryImageIDByTagACLPrev(database, c, uint64(tagId), *image.ID, image.TakenAt, image.Filename, dboAcl, uint64(thumbnailBeforeStart), uint64(thumbnailBeforeQty))
 		if err != nil {
 			return Thumbnails{}, err
 		}
-		if len(before) == oneSide+1 {
+		// we got all the images => prev page
+		if len(before) == thumbnailBeforeQty {
 			urlBefore = pagingUrlGenerator(*image.ID, page-1)
-			//routes.BuildTagImagePath(tagId, *image.ID).WithIntQuery(imagePageName, page-1).String()
 		}
 	} else if page > 0 {
+		// always have prev image
 		urlBefore = pagingUrlGenerator(*image.ID, page-1)
 	}
 

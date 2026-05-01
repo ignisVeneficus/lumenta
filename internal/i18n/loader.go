@@ -60,8 +60,7 @@ func flatten(prefix string, input map[string]any, out map[string]string) {
 			flatten(key, val, out)
 
 		default:
-			// opcionális: log warning
-			// pl. szám, bool stb
+
 		}
 	}
 }

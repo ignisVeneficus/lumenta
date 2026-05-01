@@ -119,47 +119,12 @@ func BuildTagsFlat(tags []*Tag) TagsTree {
 	return tags
 }
 
-type TagsWCountTree []*TagWCount
-
-func (tt TagsWCountTree) MarshalZerologObjectWithLevel(e *zerolog.Event, level zerolog.Level) {
-	array := zerolog.Arr()
-	for _, t := range tt {
-		array.Object(logging.WithLevel(level, t))
-	}
-	e.Array("tags", array)
-}
-
 type TagWCount struct {
 	ID       *uint64
 	Name     string
 	ParentID *uint64
 	Source   TagSource
 	Count    uint64
-	Children TagsWCountTree
-}
-
-func (t *TagWCount) GetID() uint64 {
-	return *t.ID
-}
-
-func (t *TagWCount) GetParentID() *uint64 {
-	return t.ParentID
-}
-
-func (t *TagWCount) ClearChildren() {
-	t.Children = t.Children[:0]
-}
-
-func (t *TagWCount) AddChild(child *TagWCount) {
-	t.Children = append(t.Children, child)
-}
-
-func (t *TagWCount) GetPath() string {
-	return t.Name
-}
-
-func (t *TagWCount) GetSorting() string {
-	return t.Name
 }
 
 func (t *TagWCount) MarshalZerologObjectWithLevel(e *zerolog.Event, level zerolog.Level) {
@@ -172,21 +137,8 @@ func (t *TagWCount) MarshalZerologObjectWithLevel(e *zerolog.Event, level zerolo
 	}
 }
 
-func BuildTagsWCountTree(tags []*TagWCount) TagsWCountTree {
-	utils.SortByStringKey(tags, (*TagWCount).GetSorting)
-	ret := utils.BuildTree(tags)
-	return ret
-}
-
 func TagsToPointer(tags []Tag) []*Tag {
 	ret := make([]*Tag, len(tags))
-	for i := range tags {
-		ret[i] = &tags[i]
-	}
-	return ret
-}
-func TagsWCountToPointer(tags []TagWCount) []*TagWCount {
-	ret := make([]*TagWCount, len(tags))
 	for i := range tags {
 		ret[i] = &tags[i]
 	}

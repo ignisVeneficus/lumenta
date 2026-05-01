@@ -178,11 +178,28 @@ func TagPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 			return
 		}
 
-		tagForrest := dbo.TagsTree{}
-		for _, img := range images {
-			tagForrest = append(tagForrest, img.Tags...)
+		flatForrest := data.NewFlatForrest()
+		mapper := func(t *dbo.Tag) data.ViewTreeNode {
+			return data.ViewTreeNode{
+				ID:       *t.ID,
+				ParentID: t.ParentID,
+				Label:    t.Name,
+				URL:      template.URL(routes.CreateTagPath(*t.ID)),
+			}
 		}
-		tagForrest = dbo.MergeTagsTrees(tagForrest)
+		for _, img := range images {
+			tagsList := data.MapToViewNodes(img.Tags, mapper)
+			flatForrest.Add(tagsList)
+		}
+		forrest := flatForrest.Build()
+		if cfg.Presentation.TagMeaningConfig != nil {
+			types := make(map[string][]string)
+			for k, v := range cfg.Presentation.TagMeaningConfig.MeaningMap {
+				types[string(k)] = v
+			}
+			forrest.SetTags(types)
+		}
+		forrest.Populate()
 
 		apiUrl := routes.BuildApiTagPath(tagId).WithImagePaging(iPage)
 		multiMap := data.MultiMap{
@@ -199,7 +216,7 @@ func TagPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 		tagPageCtx.Breadcrumbs = breadcrumbs
 		tagPageCtx.PageCards = folders
 		tagPageCtx.ImageGrid = imageGrid
-		tagPageCtx.ImageTags = data.ImageTags(tagForrest)
+		tagPageCtx.ImageTags = *forrest
 		tagPageCtx.Map = multiMap
 
 		logging.Exit(logg, "ok", nil)

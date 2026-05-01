@@ -106,10 +106,6 @@ func (i *Image) MarshalZerologObjectWithLevel(e *zerolog.Event, level zerolog.Le
 	}
 }
 
-func (i *Image) AddTags(tags []*Tag) {
-	i.Tags = BuildTagsTree(tags)
-}
-
 type ImageTitle struct {
 	ID    uint64
 	Title string

@@ -20,40 +20,50 @@
 {{- end -}}
     <div class="ctx-menu">
         {{- if .Prev -}}
-        <a class="action off-fs" href="{{ .Prev.Url }}"><i class="icon fa-solid fa-angle-left" title="{{ .Prev.Title }}"></i></a>
+        <a class="action off-fs" href="{{ .Prev.Url }}">
+            {{- template "icon" (i "action.common.prev" .Prev.Title) -}}
+        </a>
         {{- else -}}
-        <span class="action disabled off-fs"><i class="icon fa-solid fa-angle-left" title="Previous image"></i></span>
+        <span class="action disabled off-fs">
+            {{- template "icon" (i "action.common.prev" (t "action.public.image.prev.label")) -}}
+        </span>
         {{- end -}}
 
-        <a class="action off-fs" href="{{ .Up }}"><i class="icon fa-solid fa-angle-up" title="Back to the list"></i></a>
+        <a class="action off-fs" href="{{ .Up }}">
+            {{- template "icon" (i "action.public.image.back" (t "action.public.image.back.label")) -}}
+        </a>
 
         {{- if .Next -}}
-        <a class="action off-fs" href="{{ .Next.Url }}"><i class="icon fa-solid fa-angle-right" title="{{ .Next.Title }}"></i></a>
+        <a class="action off-fs" href="{{ .Next.Url }}">
+            {{- template "icon" (i "action.common.next" .Next.Title) -}}
+        </a>
         {{- else -}}
-        <span class="action disabled off-fs"><i class="icon fa-solid fa-angle-right" title="Previous image"></i></span>
+        <span class="action disabled off-fs">
+            {{- template "icon" (i "action.common.next" (t "action.public.image.next.label")) -}}
+        </span>
         {{- end -}}
 
         {{- if eq .User.Role "admin" -}}
         <a href="{{ adminImagePath .Image.Image.ID }}" class="action button admin-button accent">
-            <div class="icon fa-solid fa-up-right-from-square admin-icon" aria-label="Admin image page"></div>
+            {{- template "icon" (i "action.public.image.open_admin" (t "action.public.image.open_admin.label") "admin-icon") -}}
         </a>
         {{- end -}}        
 
         <a class="ctx-btn action off-fs" id="fullscreen-on">
-            <i class="icon fa-solid fa-expand" title="Fullscreen mode"></i>
+            {{- template "icon" (i "action.public.image.fullscreen_on" (t "action.public.image.fullscreen_on.label")) -}}
         </a>
         <a class="ctx-btn action on-fs" id="fullscreen-off">
-            <i class="icon fa-solid fa-compress" title="Leave fullscreen mode"></i>
+            {{- template "icon" (i "action.public.image.fullscreen_off" (t "action.public.image.fullscreen_off.label")) -}}
         </a>
 
         <input type="checkbox" id="toggle-info" class="ctx-toggle">
         <label for="toggle-info" class="ctx-btn action off-fs">
-            <i class="icon fa-solid fa-circle-info" title="Toggle info panel"></i>
+            {{- template "icon" (i "action.public.image.info" (t "action.public.image.toggle_info.label")) -}}
         </label>
 
         <input type="checkbox" id="toggle-slideshow" class="ctx-toggle">
         <label for="toggle-slideshow" class="ctx-btn action on-fs">
-            <i class="icon fa-solid fa-play" title="Toggle slideshow"></i>
+            {{- template "icon" (i "action.public.image.slideshow" (t "action.public.image.toggle_slideshow.label")) -}}
         </label>
     </div>
 </div>
@@ -70,16 +80,22 @@
     <div class="overlay">
         <div class="image-nav left image-nav-prev">
             {{- if .Prev -}}
-            <a class="action" href="{{ .Prev.Url }}"><i class="icon fa-solid fa-angle-left" title="{{ .Prev.Title }}"></i></a>
+            <a class="action" href="{{ .Prev.Url }}">
+                {{- template "icon" (i "action.common.prev" .Prev.Title) -}}
+            </a>
             {{- end -}}
         </div>
         <div class="image-nav up image-nav-up">
-            <a class="action" href="{{ .Up }}"><i class="icon fa-solid fa-angle-up" title="Back to the list"></i></a>
+            <a class="action" href="{{ .Up }}">
+                {{- template "icon" (i "action.public.image.back" (t "action.public.image.back.label")) -}}
+            </a>
         </div>
         <div class="right">
             <div class="image-nav image-nav-next">
             {{- if .Next -}}
-            <a class="action" href="{{ .Next.Url }}"><i class="icon fa-solid fa-angle-right" title="{{ .Next.Title }}"></i></a>
+            <a class="action" href="{{ .Next.Url }}">
+                {{- template "icon" (i "action.common.next" .Next.Title) -}}
+            </a>
             {{- end -}}
             </div>
             <aside class="viewer-info" id="info-panel">
@@ -105,8 +121,8 @@
                     </div>
                     {{- end -}}
 
-                    <div class="tag-tree-box">
-                        {{ template "partials/tag-tree.html" .Image.Tags }}
+                    <div class="tag-tree-box tree-wrapper">
+                        {{ template "partials/tag-forrest.html" .Image.Tags.Roots }}
                     </div>
 
                 </div>
@@ -117,9 +133,13 @@
   {{- if .Thumbnails -}}
     <div class="image-thumbs">
         {{- if .Thumbnails.BeforeUrl -}}
-            <a href="{{.Thumbnails.BeforeUrl}}" class="action"><i class="icon fa-solid fa-angle-left" title="Previous page"></i></a>
+            <a href="{{.Thumbnails.BeforeUrl}}" class="action">
+                {{- template "icon" (i "action.common.prev" (t "nav.pagination.prev.label")) -}}
+            </a>
         {{- else -}}
-            <span class="action disabled"><i class="icon fa-solid fa-angle-left" title="Previous page"></i></span>
+            <span class="action disabled">
+                {{- template "icon" (i "action.common.prev" (t "nav.pagination.prev.label")) -}}
+            </span>
         {{- end -}}
         {{- range .Thumbnails.Images -}}
             <div class="thumbnail">
@@ -135,9 +155,13 @@
             </div>
         {{- end -}}
         {{- if .Thumbnails.AfterUrl -}}
-            <a href="{{.Thumbnails.AfterUrl}}" class="action"><i class="icon fa-solid fa-angle-right" title="Next page"></i></a>
+            <a href="{{.Thumbnails.AfterUrl}}" class="action">
+                {{- template "icon" (i "action.common.next" (t "nav.pagination.next.label")) -}}
+            </a>
         {{- else -}}
-            <span class="action disabled"><i class="icon fa-solid fa-angle-right" title="Next page"></i></span>
+            <span class="action disabled">
+                {{- template "icon" (i "action.common.next" (t "nav.pagination.next.label")) -}}
+            </span>
         {{- end -}}
     </div>
   {{- end -}}        

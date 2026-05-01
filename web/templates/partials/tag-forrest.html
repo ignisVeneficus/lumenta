@@ -1,0 +1,36 @@
+<ul class="tag-tree tree">
+    {{- range . -}}
+        <li class="tag-node tree-node">
+        {{- if .Children -}}
+            <input type="checkbox" id="toggle-{{ .ID }}" class="tag-toggle tree-toggle" checked>
+            <label for="toggle-{{ .ID }}" class="tag-label tree-label">
+                {{- template "icon" (i "action.tree.tag.toogle" (t "nav.tree.toggle") "tag-icon tree-icon")}}
+                {{- if .Type -}}
+                    {{- template "icon" (i 
+                        (printf "data.tag.meaning.%s" .Type) 
+                        (t (printf "data.tag.meaning.%s.label" .Type))
+                        "tag-meaning tree-type-icon")}}
+                {{- end -}}
+                <a href="{{ .URL }}" class="tag-link tree-link">{{ .Label }}</a>
+                {{- range .Notes -}}
+                    <span class="tree-sep">·</span><span class="tree-note tag-note">{{.}}</span>
+                {{- end -}}
+            </label>
+            {{ template "partials/tag-forrest.html" .Children }}
+        {{- else -}}
+            <span class="tag-leaf tree-leaf">
+                {{- if .Type -}}
+                    {{- template "icon" (i 
+                        (printf "data.tag.meaning.%s" .Type) 
+                        (t (printf "data.tag.meaning.%s.label" .Type))
+                        "tag-meaning tree-type-icon")}}
+                {{- end -}}
+                <a href="{{ .URL }}" class="tag-link tree-link">{{ .Label }}</a>
+                {{- range .Notes -}}
+                    <span class="tree-sep">·</span><span class="tree-note tag-note">{{.}}</span>
+                {{- end -}}
+            </span>
+        {{- end -}}
+        </li>
+    {{- end -}}
+</ul>

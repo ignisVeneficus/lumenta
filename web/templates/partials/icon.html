@@ -1,0 +1,7 @@
+{{ define "icon" }}
+<i class="icon {{ iconLookup .Key "fa-solid fa-notdef" }} {{ .Class }}" 
+    {{- if .Title -}}
+        title = "{{.Title}}"
+        aria-label="{{.Title}}"
+    {{- end -}}></i>
+{{ end }}

@@ -1,34 +1,34 @@
 <fieldset class="acl-group radio-group">
-  <label class="acl-item radio-item">
-    <div class="radio-row">
-      <input type="radio" name="acl_level" value="0"
-      {{ if eq .ACLLevel "0" }}checked{{ end }}
-      >
-      <i class="fa-solid fa-globe"></i>
-      <span>Public</span>
-    </div>
-  </label>
+  {{ template "partials/admin/radio-button.html" (dict
+    "Current" .ACLLevel
+    "Class" "acl-item"
+    "Name" "acl_level"
+    "Value" "0"
+    "Icon" "data.acl.level.l0"
+    "IconTitle" (t "data.acl.level.l0.label")
+    "Label" (t "data.acl.level.l0.short")
+  )}}
+
   <label class="acl-item acl-user radio-item">
     <div class="radio-row">
       <input type="radio" name="acl_level" value="1"
       {{ if eq .ACLLevel "1" }}checked{{ end }}
       >
-      <i class="fa-solid fa-user"></i>
-      <span>User</span>
+      {{ template "icon" ( i "data.acl.level.l1" (t "data.acl.level.l1.label"))}}
+      <span>{{ t "data.acl.level.l1.short" }}</span>
     </div>
     <!-- TODO replace dynamic select-->
     <select name="acl_user" class="acl-select radio-option">
     </select>
   </label>
-
-  <label class="acl-item radio-item">
-    <div class="radio-row">
-      <input type="radio" name="acl_level" value="2"
-      {{ if eq .ACLLevel "2" }}checked{{ end }}
-      >
-      <i class="fa-solid fa-lock"></i>
-      <span>Admin Only</span>
-    </div>
-  </label>
+  {{ template "partials/admin/radio-button.html" (dict
+    "Current" .ACLLevel
+    "Class" "acl-item"
+    "Name" "acl_level"
+    "Value" "2"
+    "Icon" "data.acl.level.l2"
+    "IconTitle" (t "data.acl.level.l2.label")
+    "Label" (t "data.acl.level.l2.short")
+  )}}
 
 </fieldset>

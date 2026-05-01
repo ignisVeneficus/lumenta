@@ -27,7 +27,7 @@ func Server(cfg config.Config, i18n *i18n.Service) {
 		gin.SetMode(gin.DebugMode)
 	}
 
-	templatreResolver, err := tpl.NewTemplateResolver(ctx, "", tpl.DefaultFuncMap(i18n))
+	templatreResolver, err := tpl.NewTemplateResolver(ctx, "", i18n)
 	if err != nil {
 		panic(err)
 	}

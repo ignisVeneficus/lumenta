@@ -1,15 +1,14 @@
 <!-- buttons -->
 <a href="{{ albumsRootPath }}" class="action button action-public">
-    <div class="icon fa-solid fa-images" aria-label="Browse albums" title="Browse albums"></div>
+    {{ template "icon" (i "nav.page.public.albums" (t "nav.page.public.albums.label")) }}
 </a>
 
-
 <a href="{{ tagsRootPath }}" class="action button action-public">
-    <div class="icon fa-solid fa-tags" aria-label="Browse tags" title="Browse tags"></div>
+    {{ template "icon" (i "nav.page.public.tags" (t "nav.page.public.tags.label")) }}
 </a>
 
 {{- if eq .User.Role "admin" -}}
 <a href="{{ adminRootPath }}" class="action button action-admin">
-    <div class="icon fa-solid fa-gear admin-icon" aria-label="{{ t "nav.page.admin.home.label"}}" title="{{ t "nav.page.admin.home.label"}}"></div>
+    {{ template "icon" (i "nav.page.public.admin_main" (t "nav.page.public.admin.label") "admin-icon") }}
 </a>
 {{- end -}}

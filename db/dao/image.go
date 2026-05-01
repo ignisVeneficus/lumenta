@@ -926,7 +926,7 @@ func GetImageByIdWTags(db *sql.DB, ctx context.Context, id uint64) (dbo.Image, e
 		logging.ExitErr(logg, err)
 		return i, err
 	}
-	i.AddTags(dbo.TagsToPointer(tags))
+	i.Tags = dbo.TagsToPointer(tags)
 	logging.Exit(logg, "Ok", nil)
 	return i, nil
 }
@@ -948,7 +948,7 @@ func GetImageByIdACLWTags(db *sql.DB, ctx context.Context, id uint64, acl dbo.AC
 		logging.ExitErr(logg, err)
 		return i, err
 	}
-	i.AddTags(dbo.TagsToPointer(tags))
+	i.Tags = dbo.TagsToPointer(tags)
 	logging.Exit(logg, "Ok", nil)
 	return i, nil
 }
@@ -1231,7 +1231,7 @@ func QueryImageByTagACLPaged(db *sql.DB, ctx context.Context, tag uint64, acl db
 			logging.ExitErr(logg, err)
 			return images, err
 		}
-		img.AddTags(dbo.TagsToPointer(tags))
+		img.Tags = dbo.TagsToPointer(tags)
 		images[i] = img
 	}
 

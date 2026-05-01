@@ -12,7 +12,7 @@ type DashboardCard struct {
 	ID        string // "images", "albums"
 	Title     string
 	IconTitle string
-	Icon      string
+	IconKey   string
 	URL       string
 	Stats     []DashboardStat
 }

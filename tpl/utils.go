@@ -26,6 +26,27 @@ import (
 func CreateImage(ctx context.Context, cfg config.Config, image dbo.Image) tplData.PageImage {
 	// TODO: use visibility settings
 
+	flatForrest := tplData.NewFlatForrest()
+	tagsList := tplData.MapToViewNodes(image.Tags, func(t *dbo.Tag) tplData.ViewTreeNode {
+		return tplData.ViewTreeNode{
+			ID:       *t.ID,
+			ParentID: t.ParentID,
+			Label:    t.Name,
+			URL:      template.URL(routes.CreateTagPath(*t.ID)),
+		}
+	})
+	flatForrest.Add(tagsList)
+	forrest := flatForrest.Build()
+
+	if cfg.Presentation.TagMeaningConfig != nil {
+		types := make(map[string][]string)
+		for k, v := range cfg.Presentation.TagMeaningConfig.MeaningMap {
+			types[string(k)] = v
+		}
+		forrest.SetTags(types)
+	}
+	forrest.Populate()
+
 	var singleMap *tplData.SingleMap = nil
 
 	if image.Latitude != nil && image.Longitude != nil {
@@ -37,7 +58,7 @@ func CreateImage(ctx context.Context, cfg config.Config, image dbo.Image) tplDat
 	ret := tplData.PageImage{
 		Image:     image,
 		SingleMap: singleMap,
-		Tags:      image.Tags,
+		Tags:      *forrest,
 	}
 
 	ret.Metadata = handleImgMetadata(ctx, cfg, image)

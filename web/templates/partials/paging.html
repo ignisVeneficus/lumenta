@@ -4,22 +4,40 @@
         <form method="GET">
         <div class="pagesButtons">
             {{- if gt .ActPage 1 -}}
-            <a href="{{ .First }}" class="action firstButton formButton barButton"><div class="icon fa-solid fa-angles-left" title="{{ t "nav.pagination.first.label"}}"></div></a>
-            <a href="{{ .Prev }}"  class="action prevButton formButton barButton"><div class="icon fa-solid fa-angle-left" title="{{ t "nav.pagination.prev.label"}}"></div></a>
+            <a href="{{ .First }}" class="action firstButton formButton barButton">
+                {{- template "icon" (i "action.common.first" (t "nav.pagination.first.label")) -}}
+            </a>
+            <a href="{{ .Prev }}"  class="action prevButton formButton barButton">
+                {{- template "icon" (i "action.common.prev" (t "nav.pagination.prev.label")) -}}
+            </a>
             {{- else -}}
-            <span class="action disabled firstButton formButton barButton"><div class="icon fa-solid fa-angles-left" title="{{ t "nav.pagination.first.label"}}"></div></span>
-            <span class="action disabled prevButton formButton barButton"><div class=" icon fa-solid fa-angle-left" title="{{ t "nav.pagination.prev.label"}}"></div></span>
+            <span class="action disabled firstButton formButton barButton">
+                {{- template "icon" (i "action.common.first" (t "nav.pagination.first.label")) -}}
+            </span>
+            <span class="action disabled prevButton formButton barButton">
+                {{- template "icon" (i "action.common.prev" (t "nav.pagination.prev.label")) -}}
+            </span>
             {{- end -}}
-            <div class ="pageText text">Page:</div>
+            <div class ="pageText text">{{ t "page.pagination.page_of.prefix" (dict "total" .MaxPage)}}</div>
             <input type="text" name="{{.Name }}" value="{{.ActPage }}"/>
-            <button class="action formButton barButton jump"><div class="icon fa-solid fa-angle-down" title="{{ t "nav.pagination.jump.label"}}"></div></button>
-            <div class="text maxPage">of {{.MaxPage }}</div>
+            <button class="action formButton barButton jump">
+                {{- template "icon" (i "action.common.jump" (t "nav.pagination.jump.label")) -}}
+            </button>
+            <div class="text maxPage">{{ t "page.pagination.page_of.suffix" (dict "total" .MaxPage)}}</div>
             {{- if lt .ActPage .MaxPage -}}
-            <a href="{{ .Next }}" class="action nextButton formButton barButton"><div class="icon fa-solid fa-angle-right" title="{{ t "nav.pagination.next.label"}}"></div></a>
-            <a href="{{ .Last }}" class="action lastButton formButton barButton"><div class="icon fa-solid fa-angles-right" title="{{ t "nav.pagination.last.label"}}"></div></a>
+            <a href="{{ .Next }}" class="action nextButton formButton barButton">
+                {{- template "icon" (i "action.common.next" (t "nav.pagination.next.label")) -}}
+            </a>
+            <a href="{{ .Last }}" class="action lastButton formButton barButton">
+                {{- template "icon" (i "action.common.last" (t "nav.pagination.last.label")) -}}
+            </a>
             {{- else -}}
-            <span class="action disabled nextButton formButton barButton"><div class="icon fa-solid fa-angle-right" title="{{ t "nav.pagination.next.label"}}"></div></span>
-            <span class="action disabled lastButton formButton barButton"><div class="icon fa-solid fa-angles-right" title="{{ t "nav.pagination.last.label"}}"></div></span>
+            <span class="action disabled nextButton formButton barButton">
+                {{- template "icon" (i "action.common.next" (t "nav.pagination.next.label")) -}}            \
+            </span>
+            <span class="action disabled lastButton formButton barButton">
+                {{- template "icon" (i "action.common.last" (t "nav.pagination.last.label")) -}}
+            </span>
             {{- end -}}
         </div>
         </form>

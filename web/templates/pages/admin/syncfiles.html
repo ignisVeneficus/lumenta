@@ -24,7 +24,9 @@
             <label class="headerlabel" for="search">{{- t "page.admin.sync_files.search.label" -}}:</label>
             <input name="q" type="text" id="search" value="{{.SearchField}}" placeholder="{{- t "page.admin.sync_files.search.placeholder" }}">
             {{- if not .HasFilter -}}
-            <button class="action"><i class="icon fa-solid fa-magnifying-glass" title="{{ t "page.common.search" }}"></i></button>
+            <button class="action">
+                {{ template "icon" (i "action.common.search" (t "action.common.search.label"))}}
+            </button>
             {{- end -}}
         </div>
         {{- end -}}
@@ -52,7 +54,9 @@
                 {{- end -}}
                 </script>
                 </div>
-            <button class="action"><i class="icon fa-solid fa-magnifying-glass" title="{{ t "page.common.search" }}"></i></button>
+            <button class="action">
+                {{ template "icon" (i "action.common.search" (t "action.common.search.label"))}}
+            </button>
         </div>
 
         {{- end -}}
@@ -77,17 +81,9 @@
                 <tr class="clickable-row" data-href="{{- adminSyncFilePath .ID -}}">
                     <td class="col-path">{{ .FullPathText }}</td>
                     <td class="col-status {{ .Status }}">
-                        {{- if eq .Status "deleted" -}}
-                            <i class="fa-solid fa-trash icon"></i>
-                        {{- else if eq .Status "created" -}}
-                            <i class="fa-solid fa-plus icon"></i>
-                        {{- else if eq .Status "not_changed" -}}
-                            <i class="fa-regular fa-circle icon"></i>
-                        {{- else if eq .Status "updated" -}}
-                            <i class="fa-regular fa-pen icon"></i>
-                        {{- else if eq .Status "filtered_out" -}}
-                            <i class="fa-solid fa-ban icon"></i>
-                        {{- end -}}
+                        {{ template "icon" (i (printf "data.sync_file.status.%s" .Status)
+                        (t (printf "data.sync_files.status.%s.label" .Status))
+                        )}}
                         {{ t (printf "data.sync_files.status.%s.short" .Status) }}
                     </td>
                     <td class="col-dirty">
@@ -101,7 +97,9 @@
                     <td class="col-age">{{ formatDuration .Age }}</td>
                     {{- if $.HasFileButton -}}
                     <td class="col-actions">
-                        <a class="action" href="{{ adminSyncFilesPathPath .PathFull }}"><i class="icon fa-solid fa-clock-rotate-left" title="{{ t "nav.page.admin.sync_files.label" }}"></i></a>
+                        <a class="action" href="{{ adminSyncFilesPathPath .PathFull }}">
+                            {{ template "icon" ( i "nav.page.admin.sync_files.small" (t "nav.page.admin.sync_files.label"))}}
+                        </a>
                     </td>
                     {{- end -}}
                     </tr>

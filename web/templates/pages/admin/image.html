@@ -103,7 +103,7 @@
         </div>
         <div class="column column-2">
             <div class="image-state-panel panel panel-pos" >
-                <div class="title">{{ t "page.admin.image.title.acl_settings"}}</div>
+                <div class="title">{{ t "page.admin.common.acl_settings"}}</div>
                 {{ with .Image.Form }}           
                     {{ template "partials/admin/acl-settings.html" .}}
                 {{ end }}
@@ -137,9 +137,8 @@
             </div>
             <div class="tag-tree-panel panel panel-size" >
                 <div class="title">{{ t "page.admin.image.title.tags"}}</div>
-                <div class="tag-tree-box">
-                    {{ template "partials/tag-tree.html" .Image.Tags }}
-                    <!-- end -->
+                <div class="tag-tree-box tree-wrapper">
+                    {{ template "partials/tag-forrest.html" .Image.Tags.Roots }}
                 </div>
 
             </div>

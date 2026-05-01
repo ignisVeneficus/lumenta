@@ -1,16 +1,19 @@
 <aside class="action-rail">
     <div class="rail-inner">
-        <a href="{{ adminFsPath }}" class="action"><i class="icon fa-solid fa-folder" title="{{ t "nav.page.admin.images.label" }}"></i>
+        <a href="{{ adminFsPath }}" class="action">
+            {{ template "icon" (i "nav.page.admin.images.small" (t "nav.page.admin.images.label" ))}}
             <div class="label">{{ t "nav.page.admin.images.short" }}</div>
         </a>
-        <a href="{{ adminAlbumsPath }}" class="action"><i class="icon fa-solid fa-images" title="{{ t "nav.page.admin.albums.label" }}"></i>
+        <a href="{{ adminAlbumsPath }}" class="action">
+            {{ template "icon" (i "nav.page.admin.albums.small" (t "nav.page.admin.albums.label" ))}}
             <div class="label">{{ t "nav.page.admin.albums.short" }}</div>
         </a>
-
-        <a href="{{ adminSyncRunsPath }}" class="action"><i class="icon fa-solid fa-file-lines" title="{{ t "nav.page.admin.sync_runs.label" }}"></i>
+        <a href="{{ adminSyncRunsPath }}" class="action">
+            {{ template "icon" (i "nav.page.admin.sync_runs.small" (t "nav.page.admin.sync_runs.label" ))}}
             <div class="label">{{ t "nav.page.admin.sync_runs.short" }}</div>
         </a>
-        <a href="{{ adminSyncFilesPath }}" class="action"><i class="icon fa-solid fa-clock-rotate-left" title="{{ t "nav.page.admin.sync_files.label" }}"></i>
+        <a href="{{ adminSyncFilesPath }}" class="action">
+            {{ template "icon" (i "nav.page.admin.sync_files.small" (t "nav.page.admin.sync_files.label" ))}}
             <div class="label">{{ t "nav.page.admin.sync_files.short" }}</div>
         </a>
 

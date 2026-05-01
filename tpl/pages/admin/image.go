@@ -106,6 +106,18 @@ func ImagePage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 			ACLLevel:  strconv.FormatUint(uint64(image.ACLLevel), 10),
 			ACLUserID: strconv.FormatUint(image.ACLUserID, 10),
 		}
+		// tags
+		forrest := data.ForrestFromTags(image.Tags, func(id uint64) string {
+			return ""
+		})
+		if cfg.Presentation.TagMeaningConfig != nil {
+			types := make(map[string][]string)
+			for k, v := range cfg.Presentation.TagMeaningConfig.MeaningMap {
+				types[string(k)] = v
+			}
+			forrest.SetTags(types)
+			forrest.Populate()
+		}
 
 		imageCtx := adminData.ImagePageContext{}
 		pageCtx := imageCtx.GetPage()
@@ -119,6 +131,7 @@ func ImagePage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 			Sync:          syncData,
 			Aspect:        grid.ClassifyAspect(int(image.Width), int(image.Height)),
 			Form:          form,
+			Tags:          forrest,
 		}
 		if image.Latitude != nil && image.Longitude != nil {
 			imageCtx.Image.SingleMap = &data.SingleMap{

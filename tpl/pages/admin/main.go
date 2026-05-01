@@ -63,7 +63,7 @@ func getImagesCard(database *sql.DB, ctx *gin.Context, loc string, i18n *i18n.Se
 		ID:        "images",
 		Title:     i18n.T(loc, "nav.page.admin.images.short", nil),
 		IconTitle: i18n.T(loc, "nav.page.admin.images.label", nil),
-		Icon:      "fa-regular fa-folder",
+		IconKey:   "nav.page.admin.images.large",
 		URL:       routes.CreateAdminFsPath(""),
 		Stats:     stats,
 	}, nil
@@ -74,7 +74,7 @@ func getAlbumCard(database *sql.DB, ctx *gin.Context, loc string, i18n *i18n.Ser
 		ID:        "albums",
 		Title:     i18n.T(loc, "nav.page.admin.albums.short", nil),
 		IconTitle: i18n.T(loc, "nav.page.admin.albums.label", nil),
-		Icon:      "fa-regular fa-images",
+		IconKey:   "nav.page.admin.albums.large",
 		URL:       routes.CreateAdminAlbumsPath(),
 	}, nil
 }
@@ -83,7 +83,7 @@ func getSyncRunCard(database *sql.DB, ctx *gin.Context, loc string, i18n *i18n.S
 		ID:        "sync_runs",
 		Title:     i18n.T(loc, "nav.page.admin.sync_runs.short", nil),
 		IconTitle: i18n.T(loc, "nav.page.admin.sync_runs.label", nil),
-		Icon:      "fa-regular fa-file-lines",
+		IconKey:   "nav.page.admin.sync_runs.large",
 		URL:       routes.CreateAdminSyncRunListPath(),
 	}, nil
 }
@@ -92,7 +92,7 @@ func getSyncFilesCard(database *sql.DB, ctx *gin.Context, loc string, i18n *i18n
 		ID:        "sync_files",
 		Title:     i18n.T(loc, "nav.page.admin.sync_files.short", nil),
 		IconTitle: i18n.T(loc, "nav.page.admin.sync_files.label", nil),
-		Icon:      "fa-solid fa-clock-rotate-left",
+		IconKey:   "nav.page.admin.sync_files.large",
 		URL:       routes.CreateAdminSyncFilesPath(),
 	}, nil
 }

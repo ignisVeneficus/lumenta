@@ -34,6 +34,7 @@ type PageImage struct {
 	SingleMap     *data.SingleMap
 	Form          ImageForm
 	Covers        []uint64
+	Tags          data.Forrest
 }
 
 func (pi PageImage) CoversArray() template.JS {

@@ -2,7 +2,7 @@
     <div class="site-header-inner">
       <div class="site-header-brand">
         {{- if ne .Page.PageRole "landing" -}}
-        <a href="/" class="site-header-logo">{{ .Site.Title }}</a>
+        <a href="/" class="site-header-logo" title="{{ t "nav.page.home.label"}}">{{ .Site.Title }}</a>
         {{- end -}}
       </div>
 

@@ -13,6 +13,9 @@ func (p *PresentationConfig) Validate(v *validate.ValidationErrors, path string)
 	validate.CheckDir(path+"/templates", p.Templates, false, v)
 	p.Grid.validate(v, path+"/grid")
 	p.MetadataACL.validate(v, path+"/metadata_acl")
+	if p.TagMeaningConfig != nil {
+		p.TagMeaningConfig.validate(v, path+"/tag_meaning")
+	}
 }
 
 func validateSpan(s gridData.Span, v *validate.ValidationErrors, path string) {
@@ -99,4 +102,32 @@ func (m MetadataACLConfig) validate(v *validate.ValidationErrors, path string) {
 		}
 	}
 
+}
+func (tmc TagMeaningConfig) validate(v *validate.ValidationErrors, path string) {
+	if tmc.Threshold == 0 {
+		err := fmt.Errorf("threshold: must set")
+		validate.LogConfigError(path, nil, err)
+		v.Add(err)
+	}
+	tmc.MeaningMap.validate(v, path+"/map")
+}
+func (tm TagMeaningMap) validate(v *validate.ValidationErrors, path string) {
+	if len(tm) == 0 {
+		err := fmt.Errorf("must set")
+		validate.LogConfigError(path, nil, err)
+		v.Add(err)
+		return
+	}
+	for k, val := range tm {
+		if !IsValidTagMeaning((k)) {
+			err := fmt.Errorf("key: invalid meaning")
+			validate.LogConfigError(path, k, err)
+			v.Add(err)
+		}
+		if len(val) == 0 {
+			err := fmt.Errorf("value: empty list")
+			validate.LogConfigError(path+"/"+string(k), nil, err)
+			v.Add(err)
+		}
+	}
 }

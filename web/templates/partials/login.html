@@ -6,14 +6,8 @@
       Guest
     {{- end -}}
   </div>
-  {{- if eq .Role "admin" -}}
-    <div class="fa-solid fa-user-shield status status--admin"
-       aria-label="Admin"></div>
-  {{- else if eq .Role "user" -}}
-    <div class="fa-solid fa-user-check status status--user"
-       aria-label="User"></div>
-  {{- else -}}
-    <div class="fa-solid fa-user status status--guest"
-       aria-label="Guest"></div>
-  {{- end -}}
+  {{ template "icon" (i
+    (printf "status.user.%s" .Role)
+    ""
+    "data" (printf "status status--%s" .Role))}}
 </div>

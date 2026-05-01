@@ -9,19 +9,23 @@
     {{- template "partials/admin/action-rail.html" . -}}
     <div class="content">
         <div class="fs">
-            <div class="section"><div class="title"><span class="title-icon fa-solid fa-folder"></span>Directories</div></div>
+            <div class="section"><div class="title">
+                {{- template "icon" (i "page.admin.fs.directories" (t "page.admin.fs.directories") "title-icon") -}}
+                {{ t "page.admin.fs.directories"}}</div></div>
             {{- if .Dirs.Cards -}}
                 {{- template "partials/card-grid.html" .Dirs -}}
             {{- else -}}
-            <div class="not-found">No subdirectories</div>
+            <div class="not-found">{{ t "page.admin.fs.no_directories"}}</div>
             {{- end -}}
         </div>
         <div class="images">
-            <div class="section"><div class="title"><span class="title-icon fa-solid fa-image"></span>Images</div></div>
+            <div class="section"><div class="title">
+                {{- template "icon" (i "page.admin.fs.images" (t "page.admin.fs.images") "title-icon") -}}
+                {{ t "page.admin.fs.images"}}</div></div>
             {{- if .Images.Cards -}}
                 {{- template "partials/card-grid.html" .Images -}}
             {{- else -}}
-            <div class="not-found">No images</div>
+            <div class="not-found">{{ t "page.admin.fs.no_images"}}</div>
             {{- end -}}
 
         </div>

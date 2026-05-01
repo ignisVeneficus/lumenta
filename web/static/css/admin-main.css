@@ -430,10 +430,10 @@ form .error{
    SYNC
    ========================================================================== */
 
-.syncrun-page .col-icon .sync-finish{
+.syncrun-page .col-icon .sync-finished{
   color: var(--status-success);
 }
-.syncrun-page .col-icon .sync-error{
+.syncrun-page .col-icon .sync-failed{
   color: var(--status-failed);  ;
 }
 
@@ -539,13 +539,13 @@ form .error{
   color: var(--text-secondary);
 }
 
-.syncfile-page .icon.match{
+.syncfile-page .icon.match-true{
   color: var(--status-success);
 }
-.syncfile-page .icon.no-match{
+.syncfile-page .icon.match-false{
   color: var(--status-failed);
 }
-.syncfile-page .icon.unknow{
+.syncfile-page .icon.match-unknow{
   color: var(--text-secondary);
 }
 .syncfile-page .rules-block{

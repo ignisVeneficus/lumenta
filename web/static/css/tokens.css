@@ -40,6 +40,7 @@
   --font-size-section: var(--font-size-xl);  /* 20px */
   --font-size-ui: var(--font-size-md);       /* 16px */
   --font-size-meta: var(--font-size-sm);     /* 14px */
+  --font-size-small: var(--font-size-xs);
 
   --line-height-tight: 1.2;
   --line-height-normal: 1.5;

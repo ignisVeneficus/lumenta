@@ -6,11 +6,60 @@ import (
 )
 
 type PresentationConfig struct {
-	Templates            string            `yaml:"templates"`
-	Grid                 GridConfig        `yaml:"grid"`
+	// userd defined templates
+	Templates string `yaml:"templates"`
+	// config of the image grid, aka masonry
+	Grid GridConfig `yaml:"grid"`
+	// define minimal access level for metadata
 	MetadataACL          MetadataACLConfig `yaml:"metadata_acl"`
 	ConvertedMetadataACL MetadataACL       `yaml:"-"`
+
+	TagMeaningConfig *TagMeaningConfig `yaml:"tag_meaning"`
 }
+type TagMeaningConfig struct {
+	MeaningMap TagMeaningMap `yaml:"map"`
+	Threshold  int           `yaml:"threshold"`
+}
+
+type TagMeaningMap map[TagMeaning][]string
+
+type TagMeaning string
+
+const (
+	TagMeaningLocation TagMeaning = "location"
+	TagMeaningSubject  TagMeaning = "subject"
+	TagMeaningPeople   TagMeaning = "people"
+	TagMeaningProject  TagMeaning = "project"
+	TagMeaningMood     TagMeaning = "mood"
+	TagMeaningTime     TagMeaning = "time"
+	TagMeaningGear     TagMeaning = "gear"
+)
+
+var TagMeaningSet = map[TagMeaning]struct{}{
+	TagMeaningLocation: {},
+	TagMeaningSubject:  {},
+	TagMeaningPeople:   {},
+	TagMeaningProject:  {},
+	TagMeaningMood:     {},
+	TagMeaningTime:     {},
+	TagMeaningGear:     {},
+}
+
+var TagMeaningList = []TagMeaning{
+	TagMeaningLocation,
+	TagMeaningSubject,
+	TagMeaningPeople,
+	TagMeaningProject,
+	TagMeaningMood,
+	TagMeaningTime,
+	TagMeaningGear,
+}
+
+func IsValidTagMeaning(m TagMeaning) bool {
+	_, ok := TagMeaningSet[m]
+	return ok
+}
+
 type MetadataACLConfig map[dbo.ACLRole][]string
 
 type MetadataACL map[string]dbo.ACLRole

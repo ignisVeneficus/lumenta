@@ -1,12 +1,13 @@
 <div class="breadcrumbs">
     <a class="breadcrumb" href="/" title="{{ t "nav.page.home.label"}}">
-        <span class="fa-solid fa-house"></span></a>
+        {{ template "icon" (i "nav.page.public.home" (t "nav.page.home.label")) }}
+    </a>
 {{- $p:= "page" -}}
 {{- range $i, $v := . -}}
     {{- if eq $v.Type $p -}}
-        <span class="sep fa-solid fa-angle-right"></span>
+        {{ template "icon" (i "ui.breadcrumbs.separator" "" "sep") }}
     {{- else -}}
-        <span class="sep fa-solid fa-angles-right"></span>
+        {{ template "icon" (i "ui.breadcrumbs.heavy_separator" "" "sep") }}
     {{- end -}}
     {{- if $v.Link -}}
         <a class="breadcrumb" href="{{$v.Link}}" title="{{$v.Title}}">{{$v.Label}}</a>

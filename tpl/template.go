@@ -12,17 +12,80 @@ import (
 	"strings"
 	"time"
 
+	"github.com/goccy/go-yaml"
 	"github.com/ignisVeneficus/lumenta/internal/i18n"
 	"github.com/ignisVeneficus/lumenta/internal/locale"
 	"github.com/ignisVeneficus/lumenta/logging"
+	"github.com/ignisVeneficus/lumenta/tpl/data"
 )
 
 var (
-	baseRoot = "web/templates"
+	baseRoot    = "web/templates"
+	iconMapFile = "/def/icons.yaml"
 )
 
 type TemplateResolver struct {
 	pages map[string]*template.Template
+}
+
+func flattenMap(prefix string, input map[string]any, out map[string]string) {
+	for k, v := range input {
+		key := k
+		if prefix != "" {
+			key = prefix + "." + k
+		}
+
+		switch val := v.(type) {
+		case string:
+			out[key] = val
+
+		case map[string]any:
+			flattenMap(key, val, out)
+
+		default:
+
+		}
+	}
+}
+
+func loadYamlMapFile(ctx context.Context, file string) (data.IconMap, error) {
+	logg := logging.Enter(ctx, "template.iconmap.load.yaml", map[string]any{"file": file})
+
+	b, err := os.ReadFile(file)
+	if err != nil {
+		logging.ExitErr(logg, err)
+		return nil, err
+	}
+	var data map[string]any
+	if err := yaml.Unmarshal(b, &data); err != nil {
+		logging.ExitErr(logg, err)
+		return nil, err
+	}
+	flat := map[string]string{}
+	flattenMap("", data, flat)
+	logging.Exit(logg, "ok", map[string]any{"found": len(flat)})
+	return flat, nil
+}
+
+func loadIconMap(ctx context.Context, userRoot string) (data.IconMap, error) {
+	logg := logging.Enter(ctx, "template.iconmap.load", map[string]any{"root": baseRoot, "user_root": userRoot})
+	iconMap, err := loadYamlMapFile(ctx, baseRoot+iconMapFile)
+	if err != nil {
+		logging.ExitErr(logg, err)
+		return iconMap, err
+	}
+	if userRoot != "" {
+		usermap, err := loadYamlMapFile(ctx, userRoot+iconMapFile)
+		if err != nil && !os.IsNotExist(err) {
+			logging.ExitErr(logg, err)
+			return nil, err
+		}
+		for k, v := range usermap {
+			iconMap[k] = v
+		}
+	}
+	logging.Exit(logg, "ok", map[string]any{"found": len(iconMap)})
+	return iconMap, nil
 }
 
 func collectTemplates(ctx context.Context, root string) (map[string]string, error) {
@@ -62,7 +125,7 @@ func collectTemplates(ctx context.Context, root string) (map[string]string, erro
 	return result, err
 }
 
-func NewTemplateResolver(ctx context.Context, userRoot string, funcMaps ...template.FuncMap) (*TemplateResolver, error) {
+func NewTemplateResolver(ctx context.Context, userRoot string, i18n *i18n.Service) (*TemplateResolver, error) {
 	logg := logging.Enter(ctx, "template.resolver.create", map[string]any{"user_root": userRoot})
 	allTpls, err := collectTemplates(ctx, baseRoot)
 	if err != nil {
@@ -81,13 +144,13 @@ func NewTemplateResolver(ctx context.Context, userRoot string, funcMaps ...templ
 		}
 	}
 
-	// 3. funcmap merge
-	mergedFuncMap := template.FuncMap{}
-	for _, fm := range funcMaps {
-		for k, v := range fm {
-			mergedFuncMap[k] = v
-		}
+	iconMap, err := loadIconMap(ctx, userRoot)
+	if err != nil {
+		logging.ExitErr(logg, err)
+		return nil, err
 	}
+
+	funcMap := DefaultFuncMap(i18n, iconMap)
 
 	baseTpls := map[string]string{}
 	pageTpls := map[string]string{}
@@ -104,7 +167,7 @@ func NewTemplateResolver(ctx context.Context, userRoot string, funcMaps ...templ
 		}
 	}
 
-	base := template.New("").Funcs(mergedFuncMap)
+	base := template.New("").Funcs(funcMap)
 
 	for name, content := range baseTpls {
 		if _, err := base.New(name).Parse(content); err != nil {
@@ -145,7 +208,7 @@ func (r *TemplateResolver) RenderPage(w io.Writer, page string, ctx any, loc str
 	if err != nil {
 		return err
 	}
-
+	// override, enclose the actual language into the func map
 	t = t.Funcs(template.FuncMap{
 		"formatTime": func(v time.Time) string {
 			return locale.FormatTime(v, loc)

@@ -1,4 +1,15 @@
 data:
+  acl:
+    level:
+      l0:
+        short: "Public"
+        label: "Visible to everyone"
+      l1:
+        short: "Users"
+        label: "Visible to logged-in users"
+      l2:
+        short: "Admin"
+        label: "Visible to administrators only"
   sync_files:
     status:
       deleted:
@@ -38,42 +49,84 @@ data:
       forced_refresh:
         short: "Forced"
         label: "Forced update requested"
+  sync_runs:
+    status:
+      running:
+        short: "Running"
+        label: "Synchronization in progress"
+      finished:
+        short: "Finished"
+        label: "Synchronization completed successfully"
+      failed:
+        short: "Failed"
+        label: "Synchronization failed"
   image:
     focus:
       auto:
-        short: Auto
-        label: Focus determined automatically
+        short: "Auto"
+        label: "Focus determined automatically"
       manual:
-        short: Manual
-        label: Focus set manually
+        short: "Manual"
+        label: "Focus set manually"
       center:
-        short: Center
-        label: Focus in the center of the image
+        short: "Center"
+        label: "Focus in the center of the image"
       top:
-        short: Top
-        label: Focus on the top area of the image
+        short: "Top"
+        label: "Focus on the top area of the image"
       bottom:
-        short: Bottom
-        label: Focus on the bottom area of the image
+        short: "Bottom"
+        label: "Focus on the bottom area of the image"
       left:
-        short: Left
-        label: Focus on the left side of the image
+        short: "Left"
+        label: "Focus on the left side of the image"
       right:
-        short: Right
-        label: Focus on the right side of the image
+        short: "Right"
+        label: "Focus on the right side of the image"
+      x: "X"
+      y: "Y"
     aspect:
       normal:
-        short: Square
-        label: Square image
+        short: "Square"
+        label: "Square image"
       tall:
-        short: Portrait
-        label: Portrait orientation (taller than wide)
+        short: "Portrait"
+        label: "Portrait orientation (taller than wide)"
       landscape:
-        short: Landscape
-        label: Landscape orientation (wider than tall)
+        short: "Landscape"
+        label: "Landscape orientation (wider than tall)"
       panorama:
-        short: Panorama
-        label: Panorama (very wide image)
+        short: "Panorama"
+        label: "Panorama (very wide image)"
+  auth:
+    role:
+      guest: "Guest"
+      user: "User"
+      admin: "Aministrator"
+  tag:
+    meaning:
+      location:
+        short: "Place"
+        label: "Location"
+      subject:
+        short: "Subject"
+        label: "Subject"
+      people:
+        short: "People"
+        label: "People"
+      project:
+        short: "Project"
+        label: "Project"
+      mood:
+        short: "Mood"
+        label: "Mood"
+      time:
+        short: "Time"
+        label: "Time"
+      gear:
+        short: "Gear"
+        label: "Equipment"
+
 ruleengine:
   rule:
     rule_op:
@@ -152,9 +205,9 @@ ruleengine:
       panorama: "Panorama detection"
       acl: "Access control assignment"
     result: "Result"
-    result-value:
-      match: "Match"
-      no-match: "No Match"
+    result_value:
+      "true": "Match"
+      "false": "No match"
       unknow: "Unknow"
     rule: "Rule"
     op: "Operator"
@@ -181,14 +234,76 @@ ruleengine:
       true: "Yes"
       false: "No"
       unknow: "Unknow"
+action:
+  ctx:
+    tags:
+      short: "Tags"
+      label: "View tags in this collection"
+  common:
+    save:
+      short: "Save"
+      label: "Save changes"
+    cancel:
+      short: "Cancel"
+      label: "Cancel and discard changes"
+    delete:
+      short: "Delete"
+      label: "Delete item"
+    delete_selected:
+      short: "Delete selected"
+      label: "Delete selected items"
+    add_rule:
+      short: "Add rule"
+      label: "Add a new rule"
+    search:
+      short: "Search"
+      label: "Search"
+  public:
+    image:
+      next:
+        short: "Next"
+        label: "Go to next image"
+      prev:
+        short: "Previous"
+        label: "Go to previous image"
+      back:
+        short: "Back"
+        label: "Back to collection"
+      fullscreen_on:
+        short: "Fullscreen"
+        label: "Enter fullscreen mode"
+      fullscreen_off:
+        short: "Exit fullscreen"
+        label: "Exit fullscreen mode"
+      toggle_info:
+        short: "Info"
+        label: "Show or hide image details"
+      toggle_slideshow:
+        short: "Slideshow"
+        label: "Start or stop slideshow"
+      open_admin:
+        short: "Admin"
+        label: "Open image in administration"
 page:
   common:
+    #kirakni
     search: "Search"
     filter: "Filter"
     name: "Name"
+    description: "Description"
+  pagination:
+    page_of:
+      prefix: "Page"
+      suffix: "of {total}"
+  footer:
+    powered: "Powered by"
+  public:
+    tags:
+      nr_images: "{count} photos"
   admin:
     common:
       no_records: "No records found"
+      acl_settings: "ACL Settings"      
     sync:
       path:
         short: "Image"
@@ -220,7 +335,6 @@ page:
         history: "History"
         display: "Display"
         location: "Location"
-        acl_settings: "ACL Settings"
         focus_settings: "Focus Settings"
         cover: "Used as Album Cover"
         actions: "Actions"
@@ -238,12 +352,31 @@ page:
         sidecard:
           yes: "Sidecar file detected."
           no: "No sidecar file detected."
+    album:
+      cover_placeholder: "No cover image"
+      parent_album: "Parent album"
+      rules: "Rules"
+    fs:
+      directories: "Directories"
+      no_directories: "No subdirectories"
+      images: "Images"
+      no_images: "No images"
 
 nav:
   page:
     home:
       short: "Home"
       label: "Go to home"
+    public:
+      albums:
+        short: "Albums"
+        label: "Browse albums"
+      tags:
+        short: "Tags"
+        label: "Browse images by tags"
+      admin:
+        short: "Admin"
+        label: "Go to administration"
     admin:
       home:
         short: "Admin"
@@ -291,7 +424,7 @@ nav:
       short: Go
       label: Go to page
   tree:
-    toogle: "Toggle"
+    toggle: "Toggle"
 common:
   duration:
     second:

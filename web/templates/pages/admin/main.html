@@ -2,7 +2,8 @@
 <div class="content admin-main">
     {{ range .Cards }}
     <div class="card">
-        <a href="{{ .URL }}"><i class="icon {{ .Icon }}" title {{.IconTitle}}></i>
+        <a href="{{ .URL }}">
+            {{template "icon" (i .IconKey .IconTitle)}}
         <div class="label">{{ .Title }}</div>
         <div class="stats">
             {{ range .Stats }}

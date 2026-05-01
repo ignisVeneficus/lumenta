@@ -1,0 +1,9 @@
+  <label class="{{.Class}} radio-item">
+    <div class="radio-row">
+      <input type="radio" name="{{.Name}}" value="{{.Value}}"
+      {{ if eq .Current .Value }}checked{{ end }}
+      >
+      {{ template "icon" (i .Icon .IconTitle)}}
+      <span>{{ .Label }}</span>
+    </div>
+  </label>

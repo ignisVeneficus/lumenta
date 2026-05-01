@@ -1,80 +1,74 @@
 <fieldset class="focus-group radio-group">
-  <label class="focus-item radio-item">
-    <div class="radio-row">
-      <input type="radio" name="focus" value="top"
-      {{ if eq .Image.FocusMode "top" }}checked{{ end }}
-      >
-      <i class="fa-solid fa-arrows-up-to-line"></i>
-      <span>Top</span>
-    </div>
-  </label>
-
-  <label class="focus-item radio-item">
-    <div class="radio-row">
-      <input type="radio" name="focus" value="bottom"
-      {{ if eq .Image.FocusMode "bottom" }}checked{{ end }}
-      >
-      <i class="fa-solid fa-arrows-down-to-line"></i>
-      <span>Bottom</span>
-    </div>
-  </label>
-
-  <label class="focus-item radio-item">
-    <div class="radio-row">
-      <input type="radio" name="focus" value="left"
-      {{ if eq .Image.FocusMode "left" }}checked{{ end }}
-      >
-      <i class="fa-solid fa-arrows-up-to-line rotate-270"></i>
-      <span>Left</span>
-    </div>
-  </label>
-
-  <label class="focus-item radio-item">
-    <div class="radio-row">
-      <input type="radio" name="focus" value="right"
-      {{ if eq .Image.FocusMode "right" }}checked{{ end }}
-      >
-      <i class="fa-solid fa-arrows-down-to-line rotate-270"></i>
-      <span>Right</span>
-    </div>
-  </label>
-
-  <label class="focus-item radio-item">
-    <div class="radio-row">
-      <input type="radio" name="focus" value="center"
-      {{ if eq .Image.FocusMode "center" }}checked{{ end }}
-      >
-      <i class="fa-solid fa-bullseye"></i>
-      <span>Center</span>
-    </div>
-  </label>
+  {{ template "partials/admin/radio-button.html" (dict
+    "Current" .Image.FocusMode
+    "Class" "focus-item"
+    "Name" "focus"
+    "Value" "top"
+    "Icon" "data.image.focus.top"
+    "IconTitle" (t "data.image.focus.top.label")
+    "Label" (t "data.image.focus.top.short")
+  )}}
+  {{ template "partials/admin/radio-button.html" (dict
+    "Current" .Image.FocusMode
+    "Class" "focus-item"
+    "Name" "focus"
+    "Value" "bottom"
+    "Icon" "data.image.focus.bottom"
+    "IconTitle" (t "data.image.focus.bottom.label")
+    "Label" (t "data.image.focus.bottom.short")
+  )}}
+  {{ template "partials/admin/radio-button.html" (dict
+    "Current" .Image.FocusMode
+    "Class" "focus-item"
+    "Name" "focus"
+    "Value" "left"
+    "Icon" "data.image.focus.left"
+    "IconTitle" (t "data.image.focus.left.label")
+    "Label" (t "data.image.focus.left.short")
+  )}}
+  {{ template "partials/admin/radio-button.html" (dict
+    "Current" .Image.FocusMode
+    "Class" "focus-item"
+    "Name" "focus"
+    "Value" "right"
+    "Icon" "data.image.focus.right"
+    "IconTitle" (t "data.image.focus.right.label")
+    "Label" (t "data.image.focus.right.short")
+  )}}
+  {{ template "partials/admin/radio-button.html" (dict
+    "Current" .Image.FocusMode
+    "Class" "focus-item"
+    "Name" "focus"
+    "Value" "center"
+    "Icon" "data.image.focus.center"
+    "IconTitle" (t "data.image.focus.center.label")
+    "Label" (t "data.image.focus.center.short")
+  )}}
 
   <label class="focus-item focus-manual radio-item">
     <div class="radio-row">
       <input type="radio" name="focus" value="manual"
       {{ if eq .Image.FocusMode "manual" }}checked{{ end }}
       >
-      
-      <i class="fa-solid fa-crosshairs"></i>
-      <span>Manual</span>
+      {{ template "icon" (i "data.image.focus.manual" (t "data.image.focus.manual.label"))}}
+      <span>{{ t "data.image.focus.manual.short" }}</span>
     </div>
     <div class="manual-focus data-table radio-option">
-      <label>X:</label>
+      <label>{{ t "data.image.focus.x" }}</label>
       <input type="text" name="focusX"/>
-      <label>Y:</label>
+      <label>{{ t "data.image.focus.y" }}</label>
       <input type="text" name="focusY"/>
-      <button>Set</button>
     </div>
   </label>
+  {{ template "partials/admin/radio-button.html" (dict
+    "Current" .Image.FocusMode
+    "Class" "focus-item"
+    "Name" "focus"
+    "Value" "auto"
+    "Icon" "data.image.focus.auto"
+    "IconTitle" (t "data.image.focus.auto.label")
+    "Label" (t "data.image.focus.auto.short")
+  )}}
 
-  <label class="focus-item radio-item">
-    <div class="radio-row">
-      <input type="radio" name="focus" value="auto"
-      {{ if eq .Image.FocusMode "auto" }}checked{{ end }}
-      >
-      <i class="fa-solid fa-wand-magic-sparkles"></i>
-      <span>Automatic</span>
-    </div>
-  </label>
 
 </fieldset>
