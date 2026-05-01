@@ -20,45 +20,6 @@ CREATE TABLE IF NOT EXISTS users (
 ) ENGINE=InnoDB COMMENT='Application users';
 
 -- =========================================================
--- ALBUMS (categories)
--- =========================================================
-
-CREATE TABLE IF NOT EXISTS albums (
-  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY 
-    COMMENT 'Album unique identifier',
-  parent_id BIGINT UNSIGNED NULL 
-    COMMENT 'Parent album ID (NULL for root albums)',
-  name VARCHAR(255) NOT NULL 
-    COMMENT 'Display name of the album',
-  description TEXT NULL 
-    COMMENT 'Optional longer album description',
-  ancestor_ids JSON NOT NULL 
-    COMMENT 'Materialized path: ordered list of ancestor album IDs including self',
-  rule_json JSON NOT NULL 
-    COMMENT 'Serialized dynamic rule tree defining album contents',
-  rank INT NOT NULL DEFAULT 0 
-    COMMENT 'Sibling ordering index within the same parent album',
-  cover_image_id BIGINT UNSIGNED NULL 
-    COMMENT 'Optional fixed cover image overriding automatic selection',
-  child_album_count INT UNSIGNED NOT NULL DEFAULT 0 
-    COMMENT 'Cached recursive count of child albums',
-  image_count INT UNSIGNED NOT NULL DEFAULT 0
-    COMMENT 'Cached recursive count of images in this album',
-  acl_level INT NOT NULL DEFAULT 0
-    COMMENT 'Album-level access control level',
-  acl_user_id BIGINT UNSIGNED DEFAULT 0
-    COMMENT 'User ID for user-level album access, 0: not set',
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-    COMMENT 'Last modification timestamp',
-  FOREIGN KEY (parent_id) REFERENCES albums(id) ON DELETE CASCADE,
-  FOREIGN KEY (cover_image_id) REFERENCES images(id) ON DELETE SET NULL,
-
-  INDEX idx_albums_parent (parent_id),
-  INDEX idx_albums_acl (acl_level, acl_user_id),
-  INDEX idx_albumc_cover (cover_image_id)
-) ENGINE=InnoDB COMMENT='Hierarchical albums with dynamic rule-based contents';
-
--- =========================================================
 -- IMAGES
 -- =========================================================
 
@@ -158,6 +119,46 @@ CREATE TABLE IF NOT EXISTS images (
   INDEX idx_hash_order (acl_level, acl_user_id, file_hash, id),
   INDEX ixd_last_seen (last_seen_sync)
 ) ENGINE=InnoDB COMMENT='Images with filesystem identity, metadata, and ACL';
+
+
+-- =========================================================
+-- ALBUMS (categories)
+-- =========================================================
+
+CREATE TABLE IF NOT EXISTS albums (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY 
+    COMMENT 'Album unique identifier',
+  parent_id BIGINT UNSIGNED NULL 
+    COMMENT 'Parent album ID (NULL for root albums)',
+  name VARCHAR(255) NOT NULL 
+    COMMENT 'Display name of the album',
+  description TEXT NULL 
+    COMMENT 'Optional longer album description',
+  ancestor_ids JSON NOT NULL 
+    COMMENT 'Materialized path: ordered list of ancestor album IDs including self',
+  rule_json JSON NOT NULL 
+    COMMENT 'Serialized dynamic rule tree defining album contents',
+  rank INT NOT NULL DEFAULT 0 
+    COMMENT 'Sibling ordering index within the same parent album',
+  cover_image_id BIGINT UNSIGNED NULL 
+    COMMENT 'Optional fixed cover image overriding automatic selection',
+  child_album_count INT UNSIGNED NOT NULL DEFAULT 0 
+    COMMENT 'Cached recursive count of child albums',
+  image_count INT UNSIGNED NOT NULL DEFAULT 0
+    COMMENT 'Cached recursive count of images in this album',
+  acl_level INT NOT NULL DEFAULT 0
+    COMMENT 'Album-level access control level',
+  acl_user_id BIGINT UNSIGNED DEFAULT 0
+    COMMENT 'User ID for user-level album access, 0: not set',
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    COMMENT 'Last modification timestamp',
+  FOREIGN KEY (parent_id) REFERENCES albums(id) ON DELETE CASCADE,
+  FOREIGN KEY (cover_image_id) REFERENCES images(id) ON DELETE SET NULL,
+
+  INDEX idx_albums_parent (parent_id),
+  INDEX idx_albums_acl (acl_level, acl_user_id),
+  INDEX idx_albumc_cover (cover_image_id)
+) ENGINE=InnoDB COMMENT='Hierarchical albums with dynamic rule-based contents';
 
 -- =========================================================
 -- ALBUM <-> IMAGE RELATION

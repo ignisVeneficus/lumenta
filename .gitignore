@@ -29,4 +29,6 @@
 
 # config files
 config.yaml
+config-large.yaml
 log.config
+log-large.config
