@@ -335,14 +335,19 @@ filesystem:
   originals:
     main:
       root: "/mnt/photos"
-      excluded:
+      excluded_paths:
         - "tmp"
         - "exports"
         - "private/unlisted"
+      excluded_dir_names:
+        - ".dtrash"
+        - ".git"
     archive:
       root: "/mnt/archive"
-      excluded:
+      excluded_paths:
         - "incoming"
+      excluded_dir_names:
+        - ".dtrash"
   derivatives: "/var/lib/lumenta/derivatives"
 ```
 
@@ -352,7 +357,7 @@ filesystem:
 
 - has a unique name (the map key)
 - points to an absolute directory path (`root`)
-- can declare excluded subdirectories (`excluded`) relative to that root
+- can declare exclusion rules for directories
 
 A root entry looks like:
 
@@ -360,8 +365,10 @@ A root entry looks like:
 originals:
   <rootName>:
     root: "/absolute/path"
-    excluded:
+    excluded_paths:
       - "relative/path/to/skip"
+    excluded_dir_names:
+      - "directoryName"
 ```
 
 #### root name
@@ -394,27 +401,94 @@ root: "/mnt/photos"
 root: "/srv/storage/photos"
 ```
 
-#### excluded
+#### excluded_paths
 
-List of subdirectories to skip during scanning.
+List of directory paths to skip during scanning.
 
-All entries must be paths relative to the root.
+- Paths must be relative to the root.
+- Entries must refer to directories (not files).
+- Matching is exact on directory boundaries.
 
 Examples:
 
 ```
-excluded:
+excluded_paths:
   - "tmp"
   - "exports"
   - "private/unlisted"
   - "2023/Rejected"
 ```
 
+Behavior:
+
+- If a directory matches an excluded path, it is skipped entirely.
+- All contents under that directory are ignored.
+
+Example:
+
+```
+excluded_paths:
+  - "private/unlisted"
+```
+
+Skips:
+
+- `/mnt/photos/private/unlisted/`
+- `/mnt/photos/private/unlisted/...`
+
 Notes:
 
 - Exclusions apply only within the given root.
 - Use relative paths (do not start with `/`).
-- Excluded directories are not scanned and their contents are ignored.
+
+#### excluded_dir_names
+
+List of directory names to exclude globally within the root.
+
+- Matches are applied to directory names only (not full paths).
+- If any directory in the path has a matching name, the entire subtree is skipped.
+
+Examples:
+
+```
+excluded_dir_names:
+  - ".dtrash"
+  - ".git"
+  - "@eaDir"
+```
+
+Behavior:
+
+- If a directory name matches, scanning does not descend into it.
+- Applies regardless of location in the directory tree.
+
+Example:
+
+```
+excluded_dir_names:
+  - ".dtrash"
+```
+
+Skips:
+
+- `/mnt/photos/.dtrash/`
+- `/mnt/photos/2024/Iceland/.dtrash/`
+- `/mnt/photos/a/b/c/.dtrash/`
+
+### Directory-only semantics
+
+Both `excluded_paths` and `excluded_dir_names` apply to directories only.
+
+- Files are never matched directly by exclusion rules.
+- Exclusions prevent traversal into directories.
+
+### Evaluation behavior
+
+Exclusions are applied during directory traversal.
+
+- If a directory matches any exclusion rule:
+  - it is not scanned
+  - its contents are never processed
 
 ### derivatives
 
@@ -439,7 +513,6 @@ Filesystem paths are not directly mapped to HTTP endpoints:
 - Original files are never served directly and cannot be accessed via URL.
 - The derivatives directory is not exposed as a static file server.
   They are only served through Lumenta’s image endpoints using image IDs, and only after ACL checks succeed.
-
 ---
 
 ## Authentication

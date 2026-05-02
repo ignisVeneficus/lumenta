@@ -20,7 +20,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func walkDirHandler(ctx *PipelineContext, rootName, realPath string, d fs.DirEntry, err error) error {
+func walkDirHandler(ctx *PipelineContext, rootName, root string, excludedDirNames, excludedPaths map[string]struct{}, realPath string, d fs.DirEntry, err error) error {
 
 	if err != nil {
 		return err
@@ -32,20 +32,31 @@ func walkDirHandler(ctx *PipelineContext, rootName, realPath string, d fs.DirEnt
 	default:
 	}
 
-	root, ok := ctx.RootPath[rootName]
-	if !ok {
+	realPath = filepath.ToSlash(realPath)
+
+	rel, err := filepath.Rel(root, realPath)
+	rel = filepath.ToSlash(rel)
+	if err != nil {
+		return err
+	}
+	if rel == ".." || strings.HasPrefix(rel, "../") {
 		return nil
 	}
-
-	realPath = filepath.ToSlash(realPath)
-	fullPath := strings.TrimPrefix(strings.TrimPrefix(realPath, root.Root), "/")
+	fullPath := rel
+	if fullPath == "." {
+		fullPath = ""
+	}
 
 	if d.IsDir() {
-		for _, excl := range root.Excluded {
-			if strings.HasPrefix(fullPath, excl) {
-				log.Logger.Info().Str("path", realPath).Str("name", rootName).Msg("Skipped for sync")
-				return filepath.SkipDir
-			}
+		name := d.Name()
+		if _, ok := excludedDirNames[name]; ok {
+			log.Logger.Info().Str("path", realPath).Str("name", rootName).Msg("Skipped for sync")
+			return filepath.SkipDir
+
+		}
+		if _, ok := excludedPaths[fullPath]; ok {
+			log.Logger.Info().Str("path", realPath).Str("name", rootName).Msg("Skipped for sync")
+			return filepath.SkipDir
 		}
 		return nil
 	}
@@ -80,7 +91,7 @@ func walkDirHandler(ctx *PipelineContext, rootName, realPath string, d fs.DirEnt
 	}
 
 	ctx.Out <- WorkItem{
-		RootPath:         root.Root,
+		RootPath:         root,
 		RootName:         rootName,
 		Path:             path,
 		RealPath:         realPath,
@@ -98,8 +109,18 @@ func fSWorker(ctx *PipelineContext) error {
 	logg := logging.Enter(ctx.Ctx, "image.sync.fsWalker", nil)
 
 	for rootName, rootConfig := range ctx.RootPath {
+
+		excludedDirNames := make(map[string]struct{})
+		for _, n := range rootConfig.ExcludedDirs {
+			excludedDirNames[n] = struct{}{}
+		}
+		excludedPath := make(map[string]struct{})
+		for _, n := range rootConfig.ExcludedPath {
+			excludedPath[n] = struct{}{}
+		}
+
 		err := filepath.WalkDir(rootConfig.Root, func(path string, d fs.DirEntry, err error) error {
-			return walkDirHandler(ctx, rootName, path, d, err)
+			return walkDirHandler(ctx, rootName, rootConfig.Root, excludedDirNames, excludedPath, path, d, err)
 		})
 		if err != nil {
 			logging.ExitErr(logg, err)

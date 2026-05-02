@@ -8,6 +8,7 @@ type FilesystemConfig struct {
 }
 type RootConfigs map[string]RootConfig
 type RootConfig struct {
-	Root     string   `yaml:"root"`
-	Excluded []string `yaml:"excluded"`
+	Root         string   `yaml:"root"`
+	ExcludedPath []string `yaml:"excluded_path"`
+	ExcludedDirs []string `yaml:"excluded_dir_names"`
 }

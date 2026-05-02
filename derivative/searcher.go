@@ -2,6 +2,7 @@ package derivative
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	authData "github.com/ignisVeneficus/lumenta/auth/data"
@@ -60,7 +61,10 @@ func GetDerivativesPathWithACL(ctx context.Context, acl authData.ACLContext, ima
 	service := Get()
 	ok, err = service.Submit(job)
 	if err != nil {
-		logging.ExitErr(logg, err)
+		if !errors.Is(err, ErrDuplicate) {
+			logging.ExitErr(logg, err)
+			return outPath, err
+		}
 	}
 	logging.Exit(logg, "create", map[string]any{"path": outPath})
 	return outPath, nil

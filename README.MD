@@ -163,6 +163,26 @@ Admin interface:
 
 These components provide the foundation for browsing and interacting with the indexed collection, while higher-level UI features and refinements will evolve over time.
 
+## Performance (typical photography setup)
+
+Test setup:
+- ~32,000 images
+- ~20 MB average TIFF files
+- stored on a NAS (network storage, not local disk)
+- metadata-based filtering (e.g. EXIF rating)
+- metadata extracted via exiftool (stay_open mode)
+
+Initial sync (cold start, empty database):
+- scanned files: 32,000
+- imported into database: ~12,000
+- total time: ~1h 8m
+
+Notes:
+- Filtering relies on image metadata, so each file must be opened and inspected
+- With large TIFF files stored on a NAS, performance is primarily bound by IO (network + disk)
+- This represents a worst-case scenario with full metadata extraction and no caching
+- Subsequent (incremental) runs are significantly faster due to change detection
+
 ## Showcase
 
 ### Main page

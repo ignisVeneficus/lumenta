@@ -17,9 +17,13 @@ func (m FilesystemConfig) Validate(v *validate.ValidationErrors, confPath string
 	}
 	for name, conf := range m.Originals {
 		validate.CheckDir(fmt.Sprintf("%s/originals[%s]/root", confPath, name), conf.Root, true, v)
-		for i, exclude := range conf.Excluded {
+		for i, exclude := range conf.ExcludedPath {
 			exPath := path.Join(conf.Root, exclude)
-			validate.CheckDir(fmt.Sprintf("%s/originals[%s]/excluded[%d]", confPath, name, i), exPath, false, v)
+			validate.CheckDir(fmt.Sprintf("%s/originals[%s]/excluded_path[%d]", confPath, name, i), exPath, false, v)
+		}
+		for i, excluded := range conf.ExcludedDirs {
+			validate.LogConfigOK(fmt.Sprintf("%s/originals[%s]/excluded_dir[%d]", confPath, name, i), excluded)
 		}
 	}
+
 }

@@ -152,6 +152,15 @@ func Exit(logg zerolog.Logger, result string, params map[string]any) {
 	e.Msg("")
 }
 
+// ExitWarn closes a function scope with an Warning result.
+func ExitWarn(logg zerolog.Logger, err error) {
+	logg.Warn().
+		Str(FieldEvent, "func.exit").
+		Str(FieldResult, "warning").
+		Err(err).
+		Msg("")
+}
+
 // ExitErr closes a function scope with an error result.
 func ExitErr(logg zerolog.Logger, err error) {
 	logg.Error().

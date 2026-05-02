@@ -286,7 +286,7 @@ CREATE TABLE IF NOT EXISTS sync_files (
   INDEX idx_sync_files_sync (sync_id),
   INDEX idx_sync_files_file_history (root, path, filename, ext),
   INDEX idx_sync_files_sync_path ( sync_id, root, path, filename, ext),
-
+  INDEX idx_sync_files_order (root, path, filename, ext, created_at DESC),
   CONSTRAINT fk_sync_files_run
     FOREIGN KEY (sync_id) REFERENCES sync_runs(id)
     ON DELETE CASCADE

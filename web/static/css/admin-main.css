@@ -54,18 +54,22 @@
 /* ==========================================================================
    IMAGE BROWSER 
    ========================================================================== */
-.images .card .description[data="Public"]{
-
-}
+.images .card .description[data="Public"]::before,
 .images .card .description[data="Users"]::before,
-.acl-label[data-acl^="User:"]::before {
-  content: "\f023";
+.images .card .description[data="Admin"]::before{
+
   font-family: var(--font-fa);
   display: inline-block;
   text-rendering: auto;
   -webkit-font-smoothing: antialiased;
   font-weight: var(--font-weight-fa);
   margin-right: var(--size-2);
+}
+
+.images .card .description[data="Users"]::before {
+  content: "\f023";
+  font-size: var(--font-size-meta);
+  color: var(--text-secondary);
 }
 
 .fs .section,
