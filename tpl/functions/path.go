@@ -34,6 +34,10 @@ func AdminAlbumsPath() template.URL {
 	return template.URL(routes.CreateAdminAlbumsPath())
 }
 
+func AdminAlbumNewPath() template.URL {
+	return template.URL(routes.CreateAdminAlbumNewPath())
+}
+
 func AdminFsPath() template.URL {
 	return template.URL(routes.BuildAdminFsPath("").String())
 }

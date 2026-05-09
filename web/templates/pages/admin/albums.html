@@ -1,0 +1,28 @@
+{{ define "page-head" }}
+{{ end }}
+
+
+{{ define "main" }}
+<div class="breadcrumbs-wrapper">
+{{- with .Breadcrumbs }}
+    {{- template "partials/breadcrumbs.html" . -}}
+{{- end -}}
+</div>
+
+<div class="admin-layout albums-page">
+    {{- template "partials/admin/action-rail.html" . -}}
+
+    <div class="content">
+        <div class="action-row">
+            <a href="{{ adminAlbumNewPath }}" class="action label-button">
+                {{- template "icon" (i "action.admin.albums.new"
+                (t "action.admin.albums.new.label")
+                ) -}}
+                {{- t "action.admin.albums.new.label" -}}
+            </a>
+        </div>
+        {{ template "partials/admin/album-forest.html" .Albums.Roots }}
+    </div>
+</div>
+
+{{ end }}

@@ -44,7 +44,7 @@
         {{- end -}}
 
         {{- if eq .User.Role "admin" -}}
-        <a href="{{ adminImagePath .Image.Image.ID }}" class="action button admin-button accent">
+        <a href="{{ adminImagePath .Image.Image.ID }}" class="action button action-admin">
             {{- template "icon" (i "action.public.image.open_admin" (t "action.public.image.open_admin.label") "admin-icon") -}}
         </a>
         {{- end -}}        
@@ -122,7 +122,7 @@
                     {{- end -}}
 
                     <div class="tag-tree-box tree-wrapper">
-                        {{ template "partials/tag-forrest.html" .Image.Tags.Roots }}
+                        {{ template "partials/tag-forest.html" .Image.Tags.Roots }}
                     </div>
 
                 </div>

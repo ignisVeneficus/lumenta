@@ -8,17 +8,31 @@ import (
 	"github.com/ignisVeneficus/lumenta/ruleengine"
 )
 
+type StepName string
+
+const (
+	//WorkerFS WorkerName ="filesystem"
+	StepMetadata StepName = "metadata"
+	StepHash     StepName = "hash"
+)
+
+var ValidStepName = map[StepName]struct{}{
+	StepMetadata: {},
+	StepHash:     {},
+}
+
 type SyncConfig struct {
-	Paths                []PathFilterConfig    `yaml:"paths"`
-	Extensions           []string              `yaml:"extensions"` // ["jpg","jpeg","png","tif","tiff","heic"]
-	Metadata             MetadataConfig        `yaml:"metadata"`
-	Exiftool             ExiftoolConfig        `yaml:"exiftool"`
-	Panorama             *ruleengine.RuleGroup `yaml:"panorama"`
-	ACLRules             ACLRules              `yaml:"ACL_rules"`
-	ACLOverride          bool                  `yaml:"override_ACL_rules"`
-	NormalizedExtensions map[string]struct{}   `yaml:"-"`
-	MergedMetadata       MetadataConfig        `yaml:"-"`
-	MetadataHash         string                `yaml:"-"`
+	Paths                []PathFilterConfig      `yaml:"paths"`
+	Extensions           []string                `yaml:"extensions"` // ["jpg","jpeg","png","tif","tiff","heic"]
+	Metadata             MetadataConfig          `yaml:"metadata"`
+	Exiftool             ExiftoolConfig          `yaml:"exiftool"`
+	Panorama             *ruleengine.RuleGroup   `yaml:"panorama"`
+	ACLRules             ACLRules                `yaml:"ACL_rules"`
+	ACLOverride          bool                    `yaml:"override_ACL_rules"`
+	Pipeline             map[StepName]StepConfig `yaml:"pipeline"`
+	NormalizedExtensions map[string]struct{}     `yaml:"-"`
+	MergedMetadata       MetadataConfig          `yaml:"-"`
+	MetadataHash         string                  `yaml:"-"`
 }
 
 type PathFilterConfig struct {
@@ -53,4 +67,7 @@ type ACLRule struct {
 	Role  dbo.ACLRole             `yaml:"role"`
 	User  *string                 `yaml:"user"`
 	Rules []*ruleengine.RuleGroup `yaml:"rules"`
+}
+type StepConfig struct {
+	Workers uint16 `yaml:"workers"`
 }

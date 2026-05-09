@@ -1,6 +1,7 @@
 package data
 
 import (
+	"github.com/ignisVeneficus/lumenta/data"
 	"github.com/ignisVeneficus/lumenta/db/dbo"
 )
 
@@ -8,7 +9,7 @@ type PageImage struct {
 	Image     dbo.Image
 	SingleMap *SingleMap
 	Metadata  Metadata
-	Tags      Forrest
+	Tags      data.Forest[*ViewTreeNode]
 }
 
 type Metadata struct {

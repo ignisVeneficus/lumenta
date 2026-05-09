@@ -516,7 +516,7 @@
     function createSelected(state){
         state.selectedNodes = new Set();
         (state.selected || []).forEach(id => {
-            const node = state.nodeIds.get(id);
+            const node = state.nodeIds.get(String(id));
             if (node) {
                 state.selectedNodes.add(node);
             } else {

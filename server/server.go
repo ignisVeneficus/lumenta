@@ -79,6 +79,8 @@ func Server(cfg config.Config, i18n *i18n.Service) {
 
 		adminGrp.GET(routes.GetAdminImgPath(), admin.ImagePage(templatreResolver, cfg))
 
+		adminGrp.GET(routes.GetAdminAlbumsPath(), admin.AlbumsPage(templatreResolver, cfg))
+
 		adminGrp.GET(routes.GetAdminAlbumNewPath(), admin.NewAlbumPage(templatreResolver, cfg))
 		adminGrp.POST(routes.GetAdminAlbumNewPath(), admin.NewAlbumPage(templatreResolver, cfg))
 

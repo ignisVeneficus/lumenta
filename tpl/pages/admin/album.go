@@ -27,14 +27,14 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func createAlbumBreadcrumbs(lastItem string, lang string, i18n *i18n.Service) tplData.Breadcrumbs {
+func createAlbumBreadcrumbs(lastItem string, loc string, i18n *i18n.Service) tplData.Breadcrumbs {
 	return tplData.Breadcrumbs{
-		tpl.GetAdminMain(lang, i18n),
+		tpl.GetAdminMain(loc, i18n),
 		tplData.Breadcrumb{
-			Label: i18n.T(lang, "nav.page.admin.albums.short", nil),
+			Label: i18n.T(loc, "nav.page.admin.albums.short", nil),
 			Link:  template.URL(routes.CreateAdminAlbumsPath()),
 			Type:  "page",
-			Title: i18n.T(lang, "nav.page.admin.albums.label", nil),
+			Title: i18n.T(loc, "nav.page.admin.albums.label", nil),
 		},
 		tplData.Breadcrumb{
 			Label: lastItem,

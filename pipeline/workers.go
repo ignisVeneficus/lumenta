@@ -7,13 +7,12 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/ignisVeneficus/lumenta/data"
 	"github.com/ignisVeneficus/lumenta/db/dao"
 	"github.com/ignisVeneficus/lumenta/db/dbo"
+	"github.com/ignisVeneficus/lumenta/exif"
 	"github.com/ignisVeneficus/lumenta/logging"
-	"github.com/ignisVeneficus/lumenta/mapper"
 	"github.com/ignisVeneficus/lumenta/metadata"
 	"github.com/ignisVeneficus/lumenta/ruleengine"
 	"github.com/ignisVeneficus/lumenta/utils"
@@ -72,41 +71,31 @@ func walkDirHandler(ctx *PipelineContext, rootName, root string, excludedDirName
 		}
 	}
 	metaFile := realPath + ".xmp"
-	fileHash, err := utils.ComputeFileHash(realPath)
-	if err != nil {
-		return nil
-	}
-	metaHash, err := utils.ComputeFileHash(metaFile)
-	if err != nil {
-		if os.IsNotExist(err) {
-			metaHash = ""
-			metaFile = ""
-		} else {
-			return err
-		}
-	}
 
 	if ctx.Out == nil {
 		return nil
 	}
 
-	ctx.Out <- WorkItem{
-		RootPath:         root,
-		RootName:         rootName,
-		Path:             path,
-		RealPath:         realPath,
-		MetadataFile:     metaFile,
-		Ext:              normalisedExt,
-		Filename:         filename,
-		Info:             info,
-		FileHash:         fileHash,
-		FileMetadataHash: metaHash,
+	select {
+	case ctx.Out <- WorkItem{
+		RootPath:     root,
+		RootName:     rootName,
+		Path:         path,
+		RealPath:     realPath,
+		MetadataFile: metaFile,
+		Ext:          normalisedExt,
+		Filename:     filename,
+		Info:         info,
+	}:
+	case <-ctx.Ctx.Done():
+		return ctx.Ctx.Err()
 	}
+
 	return nil
 }
 
 func fSWorker(ctx *PipelineContext) error {
-	logg := logging.Enter(ctx.Ctx, "image.sync.fsWalker", nil)
+	logg := logging.Enter(ctx.Ctx, "pipeline.worker.fsWalker", nil)
 
 	for rootName, rootConfig := range ctx.RootPath {
 
@@ -130,11 +119,21 @@ func fSWorker(ctx *PipelineContext) error {
 	logging.Exit(logg, "ok", nil)
 	return nil
 }
+func convertAlbums(albums []uint64, ctx *PipelineContext) ruleengine.AlbumsStruct {
+	ret := make(ruleengine.AlbumsStruct)
+	for _, album := range albums {
+		as, ok := ctx.AlbumCtx.AlbumStructs[album]
+		if ok {
+			ret[album] = as
+		}
+	}
+	return ret
+}
 
 func dBLoopupByPathWorker(ctx *PipelineContext) error {
-	logg := logging.Enter(ctx.Ctx, "image.sync.DBLooklup", nil)
+	logg := logging.Enter(ctx.Ctx, "pipeline.worker.DBLooklup", nil)
 	if ctx.Database == nil {
-		err := fmt.Errorf("dBLoopupByPathWorker: DB is nil")
+		err := fmt.Errorf("DB is nil")
 		logging.ExitErr(logg, err)
 		return err
 	}
@@ -149,41 +148,53 @@ func dBLoopupByPathWorker(ctx *PipelineContext) error {
 			return ctx.Ctx.Err()
 		default:
 		}
-		logg := logging.Enter(ctx.Ctx, "pipeline.DBLooklup.job", map[string]any{
+		logg := logging.Enter(ctx.Ctx, "pipeline.worker.DBLooklup.job", map[string]any{
 			"path": job.RealPath,
 		})
-		image, err := dao.GetImageByPath(ctx.Database, ctx.Ctx, job.RootName, job.Path, job.Filename)
+		image, err := dao.GetImageByPath(ctx.Database, ctx.Ctx, job.RootName, job.Path, job.Filename, job.Ext)
 		switch {
 		case err == nil:
 			job.DBImage = &image
-			log.Logger.Info().Str("path", job.RealPath).Msg("Old image found")
-		case errors.Is(err, dao.ErrDataNotFound):
-			job.IsDirty = true
-			job.DirtyReason = data.DirtyNewfile
-			job.DBImage = &dbo.Image{
-				FocusMode: dbo.ImageFocusModeAuto,
-				ACLLevel:  dbo.DBACLLevelPublic,
+			setJobFromImage(&job)
+			albums, err := dao.QueryAlbumIDByImageID(ctx.Database, ctx.Ctx, *job.DBImage.ID)
+			if err != nil {
+				logging.ExitErr(logg, err)
+				return err
 			}
-
-			log.Logger.Info().Str("path", job.RealPath).Msg("New Image found")
-
+			job.Albums = convertAlbums(albums, ctx)
+		case errors.Is(err, dao.ErrDataNotFound):
+			filtered, err := dao.GetFilteredByPath(ctx.Database, ctx.Ctx, job.RootName, job.Path, job.Filename, job.Ext)
+			switch {
+			case err == nil:
+				setJobFromFiltered(&job, filtered)
+			case errors.Is(err, dao.ErrDataNotFound):
+				job.Source = SourceFS
+				job.DBImage = &dbo.Image{
+					FocusMode: dbo.ImageFocusModeAuto,
+					ACLLevel:  dbo.DBACLLevelPublic,
+				}
+			default:
+				logging.ExitErr(logg, err)
+				return err
+			}
 		default:
 			logging.ExitErr(logg, err)
 			return err
 		}
-		if ctx.Force {
-			job.IsDirty = true
-			job.DirtyReason = data.DirtyForced
+		select {
+		case ctx.Out <- job:
+		case <-ctx.Ctx.Done():
+			return ctx.Ctx.Err()
 		}
 		logging.Exit(logg, "ok", nil)
-		ctx.Out <- job
+
 	}
 	logging.Exit(logg, "ok", nil)
 	return nil
 }
 
-func dirtyCheckWorker(ctx *PipelineContext) error {
-	logg := logging.Enter(ctx.Ctx, "image.sync.dirtyChecker", nil)
+func hashWorker(ctx *PipelineContext) error {
+	logg := logging.Enter(ctx.Ctx, "pipeline.worker.hash", nil)
 	if ctx.In == nil || ctx.Out == nil {
 		err := fmt.Errorf("In/Out channel is nil")
 		logging.ExitErr(logg, err)
@@ -196,46 +207,106 @@ func dirtyCheckWorker(ctx *PipelineContext) error {
 			return ctx.Ctx.Err()
 		default:
 		}
-		logg := logging.Enter(ctx.Ctx, "pipeline.dirtyChecker.job", map[string]any{
+		logg := logging.Enter(ctx.Ctx, "pipeline.worker.hash.job", map[string]any{
 			"path": job.RealPath,
 		})
 
-		if !job.IsDirty {
+		fileHash, err := utils.ComputeFileHash(job.RealPath)
+		if err != nil {
+			return nil
+		}
+		metaHash, err := utils.ComputeFileHash(job.MetadataFile)
+		if err != nil {
+			if os.IsNotExist(err) {
+				metaHash = ""
+				job.MetadataFile = ""
+			} else {
+				return err
+			}
+		}
+		job.FileHash = fileHash
+		job.FileMetadataHash = metaHash
+
+		select {
+		case ctx.Out <- job:
+		case <-ctx.Ctx.Done():
+			return ctx.Ctx.Err()
+		}
+		logging.Exit(logg, "ok", nil)
+
+	}
+	logging.Exit(logg, "ok", nil)
+	return nil
+}
+
+func dirtyCheckWorker(ctx *PipelineContext) error {
+	logg := logging.Enter(ctx.Ctx, "pipeline.worker.dirtyChecker", nil)
+	if ctx.In == nil || ctx.Out == nil {
+		err := fmt.Errorf("In/Out channel is nil")
+		logging.ExitErr(logg, err)
+		return err
+	}
+	for job := range ctx.In {
+		select {
+		case <-ctx.Ctx.Done():
+			logging.ExitErr(logg, ctx.Ctx.Err())
+			return ctx.Ctx.Err()
+		default:
+		}
+		logg := logging.Enter(ctx.Ctx, "pipeline.worker.dirtyChecker.job", map[string]any{
+			"path": job.RealPath,
+		})
+
+		if job.Source != SourceFS {
 			for {
-				if job.FileHash != job.DBImage.FileHash {
+				if job.FileHash != job.CachedFileHash {
 					job.IsDirty = true
 					job.DirtyReason = data.DirtyHashChg
 					break
 				}
-				if job.FileMetadataHash != job.DBImage.MetaHash {
+				if job.FileMetadataHash != job.CachedFileMetadataHash {
 					job.IsDirty = true
 					job.DirtyReason = data.DirtyMetadataHashChg
 					break
 				}
-				if job.DBImage.FileSize != uint64(job.Info.Size()) {
+				if job.CachedSize != uint64(job.Info.Size()) {
 					job.IsDirty = true
 					job.DirtyReason = data.DirtySizeChg
 					break
 				}
-				if !utils.SameTime(job.Info.ModTime(), job.DBImage.MTime) {
+				if !utils.SameTime(job.Info.ModTime(), job.CachedTime) {
 					job.IsDirty = true
 					job.DirtyReason = data.DirtyTimeChg
 					break
 				}
 				break
 			}
+		} else {
+			job.IsDirty = true
+			job.DirtyReason = data.DirtyNewfile
+		}
+
+		if ctx.Force {
+			job.IsDirty = true
+			job.DirtyReason = data.DirtyForced
+		}
+
+		select {
+		case ctx.Out <- job:
+		case <-ctx.Ctx.Done():
+			return ctx.Ctx.Err()
 		}
 		logging.Exit(logg, "ok", nil)
-		ctx.Out <- job
+
 	}
 	logging.Exit(logg, "ok", nil)
 	return nil
 }
 func metadataReaderWorker(ctx *PipelineContext) error {
-	logg := logging.Enter(ctx.Ctx, "image.sync.metadataReader", nil)
+	loggWorker := logging.Enter(ctx.Ctx, "pipeline.worker.metadataReader", nil)
 	if ctx.In == nil || ctx.Out == nil {
 		err := fmt.Errorf("In/Out channel is nil")
-		logging.ExitErr(logg, err)
+		logging.ExitErr(loggWorker, err)
 		return err
 	}
 	var panoramaCheck ruleengine.CompiledGroupFilter = nil
@@ -243,12 +314,39 @@ func metadataReaderWorker(ctx *PipelineContext) error {
 		var err error
 		panoramaCheck, err = ruleengine.CompileGroupFilter(*ctx.Panorama, "Panorama")
 		if err != nil {
-			logging.ErrorContinue(logg, err, map[string]any{"filter": "panorama"})
+			logging.ErrorContinue(loggWorker, err, map[string]any{"filter": "panorama"})
 			panoramaCheck = nil
 		}
 	}
+
+	var exiftool *exif.PersistentExiftool
+	var err error
+
+	createTool := func() error {
+
+		if exiftool != nil {
+			_ = exiftool.Close()
+		}
+
+		exiftool, err = exif.NewPersistentExiftool(
+			ctx.Ctx,
+			ctx.ExifToolConfig.Path,
+			ctx.ExifToolConfig.Timeout,
+		)
+
+		return err
+	}
+
+	err = createTool()
+	if err != nil {
+		logging.ExitErr(loggWorker, err)
+		return err
+	}
+
+	defer exiftool.Close()
+
 	for job := range ctx.In {
-		logg := logging.Enter(ctx.Ctx, "pipeline.metaReader.job", map[string]any{
+		logg := logging.Enter(ctx.Ctx, "pipeline.worker.metaReader.job", map[string]any{
 			"path":  job.RealPath,
 			"dirty": job.IsDirty,
 		})
@@ -266,10 +364,16 @@ func metadataReaderWorker(ctx *PipelineContext) error {
 			if job.MetadataFile != "" {
 				path = append(path, job.MetadataFile)
 			}
-			metadata, err := metadata.ExtractMetadata(ctx.Ctx, path...)
+			metadata, err := metadata.ExtractMetadata(exiftool, ctx.Ctx, path...)
 			if err != nil {
 				logging.ExitErr(logg, err)
 				SaveResultError(ctx, job)
+				_ = exiftool.Close()
+				err = createTool()
+				if err != nil {
+					logging.ExitErr(loggWorker, err)
+					return err
+				}
 				continue
 			}
 			job.Metadata = metadata
@@ -280,18 +384,26 @@ func metadataReaderWorker(ctx *PipelineContext) error {
 				job.Panorama = panorama
 			}
 		}
+		select {
+		case ctx.Out <- job:
+		case <-ctx.Ctx.Done():
+			return ctx.Ctx.Err()
+		}
 		logging.Exit(logg, log, nil)
-		ctx.Out <- job
+
 	}
-	logging.Exit(logg, "ok", nil)
+	logging.Exit(loggWorker, "ok", nil)
 	return nil
 }
 func filterWorker(ctx *PipelineContext) error {
-	logg := logging.Enter(ctx.Ctx, "image.sync.filterWorker", nil)
+	logg := logging.Enter(ctx.Ctx, "pipeline.worker.filter", nil)
 	if ctx.In == nil || ctx.Out == nil {
 		err := fmt.Errorf("In/Out channel is nil")
 		logging.ExitErr(logg, err)
 		return err
+	}
+	if ctx.FilterOut != nil {
+		defer ctx.WG.Done()
 	}
 	type DirKey struct {
 		Root string
@@ -321,13 +433,13 @@ func filterWorker(ctx *PipelineContext) error {
 			return ctx.Ctx.Err()
 		default:
 		}
-		logg := logging.Enter(ctx.Ctx, "pipeline.filterWorker.job", map[string]any{
-			"path": job.RealPath,
+		logg := logging.Enter(ctx.Ctx, "pipeline.worker.filter.job", map[string]any{
+			"path":     job.RealPath,
+			"metadata": job.Metadata,
 		})
 		facts := createImageFact(job)
 		logging.Inside(logg, map[string]any{"facts": facts, "job": job}, "Imagefacts")
 		match := true
-		notKey := DirKey{}
 		for key, filter := range filters {
 			root := key.Root
 			path := key.Path
@@ -340,26 +452,37 @@ func filterWorker(ctx *PipelineContext) error {
 				job.RuleResults.AddResult(ruleengine.EvaluationFilesystem, pathFilterResult)
 				if !res {
 					match = false
-					notKey = key
 					break
 				}
 			}
 		}
 		if !match {
 			SaveResultSkip(ctx, job)
-			log.Logger.Info().Str("path", job.RealPath).Str("rule path", notKey.Path).Str("rule root", notKey.Root).Msg("Filtered out")
-			log.Logger.Debug().Str("path", job.RealPath).Msg("filterWorker finished a job")
+			logging.Exit(logg, "skipped", nil)
+			filtered := ctx.FilterOut
+			if filtered != nil {
+				select {
+				case filtered <- job:
+				case <-ctx.Ctx.Done():
+					return ctx.Ctx.Err()
+				}
+			}
 			continue
 		}
+		select {
+		case ctx.Out <- job:
+		case <-ctx.Ctx.Done():
+			return ctx.Ctx.Err()
+		}
 		logging.Exit(logg, "ok", nil)
-		ctx.Out <- job
+
 	}
 	logging.Exit(logg, "ok", nil)
 	return nil
 }
 
 func aclWorker(ctx *PipelineContext) error {
-	logg := logging.Enter(ctx.Ctx, "image.sync.aclWorker", nil)
+	logg := logging.Enter(ctx.Ctx, "pipeline.worker.acl", nil)
 	if ctx.In == nil || ctx.Out == nil {
 		err := fmt.Errorf("In/Out channel is nil")
 		logging.ExitErr(logg, err)
@@ -392,7 +515,7 @@ func aclWorker(ctx *PipelineContext) error {
 			return ctx.Ctx.Err()
 		default:
 		}
-		logg := logging.Enter(ctx.Ctx, "pipeline.aclWorker.job", map[string]any{
+		logg := logging.Enter(ctx.Ctx, "pipeline.worker.acl.job", map[string]any{
 			"path": job.RealPath,
 		})
 		if job.IsDirty || ctx.ACLOverride {
@@ -418,18 +541,6 @@ func aclWorker(ctx *PipelineContext) error {
 						if aclRule.UserId != nil {
 							job.ACLUser = *aclRule.UserId
 						}
-
-						lg := log.Logger.Info()
-						lg.Str("path", job.RealPath).Int("ACL_rule", i).
-							Int("rule", j).Str("acl", string(aclRule.Role))
-						logging.StrIf(lg, "user", aclRule.User)
-						lg.Msg("Set ACL")
-						logging.Info("pipeline.aclWorker.job", "ACL check", "Ok", "", map[string]any{
-							"acl_rule": i,
-							"rule":     j,
-							"acl_role": aclRule.Role,
-							"acl_user": aclRule.User,
-						})
 						break
 					}
 				}
@@ -437,28 +548,28 @@ func aclWorker(ctx *PipelineContext) error {
 					break
 				}
 			}
-			if !match {
-				log.Logger.Info().Str("path", job.RealPath).Msg("No ACL rule found")
-			}
-		} else {
-			log.Logger.Info().Str("path", job.RealPath).Msg("Not handled by ACL Worker")
+		}
+		select {
+		case ctx.Out <- job:
+		case <-ctx.Ctx.Done():
+			return ctx.Ctx.Err()
 		}
 		logging.Exit(logg, "ok", nil)
-		ctx.Out <- job
+
 	}
 	logging.Exit(logg, "ok", nil)
 	return nil
 }
 
-func dBUpdateWorker(ctx *PipelineContext) error {
-	logg := logging.Enter(ctx.Ctx, "pipeline.dbUpdater", nil)
+func dbImageWriterWorker(ctx *PipelineContext) error {
+	logg := logging.Enter(ctx.Ctx, "pipeline.worker.imageWriter", nil)
 	if ctx.In == nil || ctx.Out == nil {
-		err := fmt.Errorf("dBUpdateWorker: In/Out channel is nil")
+		err := fmt.Errorf("In/Out channel is nil")
 		logging.ExitErr(logg, err)
 		return err
 	}
 	for job := range ctx.In {
-		logg := logging.Enter(ctx.Ctx, "pipeline.dbUpdater.job", map[string]any{
+		logg := logging.Enter(ctx.Ctx, "pipeline.worker.imageWriter.job", map[string]any{
 			"path":  job.RealPath,
 			"dirty": job.IsDirty,
 		})
@@ -471,25 +582,7 @@ func dBUpdateWorker(ctx *PipelineContext) error {
 		}
 
 		if job.IsDirty {
-			job.DBImage.Root = job.RootName
-			job.DBImage.Path = job.Path
-			job.DBImage.Filename = job.Filename
-			job.DBImage.FileSize = uint64(job.Info.Size())
-			job.DBImage.MTime = job.Info.ModTime().UTC().Truncate(time.Second)
-			job.DBImage.Ext = job.Ext
-			job.DBImage.FileHash = job.FileHash
-			job.DBImage.MetaHash = job.FileMetadataHash
-			job.DBImage.LastSeenSync = &ctx.SyncId
-			if job.Panorama {
-				job.DBImage.Panorama = 1
-			} else {
-				job.DBImage.Panorama = 0
-			}
-			if job.ACLLevel != nil {
-				job.DBImage.ACLLevel = dbo.DBACLLevel(*job.ACLLevel)
-			}
-			job.DBImage.ACLUserID = job.ACLUser
-			mapper.UpdateImageMetadata(job.DBImage, job.Metadata)
+			getDBOImageFromJob(job, ctx.SyncId)
 			updateID, err := dao.CreateOrUpdateImage(ctx.Database, ctx.Ctx, job.DBImage)
 			if err != nil {
 				logging.ExitErrParams(logg, err, map[string]any{"is_dirty": job.IsDirty})
@@ -498,6 +591,130 @@ func dBUpdateWorker(ctx *PipelineContext) error {
 			} else {
 				job.DBImage.ID = &updateID
 			}
+		}
+		select {
+		case ctx.Out <- job:
+		case <-ctx.Ctx.Done():
+			return ctx.Ctx.Err()
+		}
+		logging.Exit(logg, "ok", nil)
+
+	}
+	logging.Exit(logg, "ok", nil)
+	return nil
+}
+
+func albumInsertionWorker(ctx *PipelineContext) error {
+	logg := logging.Enter(ctx.Ctx, "pipeline.worker.albumInserter", nil)
+	if ctx.Database == nil {
+		err := fmt.Errorf("DB is nil")
+		logging.ExitErr(logg, err)
+		return err
+	}
+	if ctx.In == nil || ctx.Out == nil {
+		err := fmt.Errorf("In/Out channel is nil")
+		logging.ExitErr(logg, err)
+		return err
+	}
+	albumsRules := ctx.AlbumCtx.Rules
+	ruleCtx := ruleengine.RuleContext{
+		NameMap: ctx.AlbumCtx.NameMap,
+	}
+
+	for job := range ctx.In {
+		logg := logging.Enter(ctx.Ctx, "pipeline.worker.albumInserter.job", map[string]any{
+			"path":  job.RealPath,
+			"dirty": job.IsDirty,
+		})
+		select {
+		case <-ctx.Ctx.Done():
+			err := ctx.Ctx.Err()
+			logging.ExitErr(logg, err)
+			return err
+		default:
+		}
+		if job.DBImage != nil {
+			//			facts := createImageFactDb(job)
+			facts := createImageFact(job)
+			for _, ar := range albumsRules {
+				if ar.Rule == nil {
+					logging.Inside(logg, map[string]any{
+						"album_id":   ar.ID,
+						"album_name": ar.Name,
+					}, "empty rule")
+					continue
+				}
+				rctx := ruleCtx
+				rctx.RefAlbum = &ar.ID
+				match, ruleResult := ar.Rule(facts, &rctx)
+				_, found := job.Albums[ar.ID]
+				job.RuleResults.AddResult(ruleengine.EvaluationAlbum, ruleResult)
+				if found && !match {
+					err := dao.BreakAlbumImage(ctx.Database, ctx.Ctx, ar.ID, *job.DBImage.ID)
+					if err != nil {
+						logging.ErrorContinue(logg, err, map[string]any{
+							"album_id": ar.ID,
+							"image_id": job.DBImage.ID,
+						})
+					}
+					delete(facts.Albums, ar.ID)
+				}
+				if !found && match {
+					err := dao.BindAlbumImage(ctx.Database, ctx.Ctx, ar.ID, *job.DBImage.ID, nil)
+					if err != nil {
+						logging.ErrorContinue(logg, err, map[string]any{
+							"album_id": ar.ID,
+							"image_id": job.DBImage.ID,
+						})
+					}
+					as, ok := ctx.AlbumCtx.AlbumStructs[ar.ID]
+					if ok {
+						if facts.Albums == nil {
+							facts.Albums = make(ruleengine.AlbumsStruct)
+						}
+						facts.Albums[ar.ID] = as
+					}
+				}
+
+			}
+		}
+
+		select {
+		case ctx.Out <- job:
+		case <-ctx.Ctx.Done():
+			return ctx.Ctx.Err()
+		}
+		logging.Exit(logg, "ok", nil)
+
+	}
+	logging.Exit(logg, "ok", nil)
+	return nil
+}
+
+func resultSaverWorker(ctx *PipelineContext) error {
+	logg := logging.Enter(ctx.Ctx, "pipeline.worker.resultSaver", nil)
+	if ctx.Database == nil {
+		err := fmt.Errorf("DB is nil")
+		logging.ExitErr(logg, err)
+		return err
+	}
+	if ctx.In == nil || ctx.Out == nil {
+		err := fmt.Errorf("In/Out channel is nil")
+		logging.ExitErr(logg, err)
+		return err
+	}
+
+	for job := range ctx.In {
+		logg := logging.Enter(ctx.Ctx, "pipeline.worker.resultSaver.job", map[string]any{
+			"path":  job.RealPath,
+			"dirty": job.IsDirty,
+		})
+		select {
+		case <-ctx.Ctx.Done():
+			err := ctx.Ctx.Err()
+			logging.ExitErr(logg, err)
+			return err
+		default:
 		}
 		err := dao.UpdateImageSyncId(ctx.Database, ctx.Ctx, *job.DBImage.ID, ctx.SyncId)
 		if err != nil {
@@ -511,8 +728,53 @@ func dBUpdateWorker(ctx *PipelineContext) error {
 			SaveResultError(ctx, job)
 			continue
 		}
+
+		select {
+		case ctx.Out <- job:
+		case <-ctx.Ctx.Done():
+			return ctx.Ctx.Err()
+		}
 		logging.Exit(logg, "ok", nil)
-		ctx.Out <- job
+
+	}
+	logging.Exit(logg, "ok", nil)
+	return nil
+}
+
+func dbFilteredWriterWorker(ctx *PipelineContext) error {
+	logg := logging.Enter(ctx.Ctx, "pipeline.worker.filteredWriter", nil)
+	if ctx.In == nil || ctx.Out == nil {
+		err := fmt.Errorf("In/Out channel is nil")
+		logging.ExitErr(logg, err)
+		return err
+	}
+	for job := range ctx.In {
+		logg := logging.Enter(ctx.Ctx, "pipeline.worker.filteredWriter.job", map[string]any{
+			"path":  job.RealPath,
+			"dirty": job.IsDirty,
+		})
+		select {
+		case <-ctx.Ctx.Done():
+			err := ctx.Ctx.Err()
+			logging.ExitErr(logg, err)
+			return err
+		default:
+		}
+		filtered := getDBOFilteredFromJob(job, ctx.SyncId)
+		err := dao.CreateOrUpdateFiltered(ctx.Database, ctx.Ctx, &filtered)
+		if err != nil {
+			logging.ExitErr(logg, err)
+			SaveResultError(ctx, job)
+			continue
+		}
+
+		select {
+		case ctx.Out <- job:
+		case <-ctx.Ctx.Done():
+			return ctx.Ctx.Err()
+		}
+		logging.Exit(logg, "ok", nil)
+
 	}
 	logging.Exit(logg, "ok", nil)
 	return nil

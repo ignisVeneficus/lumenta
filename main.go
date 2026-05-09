@@ -9,7 +9,6 @@ import (
 	"github.com/ignisVeneficus/lumenta/db"
 	"github.com/ignisVeneficus/lumenta/db/dao"
 	"github.com/ignisVeneficus/lumenta/derivative"
-	"github.com/ignisVeneficus/lumenta/exif"
 	"github.com/ignisVeneficus/lumenta/internal/i18n"
 	"github.com/ignisVeneficus/lumenta/logging"
 	"github.com/rs/zerolog/log"
@@ -38,7 +37,6 @@ func main() {
 
 	derivative.Init(context.Background(), 10)
 	defer derivative.Shutdown()
-	defer exif.ShutdownExiftool()
 
 	database := db.GetDatabaseMulti()
 	defer database.Close()

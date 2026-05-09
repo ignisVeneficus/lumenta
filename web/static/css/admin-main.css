@@ -6,8 +6,16 @@
   grid-template-columns: 60px 1fr;
   gap: var(--size-2);
   flex: 1;
-
 }
+
+/* ==========================================================================
+   COMMON ITEMS
+  ========================================================================== */
+.label-button{
+  display: flex;
+  gap: var(--size-1);
+}
+
 
 /* ==========================================================================
    ACTION RAIL
@@ -368,10 +376,6 @@
   display: flex;
   justify-content: flex-end;
 }
-.album-page .button{
-  display: flex;
-  gap: var(--size-1);
-}
 
 .album-page .image-preview img{
   width: 100%;
@@ -585,4 +589,78 @@ form .error{
   display: grid;
   grid-template-columns:  var(--size-10) 1fr;
   gap: var(--size-2);
+}
+.syncfile-page .collapsible{
+  display: none;
+}
+.syncfile-page .collapsible-toggle + .collapsible-label .collapsible-toggle-icon {
+  transform: rotate(0deg);
+}
+.syncfile-page .collapsible-toggle:checked + .collapsible-label .collapsible-toggle-icon {
+  transform: rotate(90deg);
+}
+.syncfile-page .rulegroup:has(.collapsible-toggle:not(:checked)) .collapsible-content {
+    display: none;
+}
+.syncfile-page .rule-header{
+  display:flex;
+  flex-direction: row;
+  gap: var(--size-1);
+}
+.syncfile-page .collapsible-toggle-icon{
+  width:1em;
+  flex: 0 0 1em;
+  text-align: center;
+  transition: transform 0.2s ease;
+  font-size: var(--font-size-meta);
+  color: var(--icon-primary);
+}
+
+/* ==========================================================================
+   ALBUM LIST
+   ========================================================================== */
+
+.albums-page .album-row{
+  display:flex;
+  flex-direction: row;
+  align-items: center;
+  background-color: var(--background-hover);
+  padding:var(--size-1);
+
+  margin-bottom: var(--size-2);
+}
+.albums-page .album-row .album-name{
+  padding-left: var(--size-2);
+  flex: 1;
+}
+.albums-page .album-row .grip{
+  justify-content: center;
+  height: 32px;
+  min-width: 32px;
+  padding: var(--size-2);
+  border-radius: 0;
+  background: transparent;
+  color: var(--icon-primary);
+}
+.albums-page .album-list{
+  display:flex;
+  flex-direction: column;
+/*  
+  gap: var(--size-2);
+  padding-top: var(--size-2);
+*/
+}
+.albums-page .album-list:empty{
+  padding-top: 0;
+}
+.albums-page .album-row .visible-false{
+  visibility:hidden;
+}
+
+.albums-page .album-list.tree{
+  --tree-indent: calc(var(--tree-icon) + var(--tree-gap) + var(--size-2) );
+}
+.albums-page .action-row{
+  display: flex;
+  justify-content: flex-start;
 }

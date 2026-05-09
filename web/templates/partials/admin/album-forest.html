@@ -1,0 +1,35 @@
+<ul class="album-list tree">
+    {{- range . -}}
+    <li class="album-node tree-node" data-id="{{ .ID }}">
+        <input type="checkbox" id="toggle-album-{{ .ID }}" class="album-toggle tree-toggle" checked>
+        <div class="album-row">
+            {{- template "icon" (i "action.common.grip-vertical" (t "action.common.grip-vertical.label") "album-icon tree-icon grip")}}
+            <label for="toggle-album-{{ .ID }}" class="tree-label action {{ if .Children -}}visible-true{{- else -}}visible-false{{- end -}}">
+            {{- template "icon" 
+                (i "action.tree.album.toggle" 
+                    (t "nav.tree.toggle")
+                    "album-icon tree-icon"
+                )
+            }}
+            </label>
+            <div class="album-name">{{.Name}}</div>
+            <div class="album-actions">
+                <button type="button" class="action">
+                    {{- template "icon" (i "action.admin.albums.child" (t "action.admin.albums.child.label"))}}
+                </button>
+                <a href=" {{ .EditUrl }}" class="action">
+                    {{- template "icon" (i "action.admin.albums.edit" (t "action.admin.albums.edit.label"))}}
+                </a>
+                <a href=" {{ .ViewUrl }}" class="action action-public">
+                    {{- template "icon" (i "action.admin.albums.visit" (t "action.admin.albums.visit.label"))}}
+                </a>
+                <a href="" class="action">
+                    {{- template "icon" (i "action.admin.albums.delete" (t "action.admin.albums.delete.label"))}}
+                </a>
+
+            </div>
+        </div>
+        {{ template "partials/admin/album-forest.html" .Children }}
+    </li>
+    {{- end -}}
+</ul>

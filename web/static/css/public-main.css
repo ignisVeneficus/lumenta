@@ -254,7 +254,7 @@ TODO: merge style
   width: 200px;
   background: var(--bg-upper);
   padding: var(--size-4) var(--size-page-x);
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
   pointer-events: auto;
 }
 .image-page #info-panel .title{

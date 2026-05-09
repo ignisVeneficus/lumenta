@@ -5,22 +5,16 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"strings"
-	"sync"
 	"time"
 
-	"github.com/ignisVeneficus/lumenta/config"
+	"github.com/ignisVeneficus/lumenta/logging"
 	"github.com/rs/zerolog"
-)
-
-var (
-	instance *PersistentExiftool
-	once     sync.Once
-	initErr  error
 )
 
 type RawMetadata map[string]RawMetaValue
@@ -50,25 +44,14 @@ type PersistentExiftool struct {
 	cmd     *exec.Cmd
 	stdin   io.WriteCloser
 	stdout  *bufio.Reader
-	mu      sync.Mutex
 	timeout time.Duration
 	seq     uint64
 }
 
-func GetExiftool() (*PersistentExiftool, error) {
-	once.Do(func() {
-		cfg := config.Global().Sync.Exiftool
-		instance, initErr = newPersistentExiftool(
-			context.Background(),
-			cfg.ResolvedPath,
-			cfg.Timeout,
-		)
+func NewPersistentExiftool(ctx context.Context, exiftoolPath string, timeout time.Duration) (*PersistentExiftool, error) {
+	logg := logging.Enter(ctx, "exiftool.create", map[string]any{
+		"path": exiftoolPath,
 	})
-
-	return instance, initErr
-}
-
-func newPersistentExiftool(ctx context.Context, exiftoolPath string, timeout time.Duration) (*PersistentExiftool, error) {
 	cmd := exec.CommandContext(
 		ctx,
 		exiftoolPath,
@@ -78,20 +61,24 @@ func newPersistentExiftool(ctx context.Context, exiftoolPath string, timeout tim
 
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
+		logging.ExitErr(logg, err)
 		return nil, err
 	}
 
 	stdoutPipe, err := cmd.StdoutPipe()
 	if err != nil {
+		logging.ExitErr(logg, err)
 		return nil, err
 	}
 
 	cmd.Stderr = os.Stderr
 
 	if err := cmd.Start(); err != nil {
+		logging.ExitErr(logg, err)
 		return nil, err
 	}
 
+	logging.Exit(logg, "ok", nil)
 	return &PersistentExiftool{
 		cmd:     cmd,
 		stdin:   stdin,
@@ -99,90 +86,83 @@ func newPersistentExiftool(ctx context.Context, exiftoolPath string, timeout tim
 		timeout: timeout,
 	}, nil
 }
-func ShutdownExiftool() error {
-	if instance == nil {
-		return nil
-	}
-	return instance.Close()
-}
 
-func (p *PersistentExiftool) Read(ctx context.Context, imagePath string) (RawMetadata, error) {
-
-	if _, ok := ctx.Deadline(); !ok {
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, p.timeout)
-		defer cancel()
-	}
-
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
-	select {
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	default:
-	}
-
-	id, err := p.sendCommand(imagePath)
-	if err != nil {
-		return nil, err
-	}
-
-	data, err := p.readResponse(ctx, id)
-	if err != nil {
-		return nil, err
-	}
-
-	raw, err := parseExiftoolJSON(data)
-	if err != nil {
-		return nil, err
-	}
-	return raw, nil
-}
-func (p *PersistentExiftool) sendCommand(imagePath string) (uint64, error) {
-	p.seq++
-	id := p.seq
-	_, err := fmt.Fprintf(p.stdin,
-		"-j\n-G1\n-struct\n-a\n%s\n-execute%d\n",
-		imagePath, id,
-	)
-	return id, err
-}
-func (p *PersistentExiftool) readResponse(ctx context.Context, id uint64) ([]byte, error) {
-	var buf bytes.Buffer
-	ready := fmt.Sprintf("{ready%d}", id)
-
-	for {
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		default:
-		}
-
-		line, err := p.stdout.ReadString('\n')
-		if err != nil {
-			return nil, err
-		}
-
-		if strings.TrimSpace(line) == ready {
-			break
-		}
-
-		buf.WriteString(line)
-	}
-
-	return buf.Bytes(), nil
-}
 func (p *PersistentExiftool) Close() error {
-	p.mu.Lock()
-	defer p.mu.Unlock()
 
 	if p.stdin != nil {
 		fmt.Fprint(p.stdin, "-stay_open\nFalse\n")
 		_ = p.stdin.Close()
 	}
 
+	if p.cmd == nil {
+		return nil
+	}
+
 	return p.cmd.Wait()
+}
+
+func (p *PersistentExiftool) kill() error {
+	if p.cmd == nil || p.cmd.Process == nil {
+		return nil
+	}
+
+	_ = p.stdin.Close()
+
+	err := p.cmd.Process.Kill()
+
+	// reap
+	_ = p.cmd.Wait()
+
+	return err
+}
+
+func (p *PersistentExiftool) Read(ctx context.Context, imagePath string) (RawMetadata, error) {
+	if strings.Contains(imagePath, "\n") {
+		return nil, errors.New("invalid path")
+	}
+
+	var err error
+	p.seq++
+	id := p.seq
+
+	ready := fmt.Sprintf("{ready%d}", id)
+
+	_, err = fmt.Fprintf(p.stdin,
+		"-j\n-G1\n-struct\n-a\n%s\n-execute%d\n",
+		imagePath, id,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	var data bytes.Buffer
+	var line string
+	for {
+		line, err = p.stdout.ReadString('\n')
+		if err != nil {
+			break
+		}
+		if strings.TrimSpace(line) == ready {
+			break
+		}
+		data.WriteString(line)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	raw, err := parseExiftoolJSON(data.Bytes())
+	if err != nil {
+		return nil, err
+	}
+	return raw, nil
+}
+func (p *PersistentExiftool) IsAlive() bool {
+	return p.cmd != nil &&
+		p.cmd.Process != nil &&
+		(p.cmd.ProcessState == nil ||
+			!p.cmd.ProcessState.Exited())
 }
 
 func parseExiftoolJSON(rawData []byte) (RawMetadata, error) {

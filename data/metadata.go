@@ -1,6 +1,7 @@
 package data
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"regexp"
@@ -255,19 +256,44 @@ func (m MetadataValue) AsFloat() (float64, bool) {
 	if m.Type != MetaFloat {
 		return 0, false
 	}
-	v, ok := m.Value.(float64)
-	return v, ok
+
+	switch v := m.Value.(type) {
+	case float64:
+		return v, true
+
+	case float32:
+		return float64(v), true
+
+	case int:
+		return float64(v), true
+
+	case int64:
+		return float64(v), true
+
+	case json.Number:
+		f, err := v.Float64()
+		if err == nil {
+			return f, true
+		}
+	}
+
+	return 0, false
 }
 
 func (m MetadataValue) AsInt() (int64, bool) {
 	if m.Type != MetaInt {
 		return 0, false
 	}
+
 	switch v := m.Value.(type) {
 	case int:
 		return int64(v), true
 	case int64:
 		return v, true
+	case float64:
+		return int64(v), true
+	case float32:
+		return int64(v), true
 	}
 	return 0, false
 }

@@ -88,18 +88,19 @@ body {
   gap: 0;
   padding-right: var(--size-4);
 }
-.site-header-nav .action-public{
-  color: var(--icon-public);
+
+.action-public{
+  color: var(--icon-public) !important;
 }
-.site-header-nav .action-public:hover{
-  color: var(--icon-public-hover);
+.action-public:hover{
+  color: var(--icon-public-hover) !important;
 }
 
-.site-header-nav .action-admin{
-  color: var(--icon-admin);
+.action-admin{
+  color: var(--icon-admin) !important;
 }
-.site-header-nav .action-admin:hover{
-  color: var(--icon-admin-hover);
+.action-admin:hover{
+  color: var(--icon-admin-hover) !important;
 }
 /* ==========================================================================
    FOOTER
@@ -224,10 +225,22 @@ body {
   opacity: 0.35;
   pointer-events: none;
 }
-
+/*
 .admin-icon{
-  color: var(--icon2-primary)
+  color: var(--color2-text-middle)
 }
+.admin-icon:hover,
+.admin-icon:focus-visible{
+  color: var(--color2-text-light)
+}
+.public-icon{
+  color: var(--color1-text-middle)  
+}
+.public-icon:hover,
+.public-icon:focus-visible{
+  color: var(--color1-text-light)  
+}
+*/
 /* ==========================================================================
    ICONS
    ========================================================================== */
@@ -485,10 +498,10 @@ span.breadcrumb {
 }
 
 
-.tree-toggle + .tree-label .tree-icon {
+.tree-toggle + * .tree-label .tree-icon {
   transform: rotate(0deg);
 }
-.tree-toggle:checked + .tree-label .tree-icon {
+.tree-toggle:checked + * .tree-label .tree-icon {
   transform: rotate(90deg);
 }
 .tree-toggle:not(:checked) ~ .tree {

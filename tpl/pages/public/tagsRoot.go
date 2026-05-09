@@ -15,7 +15,7 @@ import (
 	"github.com/ignisVeneficus/lumenta/db/dbo"
 	"github.com/ignisVeneficus/lumenta/logging"
 	"github.com/ignisVeneficus/lumenta/tpl"
-	"github.com/ignisVeneficus/lumenta/tpl/data"
+	tplData "github.com/ignisVeneficus/lumenta/tpl/data"
 )
 
 func TagsRootPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
@@ -24,8 +24,8 @@ func TagsRootPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 		loc := tpl.L(c)
 		logg := logging.Enter(c, "page.public.tags.root", nil)
 
-		breadCrumbs := data.Breadcrumbs{
-			data.Breadcrumb{
+		breadCrumbs := tplData.Breadcrumbs{
+			tplData.Breadcrumb{
 				Label: "Tags",
 			},
 		}
@@ -37,10 +37,10 @@ func TagsRootPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 			c.AbortWithStatus(http.StatusInternalServerError)
 			return
 		}
-		flatForrest := data.NewFlatForrest()
-		tagsList := data.MapToViewNodes(tags,
-			func(t dbo.TagWCount) data.ViewTreeNode {
-				return data.ViewTreeNode{
+		flatForrest := tplData.NewFlatForrest()
+		tagsList := tplData.MapToViewNodes(tags,
+			func(t dbo.TagWCount) tplData.ViewTreeNode {
+				return tplData.ViewTreeNode{
 					ID:       *t.ID,
 					ParentID: t.ParentID,
 					Label:    t.Name,
@@ -53,21 +53,14 @@ func TagsRootPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 				}
 			})
 		flatForrest.Add(tagsList)
-		forrest := flatForrest.Build()
-		if cfg.Presentation.TagMeaningConfig != nil {
-			types := make(map[string][]string)
-			for k, v := range cfg.Presentation.TagMeaningConfig.MeaningMap {
-				types[string(k)] = v
-			}
-			forrest.SetTags(types)
-		}
-		forrest.Populate()
+		forest := flatForrest.Build()
+		tplData.SetTagsMeaning(forest, cfg.Presentation.TagMeaningConfig)
 
-		trCtx := data.TagRootPageContext{}
+		trCtx := tplData.TagRootPageContext{}
 		pageCtx := trCtx.GetPage()
-		tpl.CreatePageContext(pageCtx, cfg, c, "tags", data.SurfacePublic)
+		tpl.CreatePageContext(pageCtx, cfg, c, "tags", tplData.SurfacePublic)
 		trCtx.Breadcrumbs = breadCrumbs
-		trCtx.TagsTree = *forrest
+		trCtx.TagsTree = *forest
 
 		logging.Exit(logg, "ok", nil)
 

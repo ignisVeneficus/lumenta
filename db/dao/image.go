@@ -47,7 +47,7 @@ const imageWherePrev = ` (
 
 const getImageById = `SELECT ` + imageFields + ` FROM images i WHERE i.id=?`
 
-const getImageByIdACL = `SELECT ` + imageFields + ` FROM images i WHERE i.id=? and %s `
+const getImageByIdACL = `SELECT ` + imageFields + ` FROM images i WHERE i.id=? AND %s `
 
 const createImage = `
 INSERT INTO images (
@@ -82,7 +82,7 @@ const breakImageTag = `DELETE FROM image_tags WHERE image_id = ? AND tag_id = ?`
 const breakImageAllTag = `DELETE FROM image_tags WHERE image_id = ?`
 
 const getImageByPath = `
-SELECT ` + imageFields + `FROM images i WHERE i.root=? AND i.path = ? AND i.filename = ?`
+SELECT ` + imageFields + `FROM images i WHERE i.root=? AND i.path = ? AND i.filename = ? AND i.ext = ? `
 
 const countImageByAlbums = `
 SELECT COUNT(DISTINCT ai.image_id)
@@ -371,8 +371,8 @@ func (q *Queries) BreakImageAllTag(ctx context.Context, imageId uint64) error {
 	return err
 }
 
-func (q *Queries) GetImageByPath(ctx context.Context, root, path, filename string) (dbo.Image, error) {
-	row := q.db.QueryRowContext(ctx, getImageByPath, root, path, filename)
+func (q *Queries) GetImageByPath(ctx context.Context, root, path, filename, ext string) (dbo.Image, error) {
+	row := q.db.QueryRowContext(ctx, getImageByPath, root, path, filename, ext)
 	return parseImage(row)
 }
 
@@ -794,26 +794,34 @@ func BindImageTag(db *sql.DB, ctx context.Context, imageId, tagId uint64) error 
 }
 
 func CreateImage(db *sql.DB, ctx context.Context, i *dbo.Image) (uint64, error) {
-	log.Logger.Debug().Str("path", i.Path).Str("filename", i.Filename).Str("ext", i.Ext).Msg("Create image")
+	logScope := logging.Enter(ctx, "dao.image.create", map[string]any{
+		"root":     i.Root,
+		"path":     i.Path,
+		"filename": i.Filename,
+		"ext":      i.Ext,
+	})
 
 	tx, err := GetTx(db, ctx)
 	if err != nil {
+		logging.ExitErr(logScope, err)
 		return 0, err
 	}
 	defer tx.Rollback()
 
 	q := NewQueries(tx)
 	if err := q.CreateImage(ctx, *i); err != nil {
+		logging.ExitErr(logScope, err)
 		return 0, err
 	}
 
 	id, err := q.GetLastId(ctx)
 	if err != nil {
+		logging.ExitErr(logScope, err)
 		return 0, err
 	}
 	i.ID = utils.PtrUint64(uint64(id))
 
-	return uint64(id), tx.Commit()
+	return uint64(id), logging.ReturnParams(logScope, tx.Commit(), map[string]any{"new_ID": id})
 }
 func UpdateImage(db *sql.DB, ctx context.Context, i dbo.Image) error {
 	log.Logger.Debug().Uint64("id", *i.ID).Msg("Update image")
@@ -836,7 +844,8 @@ func UpdateImage(db *sql.DB, ctx context.Context, i dbo.Image) error {
 	return tx.Commit()
 }
 func CreateOrUpdateImage(db *sql.DB, ctx context.Context, i *dbo.Image) (uint64, error) {
-	logg := logging.Enter(ctx, "dao.image.createOrUpdate", map[string]any{
+	logScope := logging.Enter(ctx, "dao.image.createOrUpdate", map[string]any{
+		"root":     i.Root,
 		"path":     i.Path,
 		"filename": i.Filename,
 		"ext":      i.Ext,
@@ -844,7 +853,7 @@ func CreateOrUpdateImage(db *sql.DB, ctx context.Context, i *dbo.Image) (uint64,
 
 	tx, err := GetTx(db, ctx)
 	if err != nil {
-		logging.ExitErr(logg, err)
+		logging.ExitErr(logScope, err)
 		return 0, err
 	}
 	defer tx.Rollback()
@@ -852,29 +861,29 @@ func CreateOrUpdateImage(db *sql.DB, ctx context.Context, i *dbo.Image) (uint64,
 	q := NewQueries(tx)
 	if i.ID == nil {
 		if err := q.CreateImage(ctx, *i); err != nil {
-			logging.ExitErr(logg, err)
+			logging.ExitErr(logScope, err)
 			return 0, err
 		}
 		id, err := q.GetLastId(ctx)
 		if err != nil {
-			logging.ExitErr(logg, err)
+			logging.ExitErr(logScope, err)
 			return 0, err
 		}
 		i.ID = utils.PtrUint64(uint64(id))
 	} else {
 		if err := q.UpdateImage(ctx, *i); err != nil {
-			logging.ExitErr(logg, err)
+			logging.ExitErr(logScope, err)
 			return *i.ID, err
 		}
 	}
 	q.BreakImageAllTag(ctx, *i.ID)
 	for _, tag := range i.Tags {
 		if err := writeTagTree(q, ctx, *tag, *i.ID); err != nil {
-			logging.ExitErr(logg, err)
+			logging.ExitErr(logScope, err)
 			return *i.ID, err
 		}
 	}
-	return *i.ID, logging.Return(logg, tx.Commit())
+	return *i.ID, logging.Return(logScope, tx.Commit())
 }
 
 func DeleteImage(db *sql.DB, ctx context.Context, id uint64) error {
@@ -894,44 +903,44 @@ func DeleteImage(db *sql.DB, ctx context.Context, id uint64) error {
 	return tx.Commit()
 }
 func GetImageById(db *sql.DB, ctx context.Context, id uint64) (dbo.Image, error) {
-	logg := logging.Enter(ctx, "dao.image.ge.byId", map[string]any{
+	logScope := logging.Enter(ctx, "dao.image.ge.byId", map[string]any{
 		"image_id": id,
 	})
 
 	q := NewQueries(db)
 	i, err := q.GetImageById(ctx, id)
-	return i, returnWrapNotFound(logg, err, "image")
+	return i, returnWrapNotFound(logScope, err, "image")
 }
 func GetImageByIdACL(db *sql.DB, ctx context.Context, id uint64, acl dbo.ACLContext) (dbo.Image, error) {
-	logg := logging.Enter(ctx, "dao.image.get.byId.ACL", map[string]any{
+	logScope := logging.Enter(ctx, "dao.image.get.byId.ACL", map[string]any{
 		"image_id":    id,
 		"acl_context": acl,
 	})
 	q := NewQueries(db)
 	i, err := q.GetImageByIdACL(ctx, id, acl)
-	return i, returnWrapNotFound(logg, err, "image")
+	return i, returnWrapNotFound(logScope, err, "image")
 }
 
 func GetImageByIdWTags(db *sql.DB, ctx context.Context, id uint64) (dbo.Image, error) {
-	logg := logging.Enter(ctx, "dao.image.get.byId.Tags", nil)
+	logScope := logging.Enter(ctx, "dao.image.get.byId.Tags", nil)
 	q := NewQueries(db)
 	i, err := q.GetImageById(ctx, id)
 	err = wrapNotFound(err, "image")
 	if err != nil {
-		logging.ExitErr(logg, err)
+		logging.ExitErr(logScope, err)
 		return i, err
 	}
 	tags, err := q.QueryTagsByImageID(ctx, *i.ID)
 	if err != nil {
-		logging.ExitErr(logg, err)
+		logging.ExitErr(logScope, err)
 		return i, err
 	}
 	i.Tags = dbo.TagsToPointer(tags)
-	logging.Exit(logg, "Ok", nil)
+	logging.Exit(logScope, "Ok", nil)
 	return i, nil
 }
 func GetImageByIdACLWTags(db *sql.DB, ctx context.Context, id uint64, acl dbo.ACLContext) (dbo.Image, error) {
-	logg := logging.Enter(ctx, "dao.image.get.byId.byACL.Tags", map[string]any{
+	logScope := logging.Enter(ctx, "dao.image.get.byId.byACL.Tags", map[string]any{
 		"image_id": id,
 		"acl":      acl,
 	})
@@ -940,38 +949,39 @@ func GetImageByIdACLWTags(db *sql.DB, ctx context.Context, id uint64, acl dbo.AC
 	i, err := q.GetImageByIdACL(ctx, id, acl)
 	err = wrapNotFound(err, "image")
 	if err != nil {
-		logging.ExitErr(logg, err)
+		logging.ExitErr(logScope, err)
 		return i, err
 	}
 	tags, err := q.QueryTagsByImageID(ctx, *i.ID)
 	if err != nil {
-		logging.ExitErr(logg, err)
+		logging.ExitErr(logScope, err)
 		return i, err
 	}
 	i.Tags = dbo.TagsToPointer(tags)
-	logging.Exit(logg, "Ok", nil)
+	logging.Exit(logScope, "Ok", nil)
 	return i, nil
 }
 
-func GetImageByPath(db *sql.DB, ctx context.Context, root, path, filename string) (dbo.Image, error) {
-	logg := logging.Enter(ctx, "dao.image.get.byPath", map[string]any{
+func GetImageByPath(db *sql.DB, ctx context.Context, root, path, filename, ext string) (dbo.Image, error) {
+	logScope := logging.Enter(ctx, "dao.image.get.byPath", map[string]any{
 		"root":     root,
 		"path":     path,
 		"filename": filename,
+		"ext":      ext,
 	})
 	q := NewQueries(db)
-	i, err := q.GetImageByPath(ctx, root, path, filename)
-	return i, returnWrapNotFound(logg, err, "image")
+	i, err := q.GetImageByPath(ctx, root, path, filename, ext)
+	return i, returnWrapNotFound(logScope, err, "image")
 }
 
 func CountImageByAlbums(db *sql.DB, ctx context.Context, albumIDs []uint64, acl dbo.ACLContext) (uint64, error) {
-	logg := logging.Enter(ctx, "dao.image.count.byAlbums.byACL", map[string]any{
+	logScope := logging.Enter(ctx, "dao.image.count.byAlbums.byACL", map[string]any{
 		"acl":    acl,
 		"albums": albumIDs,
 	})
 	q := NewQueries(db)
 	cnt, err := q.CountImageByAlbums(ctx, albumIDs, acl)
-	return cnt, logging.Return(logg, err)
+	return cnt, logging.Return(logScope, err)
 }
 
 func QueryImageIDsByAlbumsPage(db *sql.DB, ctx context.Context, albumIDs []uint64, cursor uint64, pageSize uint32, acl dbo.ACLContext) ([]uint64, error) {
@@ -1006,7 +1016,7 @@ func BindImageTags(db *sql.DB, ctx context.Context, imageID uint64, tagIDs []uin
 }
 
 func writeTagTree(q *Queries, ctx context.Context, rootTag dbo.Tag, imageId uint64) error {
-	logg := logging.Enter(ctx, "dao.Image.writeTagTree", map[string]any{"root": rootTag})
+	logScope := logging.Enter(ctx, "dao.Image.writeTagTree", map[string]any{"root": rootTag})
 	stack := []*dbo.Tag{&rootTag}
 	for len(stack) > 0 {
 		tag := stack[len(stack)-1]
@@ -1019,18 +1029,18 @@ func writeTagTree(q *Queries, ctx context.Context, rootTag dbo.Tag, imageId uint
 			case err == nil:
 				id = *t.ID
 			case !errors.Is(err, ErrDataNotFound):
-				logging.ExitErrParams(logg, err, map[string]any{"reason": "sql-error"})
+				logging.ExitErrParams(logScope, err, map[string]any{"reason": "sql-error"})
 				return err
 			default:
 				id, err = CreateTagTx(q, ctx, *tag)
 				if err != nil {
-					logging.ExitErr(logg, err)
+					logging.ExitErr(logScope, err)
 					return err
 				}
 			}
 		}
 		if err := q.BindImageTag(ctx, imageId, id); err != nil {
-			logging.ExitErr(logg, err)
+			logging.ExitErr(logScope, err)
 			return err
 		}
 		for i := len(tag.Children) - 1; i >= 0; i-- {
@@ -1042,15 +1052,16 @@ func writeTagTree(q *Queries, ctx context.Context, rootTag dbo.Tag, imageId uint
 		}
 
 	}
-	logging.Exit(logg, "ok", nil)
+	logging.Exit(logScope, "ok", nil)
 	return nil
 }
 
 func DeleteImageNotSeen(db *sql.DB, ctx context.Context, syncID uint64, limit uint32) (uint64, error) {
-	log.Logger.Debug().Uint64("sync_id", syncID).Uint32("limit", limit).Msg("Delete images not seen in sync")
+	logScope := logging.Enter(ctx, "dao.Image.DeleteNotSeen", map[string]any{"sync_id": syncID})
 
 	tx, err := GetTx(db, ctx)
 	if err != nil {
+		logging.ExitErr(logScope, err)
 		return 0, err
 	}
 	defer tx.Rollback()
@@ -1058,14 +1069,16 @@ func DeleteImageNotSeen(db *sql.DB, ctx context.Context, syncID uint64, limit ui
 
 	deleted, err := q.DeleteImageNotSeen(ctx, syncID, limit)
 	if err != nil {
+		logging.ExitErr(logScope, err)
 		return 0, err
 	}
-	return deleted, tx.Commit()
+	return deleted, logging.ReturnParams(logScope, tx.Commit(), map[string]any{"deleted": deleted})
 }
 func DeleteImageNotSeenAll(db *sql.DB, ctx context.Context, syncID uint64, limit uint32) error {
-	log.Logger.Debug().Uint64("sync_id", syncID).Uint32("limit", limit).Msg("Delete All images not seen in sync")
+	logScope := logging.Enter(ctx, "dao.Image.DeleteNotSeen.All", map[string]any{"sync_id": syncID})
 	deleted, err := DeleteImageNotSeen(db, ctx, syncID, limit)
 	if err != nil {
+		logging.ExitErr(logScope, err)
 		return err
 	}
 	batch := 1
@@ -1073,11 +1086,12 @@ func DeleteImageNotSeenAll(db *sql.DB, ctx context.Context, syncID uint64, limit
 		log.Logger.Debug().Int("batch", batch).Uint64("sync_id", syncID).Uint32("limit", limit).Msg("Delete All images not seen in sync in batch")
 		deleted, err = DeleteImageNotSeen(db, ctx, syncID, limit)
 		if err != nil {
+			logging.ExitErr(logScope, err)
 			return err
 		}
 		batch++
 	}
-	log.Logger.Debug().Int("batch", batch).Uint64("sync_id", syncID).Uint32("limit", limit).Msg("Delete All images not seen in sync in batch")
+	logging.Exit(logScope, "ok", map[string]any{"batch": batch})
 	return nil
 }
 
@@ -1100,7 +1114,7 @@ func UpdateImageSyncId(db *sql.DB, ctx context.Context, imageID uint64, syncID u
 
 func QueryImageWLastSyncWUserByPathPaged(db *sql.DB, ctx context.Context, root, path string, from, qty uint64) ([]dbo.ImageWLastSyncWUser, error) {
 
-	logg := logging.Enter(ctx, "dao.image.queryImages.WLastSync.WUser.ByPath.Paged", map[string]any{
+	logScope := logging.Enter(ctx, "dao.image.queryImages.WLastSync.WUser.ByPath.Paged", map[string]any{
 		"root": root,
 		"path": path,
 		"from": from,
@@ -1111,51 +1125,51 @@ func QueryImageWLastSyncWUserByPathPaged(db *sql.DB, ctx context.Context, root, 
 
 	images, err := q.QueryImageWLastSyncByWUserPathPaged(ctx, root, path, from, qty)
 	if err != nil {
-		logging.ExitErr(logg, err)
+		logging.ExitErr(logScope, err)
 		return nil, err
 	}
 
-	logging.Exit(logg, "ok", map[string]any{
+	logging.Exit(logScope, "ok", map[string]any{
 		"found": len(images),
 	})
 
 	return images, nil
 }
 func CountImagesByPath(db *sql.DB, ctx context.Context, root, path string) (uint64, error) {
-	logg := logging.Enter(ctx, "dao.image.count.ByPath", map[string]any{
+	logScope := logging.Enter(ctx, "dao.image.count.ByPath", map[string]any{
 		"path": path,
 	})
 	q := NewQueries(db)
 	qty, err := q.CountImageByPath(ctx, root, path)
 	if err != nil {
-		logging.ExitErr(logg, err)
+		logging.ExitErr(logScope, err)
 		return 0, err
 	}
-	logging.Exit(logg, "ok", map[string]any{"return": qty})
+	logging.Exit(logScope, "ok", map[string]any{"return": qty})
 	return qty, nil
 }
 
 func GetImageIdByPathFirstHash(db *sql.DB, ctx context.Context, root, path string) (uint64, error) {
-	logg := logging.Enter(ctx, "dao.image.get.id.byPath.firstHash", map[string]any{
+	logScope := logging.Enter(ctx, "dao.image.get.id.byPath.firstHash", map[string]any{
 		"root": root,
 		"path": path,
 	})
 	q := NewQueries(db)
 	i, err := q.GetImageIdByPathFirstHash(ctx, root, path)
-	return i, returnWrapNotFound(logg, err, "image")
+	return i, returnWrapNotFound(logScope, err, "image")
 }
 
 func GetImageIdByRootFirstHash(db *sql.DB, ctx context.Context, root string) (uint64, error) {
-	logg := logging.Enter(ctx, "dao.image.get.id.byRoot.firstHash", map[string]any{
+	logScope := logging.Enter(ctx, "dao.image.get.id.byRoot.firstHash", map[string]any{
 		"root": root,
 	})
 	q := NewQueries(db)
 	i, err := q.GetImageIdByRootFirstHash(ctx, root)
-	return i, returnWrapNotFound(logg, err, "image")
+	return i, returnWrapNotFound(logScope, err, "image")
 }
 
 func QueryImagePathByParentPathPaged(db *sql.DB, ctx context.Context, root, parentPath string, from, qty uint64) ([]string, error) {
-	logg := logging.Enter(ctx, "dao.image.query.path.byParentPath.paged", map[string]any{
+	logScope := logging.Enter(ctx, "dao.image.query.path.byParentPath.paged", map[string]any{
 		"parentPpath": parentPath,
 		"from":        from,
 		"qty":         qty,
@@ -1163,57 +1177,57 @@ func QueryImagePathByParentPathPaged(db *sql.DB, ctx context.Context, root, pare
 	q := NewQueries(db)
 	paths, err := q.QueryImagePathByParentPathPaged(ctx, root, parentPath, from, qty)
 	if err != nil {
-		logging.ExitErr(logg, err)
+		logging.ExitErr(logScope, err)
 		return nil, err
 	}
-	logging.Exit(logg, "ok", map[string]any{
+	logging.Exit(logScope, "ok", map[string]any{
 		"found": len(paths),
 	})
 	return paths, nil
 }
 func CountImagePathByParentPath(db *sql.DB, ctx context.Context, root, parentPath string) (uint64, error) {
-	logg := logging.Enter(ctx, "dao.image.count.path.byParentPath", map[string]any{
+	logScope := logging.Enter(ctx, "dao.image.count.path.byParentPath", map[string]any{
 		"parentPath": parentPath,
 	})
 	q := NewQueries(db)
 	qty, err := q.CountImagePathByParentPath(ctx, root, parentPath)
 	if err != nil {
-		logging.ExitErr(logg, err)
+		logging.ExitErr(logScope, err)
 		return 0, err
 	}
-	logging.Exit(logg, "ok", map[string]any{"return": qty})
+	logging.Exit(logScope, "ok", map[string]any{"return": qty})
 	return qty, nil
 }
 func CountImageByParentPath(db *sql.DB, ctx context.Context, root, parentPath string) (uint64, error) {
-	logg := logging.Enter(ctx, "dao.image.count.byParentPath", map[string]any{
+	logScope := logging.Enter(ctx, "dao.image.count.byParentPath", map[string]any{
 		"root":       root,
 		"parentPath": parentPath,
 	})
 	q := NewQueries(db)
 	qty, err := q.CountImageByParentPath(ctx, root, parentPath)
 	if err != nil {
-		logging.ExitErr(logg, err)
+		logging.ExitErr(logScope, err)
 		return 0, err
 	}
-	logging.Exit(logg, "ok", map[string]any{"return": qty})
+	logging.Exit(logScope, "ok", map[string]any{"return": qty})
 	return qty, nil
 }
 func CountImageByRoot(db *sql.DB, ctx context.Context, root string) (uint64, error) {
-	logg := logging.Enter(ctx, "dao.image.count.byRoot", map[string]any{
+	logScope := logging.Enter(ctx, "dao.image.count.byRoot", map[string]any{
 		"root": root,
 	})
 	q := NewQueries(db)
 	qty, err := q.CountImageByRoot(ctx, root)
 	if err != nil {
-		logging.ExitErr(logg, err)
+		logging.ExitErr(logScope, err)
 		return 0, err
 	}
-	logging.Exit(logg, "ok", map[string]any{"return": qty})
+	logging.Exit(logScope, "ok", map[string]any{"return": qty})
 	return qty, nil
 }
 
 func QueryImageByTagACLPaged(db *sql.DB, ctx context.Context, tag uint64, acl dbo.ACLContext, from, qty uint64) ([]dbo.Image, error) {
-	logg := logging.Enter(ctx, "dao.image.query.byTag.byACL.paged", map[string]any{
+	logScope := logging.Enter(ctx, "dao.image.query.byTag.byACL.paged", map[string]any{
 		"tag":  tag,
 		"acl":  acl,
 		"from": from,
@@ -1222,78 +1236,78 @@ func QueryImageByTagACLPaged(db *sql.DB, ctx context.Context, tag uint64, acl db
 	q := NewQueries(db)
 	images, err := q.QueryImageByTagACLPaged(ctx, tag, acl, from, qty)
 	if err != nil {
-		logging.ExitErr(logg, err)
+		logging.ExitErr(logScope, err)
 		return nil, err
 	}
 	for i, img := range images {
 		tags, err := q.QueryTagsByImageID(ctx, *img.ID)
 		if err != nil {
-			logging.ExitErr(logg, err)
+			logging.ExitErr(logScope, err)
 			return images, err
 		}
 		img.Tags = dbo.TagsToPointer(tags)
 		images[i] = img
 	}
 
-	logging.Exit(logg, "ok", map[string]any{
+	logging.Exit(logScope, "ok", map[string]any{
 		"found": len(images),
 	})
 	return images, nil
 }
 func CountImageByTagACL(db *sql.DB, ctx context.Context, tag uint64, acl dbo.ACLContext) (uint64, error) {
-	logg := logging.Enter(ctx, "dao.image.count.byTag.byAcl", map[string]any{
+	logScope := logging.Enter(ctx, "dao.image.count.byTag.byAcl", map[string]any{
 		"tag": tag,
 		"acl": acl,
 	})
 	q := NewQueries(db)
 	qty, err := q.CountImageByTagACL(ctx, tag, acl)
 	if err != nil {
-		logging.ExitErr(logg, err)
+		logging.ExitErr(logScope, err)
 		return 0, err
 	}
-	logging.Exit(logg, "ok", map[string]any{"return": qty})
+	logging.Exit(logScope, "ok", map[string]any{"return": qty})
 	return qty, nil
 }
 
 func GetImageIdByTagACLFirstHash(db *sql.DB, ctx context.Context, tag uint64, acl dbo.ACLContext) (uint64, error) {
-	logg := logging.Enter(ctx, "dao.image.get.byTag.byACL.firstHash", map[string]any{
+	logScope := logging.Enter(ctx, "dao.image.get.byTag.byACL.firstHash", map[string]any{
 		"tag": tag,
 		"acl": acl,
 	})
 	q := NewQueries(db)
 	i, err := q.GetImageIdByTagACLFirstHash(ctx, tag, acl)
-	return i, returnWrapNotFound(logg, err, "image")
+	return i, returnWrapNotFound(logScope, err, "image")
 }
 
 func CountImageRoots(db *sql.DB, ctx context.Context) (uint64, error) {
-	logg := logging.Enter(ctx, "dao.image.count.roots", nil)
+	logScope := logging.Enter(ctx, "dao.image.count.roots", nil)
 	q := NewQueries(db)
 	qty, err := q.CountImageRoots(ctx)
 	if err != nil {
-		logging.ExitErr(logg, err)
+		logging.ExitErr(logScope, err)
 		return 0, err
 	}
-	logging.Exit(logg, "ok", map[string]any{"return": qty})
+	logging.Exit(logScope, "ok", map[string]any{"return": qty})
 	return qty, nil
 
 }
 
 func QueryImageRoots(db *sql.DB, ctx context.Context) ([]string, error) {
-	logg := logging.Enter(ctx, "dao.image.query.roots", nil)
+	logScope := logging.Enter(ctx, "dao.image.query.roots", nil)
 	q := NewQueries(db)
 	paths, err := q.QueryImageRoots(ctx)
 	if err != nil {
-		logging.ExitErr(logg, err)
+		logging.ExitErr(logScope, err)
 		return nil, err
 	}
-	logging.Exit(logg, "ok", map[string]any{
+	logging.Exit(logScope, "ok", map[string]any{
 		"found": len(paths),
 	})
 	return paths, nil
 }
 
 func QueryImageIDByTagACLNext(db *sql.DB, ctx context.Context, tagId uint64, imgId uint64, takenDate *time.Time, fileName string, acl dbo.ACLContext, from, qty uint64) ([]dbo.ImageTitle, error) {
-	logg := logging.Enter(ctx, "dao.image.query.IdTitle.byTag.byACL.Next", map[string]any{
+	logScope := logging.Enter(ctx, "dao.image.query.IdTitle.byTag.byACL.Next", map[string]any{
 		"image_id": imgId,
 		"tag_id":   tagId,
 		"from":     from,
@@ -1303,10 +1317,10 @@ func QueryImageIDByTagACLNext(db *sql.DB, ctx context.Context, tagId uint64, img
 	q := NewQueries(db)
 	imagesTitle, err := q.QueryImageIDByTagACLNext(ctx, tagId, imgId, takenDate, fileName, acl, from, qty)
 	if err != nil {
-		logging.ExitErr(logg, err)
+		logging.ExitErr(logScope, err)
 		return nil, err
 	}
-	logging.Exit(logg, "ok", map[string]any{
+	logging.Exit(logScope, "ok", map[string]any{
 		"found": len(imagesTitle),
 	})
 	return imagesTitle, nil
@@ -1314,7 +1328,7 @@ func QueryImageIDByTagACLNext(db *sql.DB, ctx context.Context, tagId uint64, img
 }
 
 func QueryImageIDByTagACLPrev(db *sql.DB, ctx context.Context, tagId uint64, imgId uint64, takenDate *time.Time, fileName string, acl dbo.ACLContext, from, qty uint64) ([]dbo.ImageTitle, error) {
-	logg := logging.Enter(ctx, "dao.image.query.IdTitle.byTag.byACL.Prev", map[string]any{
+	logScope := logging.Enter(ctx, "dao.image.query.IdTitle.byTag.byACL.Prev", map[string]any{
 		"image_id": imgId,
 		"tag_id":   tagId,
 		"from":     from,
@@ -1324,33 +1338,33 @@ func QueryImageIDByTagACLPrev(db *sql.DB, ctx context.Context, tagId uint64, img
 	q := NewQueries(db)
 	imagesTitle, err := q.QueryImageIDByTagACLPrev(ctx, tagId, imgId, takenDate, fileName, acl, from, qty)
 	if err != nil {
-		logging.ExitErr(logg, err)
+		logging.ExitErr(logScope, err)
 		return nil, err
 	}
-	logging.Exit(logg, "ok", map[string]any{
+	logging.Exit(logScope, "ok", map[string]any{
 		"found": len(imagesTitle),
 	})
 	return imagesTitle, nil
 }
 
 func QueryImageCoordByTagByACL(db *sql.DB, ctx context.Context, tagId uint64, acl dbo.ACLContext) ([]dbo.ImageCoord, error) {
-	logg := logging.Enter(ctx, "dao.image.query.Coord.byTag.byACL", map[string]any{
+	logScope := logging.Enter(ctx, "dao.image.query.Coord.byTag.byACL", map[string]any{
 		"tag_id": tagId,
 		"acl":    acl,
 	})
 	q := NewQueries(db)
 	imagesCoords, err := q.QueryImageCoordByTagACL(ctx, tagId, acl)
 	if err != nil {
-		logging.ExitErr(logg, err)
+		logging.ExitErr(logScope, err)
 		return nil, err
 	}
-	logging.Exit(logg, "ok", map[string]any{
+	logging.Exit(logScope, "ok", map[string]any{
 		"found": len(imagesCoords),
 	})
 	return imagesCoords, nil
 }
 func QueryImageRandomByACL(db *sql.DB, ctx context.Context, hash string, acl dbo.ACLContext, qty int) ([]dbo.Image, error) {
-	logg := logging.Enter(ctx, "dao.image.query.Random.byACL", map[string]any{
+	logScope := logging.Enter(ctx, "dao.image.query.Random.byACL", map[string]any{
 		"hash": hash,
 		"acl":  acl,
 		"qty":  qty,
@@ -1358,71 +1372,71 @@ func QueryImageRandomByACL(db *sql.DB, ctx context.Context, hash string, acl dbo
 	q := NewQueries(db)
 	images, err := q.QueryImageRandomByHashByACLForward(ctx, hash, acl, qty)
 	if err != nil {
-		logging.ExitErr(logg, err)
+		logging.ExitErr(logScope, err)
 		return nil, err
 	}
 	newQty := qty - len(images)
 	if newQty > 0 {
 		images2, err := q.QueryImageRandomByHashByACLBackward(ctx, hash, acl, qty)
 		if err != nil {
-			logging.ExitErr(logg, err)
+			logging.ExitErr(logScope, err)
 			return nil, err
 		}
 		images = append(images, images2...)
 	}
 
-	logging.Exit(logg, "ok", map[string]any{
+	logging.Exit(logScope, "ok", map[string]any{
 		"found": len(images),
 	})
 	return images, nil
 }
 func CountImageByLastNotSeen(db *sql.DB, ctx context.Context, lastSyncID uint64) (uint64, error) {
-	logg := logging.Enter(ctx, "dao.image.count.byLastNotSeen", map[string]any{
+	logScope := logging.Enter(ctx, "dao.image.count.byLastNotSeen", map[string]any{
 		"lastSync": lastSyncID,
 	})
 	q := NewQueries(db)
 	qty, err := q.CountImageByLastNotSeen(ctx, lastSyncID)
 	if err != nil {
-		logging.ExitErr(logg, err)
+		logging.ExitErr(logScope, err)
 		return 0, err
 	}
-	logging.Exit(logg, "ok", map[string]any{"return": qty})
+	logging.Exit(logScope, "ok", map[string]any{"return": qty})
 	return qty, nil
 }
 
 func CountImageByLastSeen(db *sql.DB, ctx context.Context, lastSyncID uint64) (uint64, error) {
-	logg := logging.Enter(ctx, "dao.image.count.byLastSeen", map[string]any{
+	logScope := logging.Enter(ctx, "dao.image.count.byLastSeen", map[string]any{
 		"lastSync": lastSyncID,
 	})
 	q := NewQueries(db)
 	qty, err := q.CountImageByLastSeen(ctx, lastSyncID)
 	if err != nil {
-		logging.ExitErr(logg, err)
+		logging.ExitErr(logScope, err)
 		return 0, err
 	}
-	logging.Exit(logg, "ok", map[string]any{"return": qty})
+	logging.Exit(logScope, "ok", map[string]any{"return": qty})
 	return qty, nil
 }
 
 func CountImage(db *sql.DB, ctx context.Context) (uint64, error) {
-	logg := logging.Enter(ctx, "dao.image.count", nil)
+	logScope := logging.Enter(ctx, "dao.image.count", nil)
 	q := NewQueries(db)
 	qty, err := q.CountImage(ctx)
 	if err != nil {
-		logging.ExitErr(logg, err)
+		logging.ExitErr(logScope, err)
 		return 0, err
 	}
-	logging.Exit(logg, "ok", map[string]any{"return": qty})
+	logging.Exit(logScope, "ok", map[string]any{"return": qty})
 	return qty, nil
 }
 func CountImageACLLevels(db *sql.DB, ctx context.Context) (dbo.ImageACLCount, error) {
-	logg := logging.Enter(ctx, "dao.image.count.ACLLevels", nil)
+	logScope := logging.Enter(ctx, "dao.image.count.ACLLevels", nil)
 	q := NewQueries(db)
 	qty, err := q.CountImageACLLevels(ctx)
 	if err != nil {
-		logging.ExitErr(logg, err)
+		logging.ExitErr(logScope, err)
 		return dbo.ImageACLCount{}, err
 	}
-	logging.Exit(logg, "ok", map[string]any{"return": qty})
+	logging.Exit(logScope, "ok", map[string]any{"return": qty})
 	return qty, nil
 }

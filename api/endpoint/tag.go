@@ -5,8 +5,9 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/ignisVeneficus/lumenta/api/data"
+	apiData "github.com/ignisVeneficus/lumenta/api/data"
 	"github.com/ignisVeneficus/lumenta/config"
+	"github.com/ignisVeneficus/lumenta/data"
 	"github.com/ignisVeneficus/lumenta/db"
 	"github.com/ignisVeneficus/lumenta/db/dao"
 	"github.com/ignisVeneficus/lumenta/db/dbo"
@@ -20,7 +21,7 @@ func TagsQuery(cfg config.Config) gin.HandlerFunc {
 		logg := logging.Enter(c, "api.admin.tags", map[string]any{
 			"view": view,
 		})
-		ret := data.APIResponse[[]data.Tag]{}
+		ret := apiData.APIResponse[[]*apiData.Tag]{}
 
 		if !view.IsValid() {
 			logging.ExitErr(logg, fmt.Errorf("invalid view"))
@@ -37,17 +38,19 @@ func TagsQuery(cfg config.Config) gin.HandlerFunc {
 			c.JSON(http.StatusInternalServerError, ret)
 		}
 		pointerTags := dbo.TagsToPointer(dboTags)
-		fullName := utils.BuildPath(pointerTags)
-		var dboTagTree dbo.TagsTree
+		tags := apiData.CreateTags(pointerTags)
+
 		if view == ListViewTree {
-			dboTagTree = dbo.BuildTagsTree(dbo.TagsToPointer(dboTags))
+			utils.SortByStringKey(tags, (*apiData.Tag).GetSorting)
+			forest := data.BuildForest(tags)
+			data.PopulatePath(forest)
+			tags = forest.Roots
 		} else {
-			dboTagTree = dbo.BuildTagsFlat(dbo.TagsToPointer(dboTags))
+			data.BuildFlatPath(tags)
 		}
-		tags := data.CreateTags(dboTagTree, fullName)
 
 		ret.Data = tags
-		ret.Status = data.StatuszOK
+		ret.Status = apiData.StatuszOK
 
 		c.IndentedJSON(http.StatusOK, ret)
 		logging.Exit(logg, "ok", map[string]any{"tags": len(tags)})

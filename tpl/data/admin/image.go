@@ -8,6 +8,7 @@ import (
 	"time"
 
 	focusdata "github.com/ignisVeneficus/lumenta/data"
+	rootData "github.com/ignisVeneficus/lumenta/data"
 	"github.com/ignisVeneficus/lumenta/db/dbo"
 	"github.com/ignisVeneficus/lumenta/tpl/data"
 	grid "github.com/ignisVeneficus/lumenta/tpl/grid/data"
@@ -34,7 +35,7 @@ type PageImage struct {
 	SingleMap     *data.SingleMap
 	Form          ImageForm
 	Covers        []uint64
-	Tags          data.Forrest
+	Tags          rootData.Forest[*data.ViewTreeNode]
 }
 
 func (pi PageImage) CoversArray() template.JS {

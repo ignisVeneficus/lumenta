@@ -365,8 +365,8 @@
                     name:"",
                     src:conf.tagsUrl,
                     mapping: {
-                        //idKey: "fullName",
-                        idKey: "id",
+                        idKey: "fullName",
+                        //idKey: "id",
                         labelKey: "name",
                         childrenKey: "children" ,
                         pillLabelKey: "fullName",

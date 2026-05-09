@@ -6,9 +6,10 @@ import (
 
 	"github.com/ignisVeneficus/lumenta/definitions"
 	"github.com/ignisVeneficus/lumenta/logging"
-	"github.com/ignisVeneficus/lumenta/utils"
 	"github.com/rs/zerolog"
 )
+
+type AncestorIDs []uint64
 
 type Album struct {
 	ID          *uint64
@@ -18,7 +19,7 @@ type Album struct {
 
 	Rank uint64
 
-	AncestorIDs  []uint64
+	AncestorIDs  AncestorIDs
 	RuleJSON     json.RawMessage
 	CoverImageID *uint64
 
@@ -29,8 +30,6 @@ type Album struct {
 	ACLUserID uint64
 
 	UpdatedAt time.Time
-
-	Children []*Album
 
 	Images []Image
 }
@@ -55,12 +54,12 @@ func (a *Album) MarshalZerologObjectWithLevel(e *zerolog.Event, level zerolog.Le
 	}
 }
 
-func (a *Album) IsDescendantOf(parent *Album) bool {
-	if len(a.AncestorIDs) < len(parent.AncestorIDs) {
+func (a AncestorIDs) IsDescendantOf(parent AncestorIDs) bool {
+	if len(a) < len(parent) {
 		return false
 	}
-	for i := range parent.AncestorIDs {
-		if a.AncestorIDs[i] != parent.AncestorIDs[i] {
+	for i := range parent {
+		if a[i] != parent[i] {
 			return false
 		}
 	}
@@ -78,34 +77,11 @@ func (a *Album) AncestorPrefixJSON() string {
 	return string(b[:len(b)-1])
 }
 
-func (a *Album) IsRoot() bool {
-	return a.ParentID == nil
-}
-
-func (a *Album) GetID() uint64 {
-	return *a.ID
-}
-
-func (a *Album) GetParentID() *uint64 {
-	return a.ParentID
-}
-
-func (a *Album) ClearChildren() {
-	a.Children = a.Children[:0]
-}
-
-func (a *Album) AddChild(child *Album) {
-	a.Children = append(a.Children, child)
-}
-
 func (a *Album) GetSorting() string {
 	return a.Name
 }
-func (a *Album) GetPath() string {
-	return a.Name
-}
 
-func ReplaceAncestorPrefix(oldAncestors, newAncestors, current []uint64) []uint64 {
+func ReplaceAncestorPrefix(oldAncestors, newAncestors, current AncestorIDs) AncestorIDs {
 	if len(current) < len(oldAncestors) {
 		return current
 	}
@@ -114,7 +90,7 @@ func ReplaceAncestorPrefix(oldAncestors, newAncestors, current []uint64) []uint6
 		current[len(oldAncestors):]...,
 	)
 }
-func BuildAncestorIDs(parent *Album, selfID uint64) []uint64 {
+func BuildAncestorIDs(parent *Album, selfID uint64) AncestorIDs {
 	if parent == nil {
 		return []uint64{selfID}
 	}
@@ -164,15 +140,4 @@ func AlbumGraphToPointer(albums []AlbumGraph) []*AlbumGraph {
 		ret[i] = &albums[i]
 	}
 	return ret
-}
-func BuildAlbumsTree(albums []*Album) []*Album {
-	utils.SortByStringKey(albums, (*Album).GetSorting)
-	return utils.BuildTree(albums)
-}
-func BuildAlbumsFlat(albums []*Album) []*Album {
-	utils.SortByStringKey(albums, (*Album).GetSorting)
-	for _, a := range albums {
-		a.ClearChildren()
-	}
-	return albums
 }

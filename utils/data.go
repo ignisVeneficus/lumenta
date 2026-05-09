@@ -67,6 +67,19 @@ func SortByStringKey[T any](items []T, key func(T) string) {
 		) < 0
 	})
 }
+
+func SortByUint64Key[T any](items []T, key func(T) uint64) {
+	sort.Slice(items, func(i, j int) bool {
+		return key(items[i]) < key(items[j])
+	})
+}
+
+func Reverse[T any](s []T) {
+	for i, j := 0, len(s)-1; i < j; i, j = i+1, j-1 {
+		s[i], s[j] = s[j], s[i]
+	}
+}
+
 func ComputeDailyHash() string {
 	date := time.Now().UTC().Format("2006.01.02") // yyyy.mm.dd
 

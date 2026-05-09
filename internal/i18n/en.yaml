@@ -204,6 +204,7 @@ ruleengine:
       path_filter: "Database inclusion"
       panorama: "Panorama detection"
       acl: "Access control assignment"
+      album: "Album membership update"
     result: "Result"
     result_value:
       "true": "Match"
@@ -258,6 +259,9 @@ action:
     search:
       short: "Search"
       label: "Search"
+    grip-vertical:
+      short: "Move"
+      label: "Drag to move and reorder"
   public:
     image:
       next:
@@ -284,6 +288,23 @@ action:
       open_admin:
         short: "Admin"
         label: "Open image in administration"
+  admin:
+    albums:
+      edit:
+        short: "Edit"
+        label: "Edit album"
+      delete:
+        short: "Delete"
+        label: "Delete album"
+      visit:
+        short: "Public"
+        label: "Open in public view"
+      child:
+        short: "Add"
+        label: "Add sub-album"
+      new:
+        short: "New"
+        label: "Create new album"
 page:
   common:
     #kirakni
@@ -424,6 +445,8 @@ nav:
       short: Go
       label: Go to page
   tree:
+    toggle: "Toggle"
+  collapsible:
     toggle: "Toggle"
 common:
   duration:

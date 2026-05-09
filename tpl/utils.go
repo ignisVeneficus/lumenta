@@ -36,16 +36,9 @@ func CreateImage(ctx context.Context, cfg config.Config, image dbo.Image) tplDat
 		}
 	})
 	flatForrest.Add(tagsList)
-	forrest := flatForrest.Build()
+	forest := flatForrest.Build()
 
-	if cfg.Presentation.TagMeaningConfig != nil {
-		types := make(map[string][]string)
-		for k, v := range cfg.Presentation.TagMeaningConfig.MeaningMap {
-			types[string(k)] = v
-		}
-		forrest.SetTags(types)
-	}
-	forrest.Populate()
+	tplData.SetTagsMeaning(forest, cfg.Presentation.TagMeaningConfig)
 
 	var singleMap *tplData.SingleMap = nil
 
@@ -58,19 +51,22 @@ func CreateImage(ctx context.Context, cfg config.Config, image dbo.Image) tplDat
 	ret := tplData.PageImage{
 		Image:     image,
 		SingleMap: singleMap,
-		Tags:      *forrest,
+		Tags:      *forest,
 	}
 
 	ret.Metadata = handleImgMetadata(ctx, cfg, image)
 	return ret
 }
-func appendMetadata(list []tplData.MetadataValue, label string, key string, m data.Metadata) []tplData.MetadataValue {
-	mtv, ok := m[key]
-	if ok {
-		list = append(list, createMetadata(label, mtv))
+
+/*
+	func appendMetadata(list []tplData.MetadataValue, label string, key string, m data.Metadata) []tplData.MetadataValue {
+		mtv, ok := m[key]
+		if ok {
+			list = append(list, createMetadata(label, mtv))
+		}
+		return list
 	}
-	return list
-}
+*/
 func createMetadata(label string, m data.MetadataValue) tplData.MetadataValue {
 	value, _ := m.AsString()
 	if value != "" && m.Unit != "" {

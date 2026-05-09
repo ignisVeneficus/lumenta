@@ -14,13 +14,9 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func ExtractMetadata(ctx context.Context, paths ...string) (data.Metadata, error) {
+func ExtractMetadata(exiftool *exif.PersistentExiftool, ctx context.Context, paths ...string) (data.Metadata, error) {
 	logg := logging.Enter(ctx, "metadata.extract", map[string]any{"source": paths})
-	exiftool, err := exif.GetExiftool()
-	if err != nil {
-		logging.ExitErr(logg, err)
-		return nil, err
-	}
+
 	var metadata data.Metadata
 	for i, path := range paths {
 		rawdata, err := exiftool.Read(ctx, path)

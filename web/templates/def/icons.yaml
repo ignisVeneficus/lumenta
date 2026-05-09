@@ -18,7 +18,7 @@ data:
       deleted: "fa-solid fa-trash"
       created: "fa-solid fa-plus"
       not_changed: "fa-regular fa-circle"
-      updated: "fa-regular fa-pen"
+      updated: "fa-solid fa-pen"
       filtered_out: "fa-solid fa-ban"
   sync_runs:
     status:
@@ -52,6 +52,7 @@ action:
     save: "fa-solid fa-floppy-disk"
     cancel: "fa-solid fa-xmark"
     delete: "fa-solid fa-xmark"
+    grip-vertical: "fa-solid fa-grip-vertical"
   public:
     image:
       back: "fa-solid fa-angle-up"
@@ -60,9 +61,20 @@ action:
       fullscreen_off: "fa-solid fa-compress"
       info: "fa-solid fa-circle-info"
       slideshow: "fa-solid fa-play"
+  admin:
+    albums:
+      edit: "fa-solid fa-pen"
+      delete: "fa-solid fa-trash"
+      visit: "fa-solid fa-up-right-from-square"
+      child: "fa-solid fa-folder-plus"
+      new: "fa-solid fa-folder-plus"
   tree:
     tag:
-      toogle: "fa-solid fa-chevron-right"
+      toggle: "fa-solid fa-chevron-right"
+    album:
+      toggle: "fa-solid fa-chevron-right"
+  collapsible:
+    toggle:  "fa-solid fa-chevron-right"
 
 nav:
   page:

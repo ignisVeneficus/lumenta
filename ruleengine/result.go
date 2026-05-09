@@ -23,17 +23,22 @@ const (
 	EvaluationFilesystem RuleEvaluation = "path_filter"
 	EvaluationPanorama   RuleEvaluation = "panorama"
 	EvaluationACL        RuleEvaluation = "acl"
+	EvaluationAlbum      RuleEvaluation = "album"
 )
 
 var AllRuleEvaluation = []RuleEvaluation{
 	EvaluationFilesystem,
 	EvaluationACL,
 	EvaluationPanorama,
+	EvaluationAlbum,
 }
 
+type RuleParamType string
+
 type RuleParam struct {
-	Name  string   `json:"name"`
-	Value []string `json:"value"`
+	Name  string        `json:"name"`
+	Value []string      `json:"value"`
+	Type  RuleParamType `json:"type"`
 }
 
 type RuleResult struct {
@@ -68,10 +73,19 @@ func CreateRuleParamInt(name string, value int) RuleParam {
 		Value: []string{strconv.Itoa(value)},
 	}
 }
+func CreateRuleParamIntPoi(name string, value *uint64) RuleParam {
+	if value == nil {
+		return CreateRuleParamEmpty(name)
+	}
+	return RuleParam{
+		Name:  name,
+		Value: []string{strconv.FormatUint(*value, 10)},
+	}
+}
 func CreateRuleParamInts(name string, value []uint64) RuleParam {
 	strValue := make([]string, len(value))
 	for _, v := range value {
-		strValue = append(strValue, strconv.Itoa(int(v)))
+		strValue = append(strValue, strconv.FormatUint(v, 10))
 	}
 	return RuleParam{
 		Name:  name,

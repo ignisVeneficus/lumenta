@@ -74,6 +74,38 @@ const queryAlbumsIdByCover = `
 SELECT a.ID FROM albums AS a WHERE a.cover_image_id = ?;
 `
 
+const countAlbum = `
+SELECT COUNT(*) FROM albums;
+`
+
+const queryAlbumIDByImageID = `
+SELECT ai.album_id FROM album_images ai WHERE ai.image_id = ?;
+`
+const queryAlbumByImageIDACL = `
+SELECT ` + albumFields + ` FROM album_images ai 
+JOIN albums a
+ON ai.album_id = a.id
+WHERE ai.image_id = ? AND %s ;
+`
+
+const reorderAllImages = `
+UPDATE album_images ai
+JOIN (
+    SELECT
+        ai.album_id,
+        ai.image_id,
+        ROW_NUMBER() OVER (
+            PARTITION BY ai.album_id
+            ORDER BY i.order_date, i.filename, i.id
+        ) AS new_position
+    FROM album_images ai
+    JOIN images i ON i.id = ai.image_id
+) x
+ON ai.album_id = x.album_id
+AND ai.image_id = x.image_id
+SET ai.position = x.new_position;
+`
+
 const updateAlbumCountersBydepth = `
 UPDATE albums parent
 LEFT JOIN (
@@ -297,6 +329,50 @@ func (q *Queries) QueryAlbumsIDbyCover(ctx context.Context, cover uint64) ([]uin
 	}
 	return ids, rows.Err()
 
+}
+
+func (q *Queries) CountAlbum(ctx context.Context) (uint64, error) {
+	row := q.db.QueryRowContext(ctx, countAlbum)
+	var count uint64
+	err := row.Scan(&count)
+	return count, err
+}
+
+func (q *Queries) QueryAlbumIDByImageID(ctx context.Context, imageID uint64) ([]uint64, error) {
+	rows, err := q.db.QueryContext(ctx, queryAlbumIDByImageID, imageID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	ids := make([]uint64, 0)
+	for rows.Next() {
+		var id uint64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
+func (q *Queries) QueryAlbumByImageIDACL(ctx context.Context, imageID uint64, acl dbo.ACLContext) ([]dbo.Album, error) {
+	aclWhere, aclParams := CreateAclWhere("a", acl)
+
+	params := []any{imageID}
+	params = append(params, aclParams...)
+	rows, err := q.db.QueryContext(ctx, fmt.Sprintf(queryAlbumByImageIDACL, aclWhere), params...)
+
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return parseAlbums(rows)
+}
+
+func (q *Queries) ReorderAllImage(ctx context.Context) error {
+	_, err := q.db.ExecContext(ctx, reorderAllImages)
+	return err
 }
 
 //
@@ -640,4 +716,50 @@ func QueryAlbumsIdByCover(db *sql.DB, ctx context.Context, cover uint64) ([]uint
 	}
 	logging.Exit(logg, "ok", map[string]any{"found": len(albums)})
 	return albums, nil
+}
+
+func CountAlbum(db *sql.DB, ctx context.Context) (uint64, error) {
+	logg := logging.Enter(ctx, "dao.album.count", nil)
+	q := NewQueries(db)
+	qty, err := q.CountAlbum(ctx)
+	if err != nil {
+		logging.ExitErr(logg, err)
+		return 0, err
+	}
+	logging.Exit(logg, "ok", map[string]any{"return": qty})
+	return qty, nil
+}
+func QueryAlbumIDByImageID(db *sql.DB, ctx context.Context, imageID uint64) ([]uint64, error) {
+	logg := logging.Enter(ctx, "dao.album.query.AlbumID.ByImage", map[string]any{
+		"image_id": imageID,
+	})
+	q := NewQueries(db)
+	albums, err := q.QueryAlbumIDByImageID(ctx, imageID)
+	if err != nil {
+		logging.ExitErr(logg, err)
+		return nil, err
+	}
+	logging.Exit(logg, "ok", map[string]any{"found": len(albums)})
+	return albums, nil
+}
+func QueryAlbumsIDImageIDACL(db *sql.DB, ctx context.Context, imageID uint64, acl dbo.ACLContext) ([]dbo.Album, error) {
+	logg := logging.Enter(ctx, "dao.album.query.ByImage.ByACL", map[string]any{
+		"image_id": imageID,
+		"ac":       acl,
+	})
+	q := NewQueries(db)
+	albums, err := q.QueryAlbumByImageIDACL(ctx, imageID, acl)
+	if err != nil {
+		logging.ExitErr(logg, err)
+		return nil, err
+	}
+	logging.Exit(logg, "ok", map[string]any{"found": len(albums)})
+	return albums, nil
+}
+
+func ReorderAllImages(db *sql.DB, ctx context.Context) error {
+	logg := logging.Enter(ctx, "dao.album.reorderImages", nil)
+	q := NewQueries(db)
+	err := q.ReorderAllImage(ctx)
+	return logging.Return(logg, err)
 }

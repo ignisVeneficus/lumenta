@@ -122,6 +122,49 @@ CREATE TABLE IF NOT EXISTS images (
 
 
 -- =========================================================
+-- FILTERED OUT IMAGES
+-- =========================================================
+
+CREATE TABLE IF NOT EXISTS filtered (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY
+    COMMENT 'Image unique identifier',
+  root VARCHAR(50) NOT NULL
+    COMMENT 'Name of the configured root',
+  path VARCHAR(600) NOT NULL
+    COMMENT 'Directory path relative to configured root',
+  filename VARCHAR(64) NOT NULL
+    COMMENT 'Filename without extension',
+  ext VARCHAR(8) NOT NULL
+    COMMENT 'File extension',
+
+  file_size INT UNSIGNED NOT NULL
+    COMMENT 'File size in bytes',
+  mtime DATETIME NOT NULL 
+    COMMENT 'Filesystem modification timestamp',
+  file_hash CHAR(64) NOT NULL 
+    COMMENT 'SHA-256 hash of file',
+  meta_hash CHAR(64) NOT NULL 
+    COMMENT 'SHA-256 hash of sidecar file',
+
+  exif_json JSON NULL
+    COMMENT 'EXIF/XMP metadata dump in key-value format',
+
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    COMMENT 'Image record creation timestamp',
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    COMMENT 'Last update timestamp',
+
+  last_seen_sync BIGINT UNSIGNED NULL
+    COMMENT 'Sync run ID in which the image was last observed',
+
+  UNIQUE KEY uniq_image_path (root, path, filename, ext),
+  INDEX idx_images_last_seen_sync (last_seen_sync),
+  INDEX ixd_last_seen (last_seen_sync)
+) ENGINE=InnoDB COMMENT='Filesystem images excluded from the library during sync';
+
+
+
+-- =========================================================
 -- ALBUMS (categories)
 -- =========================================================
 

@@ -6,8 +6,9 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"github.com/ignisVeneficus/lumenta/api/data"
+	apiData "github.com/ignisVeneficus/lumenta/api/data"
 	"github.com/ignisVeneficus/lumenta/config"
+	"github.com/ignisVeneficus/lumenta/data"
 	"github.com/ignisVeneficus/lumenta/db"
 	"github.com/ignisVeneficus/lumenta/db/dao"
 	"github.com/ignisVeneficus/lumenta/db/dbo"
@@ -22,7 +23,7 @@ func AlbumQuery(cfg config.Config) gin.HandlerFunc {
 		logg := logging.Enter(c, "api.admin.albums.get", map[string]any{
 			"view": view,
 		})
-		ret := data.APIResponse[[]data.Album]{}
+		ret := apiData.APIResponse[[]*apiData.Album]{}
 
 		if !view.IsValid() {
 			logging.ExitErr(logg, fmt.Errorf("invalid view"))
@@ -41,17 +42,20 @@ func AlbumQuery(cfg config.Config) gin.HandlerFunc {
 		}
 
 		pointers := dbo.AlbumsToPointer(dboAlbums)
-		fullName := utils.BuildPath(pointers)
-		var dboAlbumTree []*dbo.Album
+
+		albums := apiData.CreateAlbums(pointers)
+
 		if view == ListViewTree {
-			dboAlbumTree = dbo.BuildAlbumsTree(pointers)
+			utils.SortByStringKey(albums, (*apiData.Album).GetSorting)
+			forest := data.BuildForest(albums)
+			data.PopulatePath(forest)
+			albums = forest.Roots
 		} else {
-			dboAlbumTree = dbo.BuildAlbumsFlat(pointers)
+			data.BuildFlatPath(albums)
 		}
-		albums := data.CreateAlbums(dboAlbumTree, fullName)
 
 		ret.Data = albums
-		ret.Status = data.StatuszOK
+		ret.Status = apiData.StatuszOK
 
 		c.IndentedJSON(http.StatusOK, ret)
 		logging.Exit(logg, "ok", map[string]any{"albums": len(albums)})
@@ -59,7 +63,7 @@ func AlbumQuery(cfg config.Config) gin.HandlerFunc {
 	}
 }
 
-func mergeAlbumData(album dbo.Album, patch data.AlbumPatch) dbo.Album {
+func mergeAlbumData(album dbo.Album, patch apiData.AlbumPatch) dbo.Album {
 	patch.Name.Apply(&album.Name)
 	patch.Description.ApplyPtr(&album.Description)
 	patch.ParentID.ApplyPtr(&album.ParentID)
@@ -72,8 +76,8 @@ func mergeAlbumData(album dbo.Album, patch data.AlbumPatch) dbo.Album {
 
 func AlbumPatch(cfg config.Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		var albumPatch data.AlbumPatch
-		ret := data.APIStatusResponse{}
+		var albumPatch apiData.AlbumPatch
+		ret := apiData.APIStatusResponse{}
 		albumIDStr := c.Param("id")
 		c.BindJSON(&albumPatch)
 		logg := logging.Enter(c, "page.admin.album.patch", map[string]any{
@@ -123,7 +127,7 @@ func AlbumPatch(cfg config.Config) gin.HandlerFunc {
 			c.AbortWithStatusJSON(http.StatusInternalServerError, ret)
 			return
 		}
-		ret.Status = data.StatuszOK
+		ret.Status = apiData.StatuszOK
 		c.IndentedJSON(http.StatusOK, ret)
 		logging.Exit(logg, "ok", nil)
 

@@ -19,7 +19,7 @@ import (
 	"github.com/ignisVeneficus/lumenta/logging"
 	"github.com/ignisVeneficus/lumenta/server/routes"
 	"github.com/ignisVeneficus/lumenta/tpl"
-	"github.com/ignisVeneficus/lumenta/tpl/data"
+	tplData "github.com/ignisVeneficus/lumenta/tpl/data"
 	adminData "github.com/ignisVeneficus/lumenta/tpl/data/admin"
 	"github.com/ignisVeneficus/lumenta/utils"
 )
@@ -29,7 +29,7 @@ var (
 	imagePerPage uint64 = 48
 )
 
-func BuildRootDirGrid(ctx context.Context, database *sql.DB, page uint64, url data.URLBuilder) (adminData.FsDirs, error) {
+func BuildRootDirGrid(ctx context.Context, database *sql.DB, page uint64, url tplData.URLBuilder) (adminData.FsDirs, error) {
 	logg := logging.Enter(ctx, "admin.fsPage.buildRootDirGrid", map[string]any{
 		"page": page,
 	})
@@ -43,7 +43,7 @@ func BuildRootDirGrid(ctx context.Context, database *sql.DB, page uint64, url da
 		logging.ExitErr(logg, err)
 		return adminData.FsDirs{}, err
 	}
-	paging := data.CreatePaging(url, data.FolderPageParam, page, qty, dirPerPage)
+	paging := tplData.CreatePaging(url, tplData.FolderPageParam, page, qty, dirPerPage)
 
 	dirItems := []adminData.FsDir{}
 	for _, d := range dirs {
@@ -76,7 +76,7 @@ func BuildRootDirGrid(ctx context.Context, database *sql.DB, page uint64, url da
 	return ret, nil
 }
 
-func BuildDirGrid(ctx context.Context, database *sql.DB, root, pagePath string, page uint64, url data.URLBuilder) (adminData.FsDirs, error) {
+func BuildDirGrid(ctx context.Context, database *sql.DB, root, pagePath string, page uint64, url tplData.URLBuilder) (adminData.FsDirs, error) {
 	logg := logging.Enter(ctx, "admin.fsPage.buildDirGrid", map[string]any{
 		"root": root,
 		"path": pagePath,
@@ -92,7 +92,7 @@ func BuildDirGrid(ctx context.Context, database *sql.DB, root, pagePath string, 
 		logging.ExitErr(logg, err)
 		return adminData.FsDirs{}, err
 	}
-	paging := data.CreatePaging(url, data.FolderPageParam, page, qty, dirPerPage)
+	paging := tplData.CreatePaging(url, tplData.FolderPageParam, page, qty, dirPerPage)
 
 	dirItems := []adminData.FsDir{}
 	for _, d := range dirs {
@@ -125,7 +125,7 @@ func BuildDirGrid(ctx context.Context, database *sql.DB, root, pagePath string, 
 	logging.Exit(logg, "ok", nil)
 	return ret, nil
 }
-func BuildImageGrid(ctx context.Context, database *sql.DB, root, path string, page uint64, url data.URLBuilder) (adminData.FsImages, error) {
+func BuildImageGrid(ctx context.Context, database *sql.DB, root, path string, page uint64, url tplData.URLBuilder) (adminData.FsImages, error) {
 	logg := logging.Enter(ctx, "admin.fsPage.buildImageGrid", map[string]any{
 		"root": root,
 		"path": path,
@@ -146,7 +146,7 @@ func BuildImageGrid(ctx context.Context, database *sql.DB, root, path string, pa
 		return adminData.FsImages{}, err
 	}
 
-	paging := data.CreatePaging(url, data.ImagePageParam, page, qty, imagePerPage)
+	paging := tplData.CreatePaging(url, tplData.ImagePageParam, page, qty, imagePerPage)
 
 	imageItems := []adminData.FsImage{}
 	for _, i := range images {
@@ -181,7 +181,7 @@ func BuildImageGrid(ctx context.Context, database *sql.DB, root, path string, pa
 
 }
 
-func createFsBreadcrumbs(root, path string, lang string, i18n *i18n.Service) data.Breadcrumbs {
+func createFsBreadcrumbs(root, path string, lang string, i18n *i18n.Service) tplData.Breadcrumbs {
 	parts := []string{}
 	if root != "" {
 		parts = append(parts, root)
@@ -189,7 +189,7 @@ func createFsBreadcrumbs(root, path string, lang string, i18n *i18n.Service) dat
 	if path != "" {
 		parts = append(parts, strings.Split(path, "/")...)
 	}
-	selfRoot := data.Breadcrumb{
+	selfRoot := tplData.Breadcrumb{
 		Label: i18n.T(lang, "nav.page.admin.images.short", nil),
 		Type:  "page",
 		Title: i18n.T(lang, "nav.page.admin.images.label", nil),
@@ -198,7 +198,7 @@ func createFsBreadcrumbs(root, path string, lang string, i18n *i18n.Service) dat
 		selfRoot.Link = template.URL(routes.BuildAdminFsPath("").String())
 
 	}
-	res := data.Breadcrumbs{
+	res := tplData.Breadcrumbs{
 		tpl.GetAdminMain(lang, i18n),
 		selfRoot,
 	}
@@ -207,7 +207,7 @@ func createFsBreadcrumbs(root, path string, lang string, i18n *i18n.Service) dat
 
 		for i := 0; i < len(parts)-1; i++ {
 			path := strings.Join(parts[:i+1], "/")
-			brc := data.Breadcrumb{
+			brc := tplData.Breadcrumb{
 				Label: parts[i],
 				Link:  template.URL(routes.BuildAdminFsPath(path).String()),
 				Type:  "filesystem",
@@ -215,7 +215,7 @@ func createFsBreadcrumbs(root, path string, lang string, i18n *i18n.Service) dat
 			}
 			res = append(res, brc)
 		}
-		brc := data.Breadcrumb{
+		brc := tplData.Breadcrumb{
 			Label: parts[len(parts)-1],
 			Type:  "filesystem",
 		}
@@ -230,8 +230,8 @@ func FSPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 		loc := tpl.L(c)
 		path := c.Param("fsPath")
 		path = strings.TrimPrefix(path, "/")
-		dPageStr := c.DefaultQuery(data.FolderPageParam, "1")
-		iPageStr := c.DefaultQuery(data.ImagePageParam, "1")
+		dPageStr := c.DefaultQuery(tplData.FolderPageParam, "1")
+		iPageStr := c.DefaultQuery(tplData.ImagePageParam, "1")
 		logg := logging.Enter(c, "page.admin.fs", map[string]any{
 			"path":           path,
 			"directory_page": dPageStr,
@@ -284,7 +284,7 @@ func FSPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 
 		fsCtx := adminData.FsPageContext{}
 		pageCtx := fsCtx.GetPage()
-		tpl.CreatePageContext(pageCtx, cfg, c, "fs", data.SurfaceAdmin)
+		tpl.CreatePageContext(pageCtx, cfg, c, "fs", tplData.SurfaceAdmin)
 		fsCtx.Dirs = dirs
 		fsCtx.Images = images
 		fsCtx.Breadcrumbs = createFsBreadcrumbs(root, path, loc, i18n)

@@ -6,6 +6,7 @@ import (
 	"html/template"
 
 	authData "github.com/ignisVeneficus/lumenta/auth/data"
+	rootData "github.com/ignisVeneficus/lumenta/data"
 	"github.com/ignisVeneficus/lumenta/db/dbo"
 
 	grid "github.com/ignisVeneficus/lumenta/tpl/grid/data"
@@ -81,7 +82,7 @@ type NavigationContext struct {
 
 type TagRootPageContext struct {
 	NavigationContext
-	TagsTree Forrest
+	TagsTree rootData.Forest[*ViewTreeNode]
 }
 
 type ImageGrid struct {
@@ -92,7 +93,7 @@ type ImageGrid struct {
 type ImageGridPageContext struct {
 	NavigationContext
 	ImageGrid ImageGrid
-	ImageTags Forrest
+	ImageTags rootData.Forest[*ViewTreeNode]
 }
 
 type PageTags struct {

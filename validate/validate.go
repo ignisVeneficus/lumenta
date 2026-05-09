@@ -1,9 +1,9 @@
 package validate
 
 import (
+	"github.com/ignisVeneficus/lumenta/data"
 	"github.com/ignisVeneficus/lumenta/db/dbo"
 	"github.com/ignisVeneficus/lumenta/definitions"
-	"github.com/ignisVeneficus/lumenta/utils"
 )
 
 type ValidationErrors map[definitions.FieldName][]string
@@ -30,11 +30,15 @@ func ValidateAlbum(album dbo.Album, albums []*dbo.AlbumGraph) ValidationErrors {
 		validateErrors.AddError(definitions.AlbumFieldACLLevel, "Invalud value")
 	}
 	if album.ParentID != nil && album.ParentID != album.ID {
+		var albumId uint64 = 0
+		if album.ID != nil {
+			albumId = *album.ID
+		}
 		checkAlbum := dbo.AlbumGraph{
-			ID:       *album.ID,
+			ID:       albumId,
 			ParentID: album.ParentID,
 		}
-		_, circle := utils.CircleCheck(albums, &checkAlbum)
+		_, circle := data.CircleCheck(albums, &checkAlbum)
 		if circle {
 			validateErrors.AddError(definitions.AlbumFieldParentID, "Invalid parent: circular reference detected.")
 

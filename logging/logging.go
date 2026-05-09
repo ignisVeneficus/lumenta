@@ -7,6 +7,7 @@ package logging
 import (
 	"context"
 	"crypto/rand"
+	"encoding/binary"
 	"encoding/hex"
 	"io"
 	"os"
@@ -35,11 +36,23 @@ const (
 	FieldTraceID string = "trace_id"
 	// FieldParams contains structured parameters associated with a log entry.
 	FieldParams string = "params"
+
+	FieldDuration string = "duration"
 )
 
 // TraceIDKey is the context.Context key used to store and retrieve
 // the current trace identifier.
 const TraceIDKey string = "logging.traceID"
+
+type Scope struct {
+	Start time.Time
+	Log   zerolog.Logger
+}
+
+type LoggingConfig struct {
+	zeroconfig.Config `yaml:",inline"`
+	Loggers           map[string]zerolog.Level `yaml:"loggers"`
+}
 
 //
 // ===== Internal helpers =====
@@ -47,9 +60,34 @@ const TraceIDKey string = "logging.traceID"
 
 // newSpanID generates a short random span identifier (8 hex characters).
 func newSpanID() string {
-	b := make([]byte, 4) // 8 hex char
-	_, _ = rand.Read(b)
-	return hex.EncodeToString(b)
+	for {
+		b := make([]byte, 8)
+
+		_, err := rand.Read(b)
+		if err != nil {
+			panic(err)
+		}
+
+		if binary.BigEndian.Uint64(b) != 0 {
+			return hex.EncodeToString(b)
+		}
+	}
+}
+
+func newTraceID() string {
+	for {
+		b := make([]byte, 16)
+
+		_, err := rand.Read(b)
+		if err != nil {
+			panic(err)
+		}
+
+		if binary.BigEndian.Uint64(b[:8]) != 0 ||
+			binary.BigEndian.Uint64(b[8:]) != 0 {
+			return hex.EncodeToString(b)
+		}
+	}
 }
 
 // loggerFromCtx resolves the zerolog.Logger stored in the context.
@@ -105,13 +143,17 @@ func AddParams(e *zerolog.Event, level zerolog.Level, params map[string]any) {
 // at debug or trace log levels.
 //
 // It returns a span-bound logger for subsequent logging within the function.
-func Enter(ctx context.Context, funcName string, params map[string]any) zerolog.Logger {
+func Enter(ctx context.Context, funcName string, params map[string]any) Scope {
 
+	start := time.Now()
 	logg := loggerFromCtx(ctx)
 
 	level, ok := isDebugOrTraceEnabled(logg)
 	if !ok {
-		return logg
+		return Scope{
+			Start: start,
+			Log:   logg,
+		}
 	}
 	spanID := newSpanID()
 
@@ -131,18 +173,24 @@ func Enter(ctx context.Context, funcName string, params map[string]any) zerolog.
 	}
 	e.Msg("")
 
-	return l
+	return Scope{
+		Log:   l,
+		Start: start,
+	}
 }
 
 // Exit closes a function scope with a successful result
 // at debug or trace log levels.
-func Exit(logg zerolog.Logger, result string, params map[string]any) {
+func Exit(scope Scope, result string, params map[string]any) {
+	logg := scope.Log
 	level, ok := isDebugOrTraceEnabled(logg)
 	if !ok {
 		return
 	}
+	dur := time.Since(scope.Start)
 	e := logg.Debug().
-		Str(FieldEvent, "func.exit")
+		Str(FieldEvent, "func.exit").
+		Dur(FieldDuration, dur)
 	if result != "" {
 		e.Str(FieldResult, result)
 	}
@@ -153,29 +201,35 @@ func Exit(logg zerolog.Logger, result string, params map[string]any) {
 }
 
 // ExitWarn closes a function scope with an Warning result.
-func ExitWarn(logg zerolog.Logger, err error) {
-	logg.Warn().
+func ExitWarn(scope Scope, err error) {
+	dur := time.Since(scope.Start)
+	scope.Log.Warn().
 		Str(FieldEvent, "func.exit").
 		Str(FieldResult, "warning").
+		Dur(FieldDuration, dur).
 		Err(err).
 		Msg("")
 }
 
 // ExitErr closes a function scope with an error result.
-func ExitErr(logg zerolog.Logger, err error) {
-	logg.Error().
+func ExitErr(scope Scope, err error) {
+	dur := time.Since(scope.Start)
+	scope.Log.Error().
 		Str(FieldEvent, "func.exit").
 		Str(FieldResult, "error").
+		Dur(FieldDuration, dur).
 		Err(err).
 		Msg("")
 }
 
 // ExitErrParams closes a function scope with an error result
 // and additional structured parameters.
-func ExitErrParams(logg zerolog.Logger, err error, params map[string]any) {
-	e := logg.Error().
+func ExitErrParams(scope Scope, err error, params map[string]any) {
+	dur := time.Since(scope.Start)
+	e := scope.Log.Error().
 		Str(FieldEvent, "func.exit").
 		Str(FieldResult, "error").
+		Dur(FieldDuration, dur).
 		Err(err)
 	if params != nil {
 		AddParams(e, zerolog.DebugLevel, params)
@@ -184,9 +238,11 @@ func ExitErrParams(logg zerolog.Logger, err error, params map[string]any) {
 }
 
 // ErrorContinue logs an error without closing the surrounding function scope.
-func ErrorContinue(logg zerolog.Logger, err error, params map[string]any) {
-	e := logg.Error().
+func ErrorContinue(scope Scope, err error, params map[string]any) {
+	dur := time.Since(scope.Start)
+	e := scope.Log.Error().
 		Str(FieldEvent, "func.error").
+		Dur(FieldDuration, dur).
 		Err(err)
 	if params != nil {
 		AddParams(e, zerolog.WarnLevel, params)
@@ -195,7 +251,8 @@ func ErrorContinue(logg zerolog.Logger, err error, params map[string]any) {
 }
 
 // Inside logs a debug-level intermediate event within a function scope.
-func Inside(logg zerolog.Logger, params map[string]any, msg string) {
+func Inside(scope Scope, params map[string]any, msg string) {
+	logg := scope.Log
 	level, ok := isDebugOrTraceEnabled(logg)
 	if !ok {
 		return
@@ -210,22 +267,22 @@ func Inside(logg zerolog.Logger, params map[string]any, msg string) {
 
 // Return logs the function exit status using the appropriate exit helper
 // and returns the provided error unchanged.
-func Return(logg zerolog.Logger, err error) error {
+func Return(scope Scope, err error) error {
 	if err != nil {
-		ExitErr(logg, err)
+		ExitErr(scope, err)
 	} else {
-		Exit(logg, "ok", nil)
+		Exit(scope, "ok", nil)
 	}
 	return err
 }
 
 // Return logs the function exit status using the appropriate exit helper
 // and returns the provided error unchanged.
-func ReturnParams(logg zerolog.Logger, err error, params map[string]any) error {
+func ReturnParams(scope Scope, err error, params map[string]any) error {
 	if err != nil {
-		ExitErrParams(logg, err, params)
+		ExitErrParams(scope, err, params)
 	} else {
-		Exit(logg, "ok", params)
+		Exit(scope, "ok", params)
 	}
 	return err
 }
@@ -319,121 +376,6 @@ func Error(ctx context.Context, err error, function string,
 }
 
 //
-// ===== Object-level logging =====
-//
-
-// ObjectWithLevel allows an object to control how it is marshaled
-// depending on the active log level.
-type ObjectWithLevel interface {
-	MarshalZerologObjectWithLevel(e *zerolog.Event, level zerolog.Level)
-}
-
-// withLevel wraps an ObjectWithLevel with an explicit log level.
-type withLevel struct {
-	level zerolog.Level
-	obj   ObjectWithLevel
-}
-
-// WithLevel wraps an ObjectWithLevel for level-aware marshaling.
-func WithLevel(level zerolog.Level, obj ObjectWithLevel) *withLevel {
-	if obj == nil {
-		return nil
-	}
-	return &withLevel{level: level, obj: obj}
-}
-
-// MarshalZerologObject implements zerolog object marshaling.
-func (w *withLevel) MarshalZerologObject(e *zerolog.Event) {
-	w.obj.MarshalZerologObjectWithLevel(e, w.level)
-}
-
-//
-// ===== Typed conditional field helpers =====
-//
-
-// IntIf logs an int value if not nil.
-func IntIf(e *zerolog.Event, k string, v *int) {
-	if v != nil {
-		e.Int(k, *v)
-	}
-}
-
-// Int16If logs an int16 value if not nil.
-func Int16If(e *zerolog.Event, k string, v *int16) {
-	if v != nil {
-		e.Int16(k, *v)
-	}
-}
-
-// Uint16If logs an uint16 value if not nil.
-func Uint16If(e *zerolog.Event, k string, v *uint16) {
-	if v != nil {
-		e.Uint16(k, *v)
-	}
-}
-
-// Int64If logs an int64 value if not nil.
-func Int64If(e *zerolog.Event, k string, v *int64) {
-	if v != nil {
-		e.Int64(k, *v)
-	}
-}
-
-// Uint64If logs an uint64 value if not nil.
-func Uint64If(e *zerolog.Event, k string, v *uint64) {
-	if v != nil {
-		e.Uint64(k, *v)
-	}
-}
-
-// BoolIf logs a bool value if not nil.
-func BoolIf(e *zerolog.Event, k string, v *bool) {
-	if v != nil {
-		e.Bool(k, *v)
-	}
-}
-
-// StrIf logs a string value if not nil.
-func StrIf(e *zerolog.Event, k string, v *string) {
-	if v != nil {
-		e.Str(k, *v)
-	}
-}
-
-// Float64If logs a float64 value if not nil.
-func Float64If(e *zerolog.Event, k string, v *float64) {
-	if v != nil {
-		e.Float64(k, *v)
-	}
-}
-
-// Float32If logs a float32 value if not nil.
-func Float32If(e *zerolog.Event, k string, v *float32) {
-	if v != nil {
-		e.Float32(k, *v)
-	}
-}
-
-// TimeIf logs a time.Time value if not nil.
-func TimeIf(e *zerolog.Event, k string, v *time.Time) {
-	if v != nil {
-		e.Time(k, *v)
-	}
-}
-
-// ObjectIf logs a structured object if present.
-// If logNil is true, a nil value is explicitly logged.
-func ObjectIf(e *zerolog.Event, key string, w *withLevel, logNil bool) {
-	if w == nil {
-		if logNil {
-			e.Interface(key, nil)
-		}
-		return
-	}
-	e.Object(key, w)
-}
-
-//
 // ===== Logger initialization =====
 //
 
@@ -455,7 +397,7 @@ func LoadLogging(file string) {
 			Msg(file + " is not readable")
 		panic(err)
 	}
-	var cfg zeroconfig.Config
+	var cfg LoggingConfig
 	err = yaml.Unmarshal(data, &cfg)
 	if err != nil {
 		log.Logger.Fatal().Err(err).

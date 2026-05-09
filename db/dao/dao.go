@@ -11,7 +11,6 @@ import (
 	"github.com/go-sql-driver/mysql"
 	"github.com/ignisVeneficus/lumenta/db/dbo"
 	"github.com/ignisVeneficus/lumenta/logging"
-	"github.com/rs/zerolog"
 )
 
 //go:embed schema.sql
@@ -130,16 +129,16 @@ func wrapNotFound(err error, entity string) error {
 	}
 	return err
 }
-func returnWrapNotFound(logg zerolog.Logger, err error, entity string) error {
+func returnWrapNotFound(scope logging.Scope, err error, entity string) error {
 	if err == nil {
-		logging.Exit(logg, "ok", nil)
+		logging.Exit(scope, "ok", nil)
 		return nil
 	}
 	if errors.Is(err, sql.ErrNoRows) {
-		logging.Exit(logg, "not found", nil)
+		logging.Exit(scope, "not found", nil)
 		return GetDataNotFoundError(entity)
 	}
-	logging.ExitErr(logg, err)
+	logging.ExitErr(scope, err)
 	return err
 }
 

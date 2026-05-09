@@ -3,9 +3,10 @@ package pipeline
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"os"
 	"sort"
+	"sync"
+	"time"
 
 	fileConfig "github.com/ignisVeneficus/lumenta/config/filesystem"
 	syncConfig "github.com/ignisVeneficus/lumenta/config/sync"
@@ -40,8 +41,19 @@ type WorkItem struct {
 	// DATABASE PRECHECK (path-based lookup)
 	// =========================================================
 
+	Source DataSource
+
 	// Exists in db => DBImage.ID not null
 	DBImage *dbo.Image // persisted DB object (or nil if skipped)
+	Albums  ruleengine.AlbumsStruct
+
+	// =========================================================
+	// CACHED DATA (from one of table)
+	// =========================================================
+	CachedFileHash         string // computed content hash
+	CachedFileMetadataHash string // computed content hash
+	CachedSize             uint64
+	CachedTime             time.Time
 
 	// =========================================================
 	// DIRTY CHECK / CHANGE DETECTION
@@ -123,13 +135,21 @@ func (w *WorkItem) MarshalZerologObjectWithLevel(e *zerolog.Event, level zerolog
 	}
 }
 
+type DataSource string
+
+const (
+	SourceImages   DataSource = "images"
+	SourceFiltered DataSource = "filteredOut"
+	SourceFS       DataSource = "fileesystem"
+)
+
 type PipelineContext struct {
 	// =========================================================
 	// Execution
 	// =========================================================
 
 	Ctx    context.Context
-	Cancel context.CancelFunc
+	Cancel context.CancelCauseFunc
 
 	// =========================================================
 	// Configuration (read-only)
@@ -138,22 +158,34 @@ type PipelineContext struct {
 	RootPath   fileConfig.RootConfigs
 	AllowedExt map[string]struct{}
 
-	Database    *sql.DB
-	Metadata    *syncConfig.MetadataConfig
-	Filters     []syncConfig.PathFilterConfig
-	Panorama    *ruleengine.RuleGroup
-	ACLRules    syncConfig.ACLRules
-	ACLOverride bool
+	Database       *sql.DB
+	Metadata       *syncConfig.MetadataConfig
+	Filters        []syncConfig.PathFilterConfig
+	ExifToolConfig syncConfig.ExiftoolConfig
+	Workers        map[syncConfig.StepName]syncConfig.StepConfig
+	Panorama       *ruleengine.RuleGroup
+	ACLRules       syncConfig.ACLRules
+	ACLOverride    bool
 
+	// =========================================================
+	// Sync related data
+	// =========================================================
 	SyncId uint64
 	Force  bool
+
+	// =========================================================
+	// Album struct
+	// =========================================================
+	AlbumCtx *AlbumContext
 
 	// =========================================================
 	// Channels (may be nil)
 	// =========================================================
 
-	In  <-chan WorkItem
-	Out chan<- WorkItem
+	In        <-chan WorkItem
+	Out       chan<- WorkItem
+	FilterOut chan<- WorkItem
+	WG        *sync.WaitGroup
 }
 
 type ACLRules []ACLRule
@@ -191,9 +223,6 @@ func (pc *PipelineContext) MarshalZerologObjectWithLevel(e *zerolog.Event, level
 		e.Bool("has_in", pc.In != nil).
 			Bool("has_out", pc.Out != nil)
 
-		//FIXME: add the originals to debug
-		//e.Str("root_path", pc.RootPath)
-
 		if len(pc.AllowedExt) > 0 {
 			exts := make([]string, 0, len(pc.AllowedExt))
 			for ext := range pc.AllowedExt {
@@ -206,40 +235,6 @@ func (pc *PipelineContext) MarshalZerologObjectWithLevel(e *zerolog.Event, level
 }
 
 func createImageFact(job WorkItem) ruleengine.ImageFacts {
-	if job.IsDirty {
-		return createImageFactReaded(job)
-	}
-	return createImageFactDb(job)
-}
-
-func createImageFactDb(job WorkItem) ruleengine.ImageFacts {
-	rating := 0
-	if job.DBImage.Rating != nil {
-		rating = int(*job.DBImage.Rating)
-	}
-	tags := make([]string, 0)
-	if job.DBImage.ExifJSON != nil {
-		metadata := data.Metadata{}
-		err := json.Unmarshal(job.DBImage.ExifJSON, &metadata)
-		if err != nil {
-			tags = metadata.GetTags()
-		}
-	}
-	return ruleengine.ImageFacts{
-		Root:     job.DBImage.Root,
-		Path:     job.DBImage.Path,
-		Filename: job.DBImage.Filename,
-		Ext:      job.DBImage.Ext,
-		TakenAt:  job.DBImage.TakenAt,
-		Rating:   &rating,
-		Tags:     tags,
-		Width:    job.DBImage.Width,
-		Height:   job.DBImage.Height,
-	}
-
-}
-
-func createImageFactReaded(job WorkItem) ruleengine.ImageFacts {
 	rating := 0
 	if job.Metadata.GetRating() != nil {
 		rating = int(*job.Metadata.GetRating())
@@ -254,6 +249,25 @@ func createImageFactReaded(job WorkItem) ruleengine.ImageFacts {
 		Tags:     job.Metadata.GetTags(),
 		Width:    job.Metadata.GetWidth(),
 		Height:   job.Metadata.GetHeight(),
+		Albums:   job.Albums,
 	}
 
+}
+
+type AlbumRule struct {
+	Name      string
+	PathIDs   []uint64
+	Rule      ruleengine.CompiledGroupFilter
+	ID        uint64
+	ParentID  *uint64
+	Depth     int
+	RankOrder []uint64
+	Rank      uint64
+	//	Path     string
+}
+
+type AlbumContext struct {
+	NameMap      map[uint64]string
+	AlbumStructs ruleengine.AlbumsStruct
+	Rules        []*AlbumRule
 }

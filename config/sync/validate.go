@@ -32,6 +32,14 @@ func (s *SyncConfig) Validate(v *validate.ValidationErrors, path string) {
 	if s.Panorama != nil {
 		validateFilterGroup(s.Panorama, v, path+"/panorama")
 	}
+	for k, pl := range s.Pipeline {
+		if _, ok := ValidStepName[k]; !ok {
+			err := validate.ErrRequired("invalid pipeline step")
+			validate.LogConfigError(path+"/pipeline", k, err)
+			v.Add(err)
+		}
+		validate.RequireIntMin(v, path+"/pipeline/"+string(k)+"/workers", int(pl.Workers), 1)
+	}
 
 }
 

@@ -31,10 +31,10 @@
 
         <form method="POST" action="">
             <div class="form-action">
-                <button type="submit" class="action button">
+                <button type="submit" class="action label-button">
                     {{- template "icon" (i "action.common.save" (t "action.common.save.label")) -}}
                     {{- t "action.common.save.short" -}}</button>
-                <a class="action button" href="{{ adminAlbumsPath }}">
+                <a class="action label-button" href="{{ adminAlbumsPath }}">
                     {{- template "icon" (i "action.common.cancel" (t "action.common.cancel.label")) -}}
                     {{- t "action.common.cancel.short" -}}</a>
             </div>
@@ -92,6 +92,7 @@
                                 data-src='{{ apiAdminAlbumsPath "tree" }}'
                                 data-name="parent_id"
                                 data-label-key="name"
+                                data-id-key="id"
                                 data-pill-label-key="fullName"
                                 ><script type="application/json" class="xselect-selected">
                                 [{{- if .Album.ParentID -}}{{- .Album.ParentID | toJS -}}{{- end -}}]
@@ -108,7 +109,7 @@
                 </div>
                 <div class="column column-3">
                     <div class="ACL-panel panel">
-                        <div class="title">{{ t "admin.common.acl_settings"}}:</div>
+                        <div class="title">{{ t "page.admin.common.acl_settings"}}:</div>
                         {{ with .Album }}           
                             {{ template "partials/admin/acl-settings.html" .}}
                         {{ end }}

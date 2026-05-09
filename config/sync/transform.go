@@ -43,7 +43,7 @@ func (sc *SyncConfig) TransformAfterValidation() error {
 	sc.MergedMetadata = MergeMetadataConfig(DefaultDBMetadataConfig(), sc.Metadata)
 
 	metadataHash, err := utils.ComputeYAMLHash(sc.Metadata)
-	if err != nil {
+	if err == nil {
 		sc.MetadataHash = metadataHash
 	}
 

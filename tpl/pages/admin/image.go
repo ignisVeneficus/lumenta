@@ -10,7 +10,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/ignisVeneficus/lumenta/config"
-	focusData "github.com/ignisVeneficus/lumenta/data"
+	"github.com/ignisVeneficus/lumenta/data"
 	"github.com/ignisVeneficus/lumenta/db"
 	"github.com/ignisVeneficus/lumenta/db/dao"
 	"github.com/ignisVeneficus/lumenta/db/dbo"
@@ -18,14 +18,14 @@ import (
 	"github.com/ignisVeneficus/lumenta/logging"
 	"github.com/ignisVeneficus/lumenta/server/routes"
 	"github.com/ignisVeneficus/lumenta/tpl"
-	"github.com/ignisVeneficus/lumenta/tpl/data"
+	tplData "github.com/ignisVeneficus/lumenta/tpl/data"
 	adminData "github.com/ignisVeneficus/lumenta/tpl/data/admin"
 	"github.com/ignisVeneficus/lumenta/tpl/grid"
 	"github.com/ignisVeneficus/lumenta/tpl/pages"
 )
 
-func resolveFocus(img dbo.Image) focusData.Focus {
-	return focusData.ResolveFocus(img.FocusX, img.FocusY, focusData.ImageFocusMode(img.FocusMode))
+func resolveFocus(img dbo.Image) data.Focus {
+	return data.ResolveFocus(img.FocusX, img.FocusY, data.ImageFocusMode(img.FocusMode))
 }
 
 func createHistoryDate(database *sql.DB, ctx context.Context, root, path, filename, ext string) (adminData.ImageSync, error) {
@@ -78,7 +78,7 @@ func ImagePage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 		switch {
 		case errors.Is(err, dao.ErrDataNotFound):
 			logging.ExitErr(logg, err)
-			pages.Soft404(r, cfg, c, data.SurfaceAdmin, "image", routes.CreateAdminRootPath(), imageID)
+			pages.Soft404(r, cfg, c, tplData.SurfaceAdmin, "image", routes.CreateAdminRootPath(), imageID)
 			return
 		case err != nil:
 			logging.ExitErr(logg, err)
@@ -107,21 +107,14 @@ func ImagePage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 			ACLUserID: strconv.FormatUint(image.ACLUserID, 10),
 		}
 		// tags
-		forrest := data.ForrestFromTags(image.Tags, func(id uint64) string {
+		forest := tplData.ForrestFromTags(image.Tags, func(id uint64) string {
 			return ""
 		})
-		if cfg.Presentation.TagMeaningConfig != nil {
-			types := make(map[string][]string)
-			for k, v := range cfg.Presentation.TagMeaningConfig.MeaningMap {
-				types[string(k)] = v
-			}
-			forrest.SetTags(types)
-			forrest.Populate()
-		}
+		tplData.SetTagsMeaning(forest, cfg.Presentation.TagMeaningConfig)
 
 		imageCtx := adminData.ImagePageContext{}
 		pageCtx := imageCtx.GetPage()
-		tpl.CreatePageContext(pageCtx, cfg, c, "image", data.SurfaceAdmin)
+		tpl.CreatePageContext(pageCtx, cfg, c, "image", tplData.SurfaceAdmin)
 		filePath := image.Path + "/" + image.Filename + "." + image.Ext
 		imageCtx.Breadcrumbs = createFsBreadcrumbs(image.Root, filePath, loc, i18n)
 		imageCtx.Image = adminData.PageImage{
@@ -131,10 +124,10 @@ func ImagePage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 			Sync:          syncData,
 			Aspect:        grid.ClassifyAspect(int(image.Width), int(image.Height)),
 			Form:          form,
-			Tags:          forrest,
+			Tags:          *forest,
 		}
 		if image.Latitude != nil && image.Longitude != nil {
-			imageCtx.Image.SingleMap = &data.SingleMap{
+			imageCtx.Image.SingleMap = &tplData.SingleMap{
 				Lat:  *image.Latitude,
 				Long: *image.Longitude,
 			}

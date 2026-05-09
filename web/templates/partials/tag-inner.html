@@ -1,0 +1,10 @@
+{{- if .Type -}}
+    {{- template "icon" (i 
+        (printf "data.tag.meaning.%s" .Type) 
+        (t (printf "data.tag.meaning.%s.label" .Type))
+        "tag-meaning tree-type-icon")}}
+{{- end -}}
+<a href="{{ .URL }}" class="tag-link tree-link">{{ .Label }}</a>
+{{- range .Notes -}}
+    <span class="tree-sep">·</span><span class="tree-note tag-note">{{.}}</span>
+{{- end -}}

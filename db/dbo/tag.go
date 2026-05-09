@@ -2,7 +2,6 @@ package dbo
 
 import (
 	"github.com/ignisVeneficus/lumenta/logging"
-	"github.com/ignisVeneficus/lumenta/utils"
 	"github.com/rs/zerolog"
 )
 
@@ -22,50 +21,6 @@ func (tt TagsTree) MarshalZerologObjectWithLevel(e *zerolog.Event, level zerolog
 	e.Array("tags", array)
 }
 
-func MergeTagsTrees(trees ...TagsTree) TagsTree {
-	idMap := map[uint64]*Tag{}
-	flat := []*Tag{}
-	queu := []*Tag{}
-	for _, tree := range trees {
-		queu = append(queu, tree...)
-	}
-	for len(queu) > 0 {
-		tag := queu[len(queu)-1]
-		queu = queu[:len(queu)-1]
-		id := tag.ID
-		_, found := idMap[*id]
-		if !found {
-			cloned := &Tag{
-				ID:       tag.ID,
-				ParentID: tag.ParentID,
-				Name:     tag.Name,
-				Children: TagsTree{},
-			}
-			idMap[*id] = cloned
-			queu = append(queu, tag.Children...)
-			flat = append(flat, tag)
-		} else {
-			queu = append(queu, tag.Children...)
-		}
-	}
-	utils.SortByStringKey(flat, (*Tag).GetSorting)
-	ret := TagsTree{}
-	for _, tag := range flat {
-		t := idMap[*tag.ID]
-		if t.ParentID == nil {
-			ret = append(ret, t)
-		} else {
-			f, ok := idMap[*t.ParentID]
-			if !ok {
-				ret = append(ret, t)
-			} else {
-				f.Children = append(f.Children, t)
-			}
-		}
-	}
-	return ret
-}
-
 type Tag struct {
 	ID       *uint64
 	Name     string
@@ -82,18 +37,7 @@ func (a *Tag) GetParentID() *uint64 {
 	return a.ParentID
 }
 
-func (t *Tag) ClearChildren() {
-	t.Children = t.Children[:0]
-}
-
-func (t *Tag) AddChild(child *Tag) {
-	t.Children = append(t.Children, child)
-}
-
 func (t *Tag) GetSorting() string {
-	return t.Name
-}
-func (t *Tag) GetPath() string {
 	return t.Name
 }
 
@@ -104,19 +48,6 @@ func (a *Tag) MarshalZerologObjectWithLevel(e *zerolog.Event, level zerolog.Leve
 		logging.Uint64If(e, "id", a.ID)
 		logging.Uint64If(e, "parent_id", a.ParentID)
 	}
-}
-
-func BuildTagsTree(tags []*Tag) TagsTree {
-	utils.SortByStringKey(tags, (*Tag).GetSorting)
-	ret := utils.BuildTree(tags)
-	return ret
-}
-func BuildTagsFlat(tags []*Tag) TagsTree {
-	utils.SortByStringKey(tags, (*Tag).GetSorting)
-	for _, t := range tags {
-		t.ClearChildren()
-	}
-	return tags
 }
 
 type TagWCount struct {
