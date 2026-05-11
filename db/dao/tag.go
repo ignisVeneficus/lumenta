@@ -6,11 +6,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/ignisVeneficus/logging"
 	"github.com/ignisVeneficus/lumenta/db/dbo"
-	"github.com/ignisVeneficus/lumenta/logging"
-
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
 )
 
 const tagFields = `t.id, t.name, t.parent_id, t.source`
@@ -253,83 +250,87 @@ func (q *Queries) GetTagByIDACL(ctx context.Context, id uint64, acl dbo.ACLConte
 // =========================================================
 //
 
-func GetTagByID(db *sql.DB, ctx context.Context, id uint64) (dbo.Tag, error) {
-	log.Logger.Debug().Uint64("tag_id", id).Msg("Get tag by ID")
-
+func GetTagByID(db *sql.DB, c context.Context, id uint64) (dbo.Tag, error) {
+	logScope, ctx := logging.Enter(c, "dao/tag/get/byId", id, map[string]any{"id": id})
 	q := NewQueries(db)
 	t, err := q.GetTagByID(ctx, id)
-	return t, wrapNotFound(err, "tag")
+	return t, returnWrapNotFound(logScope, err, "tag")
 }
 
-func GetTagByParentAndName(db *sql.DB, ctx context.Context, parentID *uint64, name string) (dbo.Tag, error) {
-	logg := logging.Enter(ctx, "dao.tag.get.parent.name", map[string]any{"parent": parentID, "name": name})
+func GetTagByParentAndName(db *sql.DB, c context.Context, parentID *uint64, name string) (dbo.Tag, error) {
+	logScope, ctx := logging.Enter(c, "dao/tag/get/byParent/byName", name, map[string]any{"parent": parentID, "name": name})
 	q := NewQueries(db)
 	t, err := q.GetTagByParentAndName(ctx, parentID, name)
-	return t, returnWrapNotFound(logg, err, "tag")
+	return t, returnWrapNotFound(logScope, err, "tag")
 }
 
-func ListTagsByParent(db *sql.DB, ctx context.Context, parentID *uint64) ([]dbo.Tag, error) {
-	if parentID != nil {
-		log.Logger.Debug().Uint64("parent_id", *parentID).Msg("List tags by parent")
-	} else {
-		log.Logger.Debug().Str("parent_id", "NULL").Msg("List tags by parent")
-	}
+func QuertyTagsByParent(db *sql.DB, c context.Context, parentID *uint64) ([]dbo.Tag, error) {
+	logScope, ctx := logging.Enter(c, "dao/tag/query/byParent", parentID, map[string]any{"parent": parentID})
 
 	q := NewQueries(db)
-	return q.ListTagsByParent(ctx, parentID)
+	tags, err := q.ListTagsByParent(ctx, parentID)
+	return tags, logging.Return(logScope, err)
 }
 
-func CreateTag(db *sql.DB, ctx context.Context, t dbo.Tag) (uint64, error) {
-	log.Logger.Debug().Object("Tag", logging.WithLevel(zerolog.DebugLevel, &t)).Msg("Create tag")
-
+func CreateTag(db *sql.DB, c context.Context, t dbo.Tag) (uint64, error) {
+	logScope, ctx := logging.Enter(c, "dao/tag/create", t.Name, map[string]any{"tag": t})
 	tx, err := GetTx(db, ctx)
 	if err != nil {
+		logging.ExitErr(logScope, err)
 		return 0, err
 	}
 	defer tx.Rollback()
 
 	q := NewQueries(tx)
 	if err := q.CreateTag(ctx, t); err != nil {
+		logging.ExitErr(logScope, err)
 		return 0, err
 	}
 	lastRow, err := q.GetLastId(ctx)
-
-	return lastRow, tx.Commit()
-}
-
-func CreateTagTx(q *Queries, ctx context.Context, t dbo.Tag) (uint64, error) {
-	log.Logger.Debug().Object("Tag", logging.WithLevel(zerolog.DebugLevel, &t)).Msg("Create tag Tx")
-	if err := q.CreateTag(ctx, t); err != nil {
+	if err != nil {
+		logging.ExitErr(logScope, err)
 		return 0, err
 	}
-	return q.GetLastId(ctx)
+	return lastRow, logging.Return(logScope, tx.Commit())
 }
 
-func DeleteTag(db *sql.DB, ctx context.Context, id uint64) error {
-	log.Logger.Debug().Uint64("tag_id", id).Msg("Delete tag")
+func CreateTagTx(q *Queries, c context.Context, t dbo.Tag) (uint64, error) {
+	logScope, ctx := logging.Enter(c, "dao/tag/create/tx", t.Name, map[string]any{"tag": t})
+	if err := q.CreateTag(ctx, t); err != nil {
+		logging.ExitErr(logScope, err)
+		return 0, err
+	}
+	lastRow, err := q.GetLastId(ctx)
+	return lastRow, logging.Return(logScope, err)
+}
+
+func DeleteTag(db *sql.DB, c context.Context, id uint64) error {
+	logScope, ctx := logging.Enter(c, "dao/tag/delete", id, map[string]any{"tag_id": id})
 
 	tx, err := GetTx(db, ctx)
 	if err != nil {
+		logging.ExitErr(logScope, err)
 		return err
 	}
 	defer tx.Rollback()
 
 	q := NewQueries(tx)
 	if err := q.DeleteTag(ctx, id); err != nil {
+		logging.ExitErr(logScope, err)
 		return err
 	}
 
-	return tx.Commit()
+	return logging.Return(logScope, tx.Commit())
 }
-func InsertTagPath(db *sql.DB, ctx context.Context, path []string) ([]uint64, error) {
-	logg := logging.Enter(ctx, "dao.tag.insertPath", map[string]any{"path": path})
+func InsertTagPath(db *sql.DB, c context.Context, path []string) ([]uint64, error) {
+	logScope, ctx := logging.Enter(c, "dao/tag/insert/path", nil, map[string]any{"path": path})
 	if len(path) == 0 {
-		logging.Exit(logg, "empty", nil)
+		logging.Exit(logScope, "empty", nil)
 		return nil, nil
 	}
 	tx, err := GetTx(db, ctx)
 	if err != nil {
-		logging.ExitErr(logg, err)
+		logging.ExitErr(logScope, err)
 		return nil, err
 	}
 	defer tx.Rollback()
@@ -345,7 +346,7 @@ func InsertTagPath(db *sql.DB, ctx context.Context, path []string) ([]uint64, er
 		case err == nil:
 			id = *tag.ID
 		case !errors.Is(err, ErrDataNotFound):
-			logging.ExitErr(logg, err)
+			logging.ExitErr(logScope, err)
 			return nil, err
 		default:
 			tag := dbo.Tag{
@@ -354,57 +355,51 @@ func InsertTagPath(db *sql.DB, ctx context.Context, path []string) ([]uint64, er
 				Source:   "digikam",
 			}
 			if err := q.CreateTag(ctx, tag); err != nil {
-				logging.ExitErr(logg, err)
+				logging.ExitErr(logScope, err)
 				return nil, err
 			}
 
 			id, err = q.GetLastId(ctx)
 			if err != nil {
-				logging.ExitErr(logg, err)
+				logging.ExitErr(logScope, err)
 				return nil, err
 			}
 		}
 		ids = append(ids, id)
 		parentID = &id
 	}
-
-	if err := tx.Commit(); err != nil {
-		logging.ExitErr(logg, err)
-		return nil, err
-	}
-	logging.Exit(logg, "ok", map[string]any{"ids": ids})
-	return ids, nil
+	return ids, logging.ReturnParams(logScope, tx.Commit(), map[string]any{"ids": ids})
 }
 
-func QueryTags(db *sql.DB, ctx context.Context) ([]dbo.Tag, error) {
-	logg := logging.Enter(ctx, "dao.tag.query", nil)
+func QueryTags(db *sql.DB, c context.Context) ([]dbo.Tag, error) {
+	logScope, ctx := logging.Enter(c, "dao/tag/query", nil, nil)
 	q := NewQueries(db)
 	tags, err := q.QueryTags(ctx)
-	return tags, logging.Return(logg, err)
+	return tags, logging.Return(logScope, err)
 }
 
-func QueryTagsByACL(db *sql.DB, ctx context.Context, acl dbo.ACLContext) ([]dbo.TagWCount, error) {
-	logg := logging.Enter(ctx, "dao.tag.query.byACL", map[string]any{"ACL": acl})
+func QueryTagsByACL(db *sql.DB, c context.Context, acl dbo.ACLContext) ([]dbo.TagWCount, error) {
+	logScope, ctx := logging.Enter(c, "dao/tag/query/ACL", nil, map[string]any{"ACL": acl})
 	q := NewQueries(db)
 	tags, err := q.QueryTagsByACL(ctx, acl)
-	return tags, logging.ReturnParams(logg, err, map[string]any{"found": len(tags)})
+	return tags, logging.ReturnParams(logScope, err, map[string]any{"found": len(tags)})
 }
-func QueryTagsByParentACLPaged(db *sql.DB, ctx context.Context, parent uint64, acl dbo.ACLContext, from, qty uint64) ([]dbo.TagWCount, error) {
-	logg := logging.Enter(ctx, "dao.tag.query.byParent.ByACL.paged", map[string]any{"ACL": acl, "parent": parent, "from": from, "qty": qty})
+func QueryTagsByParentACLPaged(db *sql.DB, c context.Context, parent uint64, acl dbo.ACLContext, from, qty uint64) ([]dbo.TagWCount, error) {
+	logScope, ctx := logging.Enter(c, "dao/tag/query/byParent/ACL/paged", parent, map[string]any{"ACL": acl, "parent": parent, "from": from, "qty": qty})
 	q := NewQueries(db)
 	tags, err := q.QueryTagsByParentACLPaged(ctx, parent, acl, from, qty)
-	return tags, logging.ReturnParams(logg, err, map[string]any{"found": len(tags)})
+	return tags, logging.ReturnParams(logScope, err, map[string]any{"found": len(tags)})
 }
-func CountTagsByParentACL(db *sql.DB, ctx context.Context, parent uint64, acl dbo.ACLContext) (uint64, error) {
-	logg := logging.Enter(ctx, "dao.tag.count.byParent.ByACL", map[string]any{"ACL": acl, "parent": parent})
+func CountTagsByParentACL(db *sql.DB, c context.Context, parent uint64, acl dbo.ACLContext) (uint64, error) {
+	logScope, ctx := logging.Enter(c, "dao/tag/count/byParent/ACL", parent, map[string]any{"ACL": acl, "parent": parent})
 	q := NewQueries(db)
 	count, err := q.CountTagsByParentACL(ctx, parent, acl)
-	return count, logging.Return(logg, err)
+	return count, logging.Return(logScope, err)
 }
 
-func GetTagByIDACL(db *sql.DB, ctx context.Context, tagId uint64, acl dbo.ACLContext) (dbo.Tag, error) {
-	logg := logging.Enter(ctx, "dao.tag.get.byId.byACL", map[string]any{"ACL": acl})
+func GetTagByIDACL(db *sql.DB, c context.Context, tagId uint64, acl dbo.ACLContext) (dbo.Tag, error) {
+	logScope, ctx := logging.Enter(c, "dao/tag/get/byId/ACL", tagId, map[string]any{"ACL": acl})
 	q := NewQueries(db)
 	tag, err := q.GetTagByIDACL(ctx, tagId, acl)
-	return tag, returnWrapNotFound(logg, err, "tag")
+	return tag, returnWrapNotFound(logScope, err, "tag")
 }

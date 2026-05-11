@@ -54,7 +54,7 @@ CREATE TABLE IF NOT EXISTS images (
     COMMENT 'Focal length in millimeters',
   aperture DECIMAL(4,1) NULL
     COMMENT 'Aperture (f-number)',
-  exposure DECIMAL(8,6) NULL
+  exposure DECIMAL(12,6) NULL
     COMMENT 'Exposure time in seconds',
   iso SMALLINT UNSIGNED NULL
     COMMENT 'ISO sensitivity value',

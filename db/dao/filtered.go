@@ -5,10 +5,9 @@ import (
 	"database/sql"
 	"errors"
 
+	"github.com/ignisVeneficus/logging"
 	"github.com/ignisVeneficus/lumenta/db/dbo"
-	"github.com/ignisVeneficus/lumenta/logging"
 	"github.com/ignisVeneficus/lumenta/utils"
-	"github.com/rs/zerolog/log"
 )
 
 const filteredFields = `
@@ -102,8 +101,8 @@ func (q *Queries) CheckFilteredByPath(ctx context.Context, root, path, filename,
 	return row.Scan(&dummy)
 }
 
-func GetFilteredByPath(db *sql.DB, ctx context.Context, root, path, filename, ext string) (dbo.FilteredOut, error) {
-	logScope := logging.Enter(ctx, "dao.filtered.get.byPath", map[string]any{
+func GetFilteredByPath(db *sql.DB, c context.Context, root, path, filename, ext string) (dbo.FilteredOut, error) {
+	logScope, ctx := logging.Enter(c, "dao/filtered/get/byPath", root+"/"+path+"/"+filename+"."+ext, map[string]any{
 		"root":     root,
 		"path":     path,
 		"filename": filename,
@@ -114,8 +113,8 @@ func GetFilteredByPath(db *sql.DB, ctx context.Context, root, path, filename, ex
 	return f, returnWrapNotFound(logScope, err, "filtered")
 }
 
-func DeleteFilteredNotSeen(db *sql.DB, ctx context.Context, syncID uint64, limit uint32) (uint64, error) {
-	logScope := logging.Enter(ctx, "dao.Filtered.DeleteNotSeen", map[string]any{"sync_id": syncID})
+func DeleteFilteredNotSeen(db *sql.DB, c context.Context, syncID uint64, limit uint32) (uint64, error) {
+	logScope, ctx := logging.Enter(c, "dao/filtered/delete/notSeen", syncID, map[string]any{"sync_id": syncID})
 
 	tx, err := GetTx(db, ctx)
 	if err != nil {
@@ -132,8 +131,8 @@ func DeleteFilteredNotSeen(db *sql.DB, ctx context.Context, syncID uint64, limit
 	}
 	return deleted, logging.ReturnParams(logScope, tx.Commit(), map[string]any{"deleted": deleted})
 }
-func DeleteFilteredNotSeenAll(db *sql.DB, ctx context.Context, syncID uint64, limit uint32) error {
-	logScope := logging.Enter(ctx, "dao.Filtered.DeleteNotSeen.All", map[string]any{"sync_id": syncID})
+func DeleteFilteredNotSeenAll(db *sql.DB, c context.Context, syncID uint64, limit uint32) error {
+	logScope, ctx := logging.Enter(c, "dao/filtered/delete/notSeen/all", syncID, map[string]any{"sync_id": syncID, "limit": limit})
 	deleted, err := DeleteFilteredNotSeen(db, ctx, syncID, limit)
 	if err != nil {
 		logging.ExitErr(logScope, err)
@@ -141,7 +140,9 @@ func DeleteFilteredNotSeenAll(db *sql.DB, ctx context.Context, syncID uint64, li
 	}
 	batch := 1
 	for deleted > 0 {
-		log.Logger.Debug().Int("batch", batch).Uint64("sync_id", syncID).Uint32("limit", limit).Msg("Delete All Filtereds not seen in sync in batch")
+		logging.Debug(logScope, "loop", map[string]any{
+			"batch": batch,
+		})
 		deleted, err = DeleteFilteredNotSeen(db, ctx, syncID, limit)
 		if err != nil {
 			logging.ExitErr(logScope, err)
@@ -153,8 +154,8 @@ func DeleteFilteredNotSeenAll(db *sql.DB, ctx context.Context, syncID uint64, li
 	return nil
 }
 
-func UpdateFilteredSyncIdByPath(db *sql.DB, ctx context.Context, root, path, filename, ext string, syncID uint64) error {
-	logScope := logging.Enter(ctx, "dao.filtered.update.syncID.byPath", map[string]any{
+func UpdateFilteredSyncIdByPath(db *sql.DB, c context.Context, root, path, filename, ext string, syncID uint64) error {
+	logScope, ctx := logging.Enter(c, "dao/filtered/update/syncID/byPath", root+"/"+path+"/"+filename+"."+ext, map[string]any{
 		"root":     root,
 		"path":     path,
 		"filename": filename,
@@ -177,8 +178,8 @@ func UpdateFilteredSyncIdByPath(db *sql.DB, ctx context.Context, root, path, fil
 	}
 	return logging.Return(logScope, tx.Commit())
 }
-func CreateFiltered(db *sql.DB, ctx context.Context, f *dbo.FilteredOut) (uint64, error) {
-	logScope := logging.Enter(ctx, "dao.filtered.update.syncID.byPath", map[string]any{
+func CreateFiltered(db *sql.DB, c context.Context, f *dbo.FilteredOut) (uint64, error) {
+	logScope, ctx := logging.Enter(c, "dao/filtered/create", f.Root+"/"+f.Path+"/"+f.Filename+"."+f.Ext, map[string]any{
 		"root":     f.Root,
 		"path":     f.Path,
 		"filename": f.Filename,
@@ -207,8 +208,8 @@ func CreateFiltered(db *sql.DB, ctx context.Context, f *dbo.FilteredOut) (uint64
 
 	return uint64(id), logging.ReturnParams(logScope, tx.Commit(), map[string]any{"new_ID": id})
 }
-func CreateOrUpdateFiltered(db *sql.DB, ctx context.Context, f *dbo.FilteredOut) error {
-	logScope := logging.Enter(ctx, "dao.filtered.createOrUpdate", map[string]any{
+func CreateOrUpdateFiltered(db *sql.DB, c context.Context, f *dbo.FilteredOut) error {
+	logScope, ctx := logging.Enter(c, "dao/filtered/createOrUpdate", f.Root+"/"+f.Path+"/"+f.Filename+"."+f.Ext, map[string]any{
 		"root":     f.Root,
 		"path":     f.Path,
 		"filename": f.Filename,

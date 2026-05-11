@@ -9,13 +9,13 @@ import (
 	"path/filepath"
 
 	"github.com/disintegration/imaging"
+	"github.com/ignisVeneficus/logging"
 	derivativeConfig "github.com/ignisVeneficus/lumenta/config/derivative"
 	"github.com/ignisVeneficus/lumenta/data"
-	"github.com/ignisVeneficus/lumenta/logging"
 )
 
-func applyTask(ctx context.Context, t Task, img image.Image, focus data.Focus) error {
-	logg := logging.Enter(ctx, "derivative.generic.task", map[string]any{"task": t})
+func applyTask(c context.Context, t Task, img image.Image, focus data.Focus) error {
+	logScope, ctx := logging.Enter(c, "service/derivative/task/resize", nil, map[string]any{"task": t})
 
 	targetW := t.Mode.MaxWidth
 	targetH := t.Mode.MaxHeight
@@ -25,7 +25,7 @@ func applyTask(ctx context.Context, t Task, img image.Image, focus data.Focus) e
 	case derivativeConfig.DerivativeSizeResize:
 		img, err = resizeFit(img, targetW, targetH)
 		if err != nil {
-			logging.ExitErr(logg, err)
+			logging.ExitErr(logScope, err)
 			return err
 		}
 
@@ -34,22 +34,22 @@ func applyTask(ctx context.Context, t Task, img image.Image, focus data.Focus) e
 
 	default:
 		err = fmt.Errorf("unknown resize mode: %s", t.Mode.Mode)
-		logging.ExitErr(logg, err)
+		logging.ExitErr(logScope, err)
 		return err
 	}
 	if err := writeImage(ctx, img, t.TargetPath); err != nil {
-		logging.ExitErr(logg, err)
+		logging.ExitErr(logScope, err)
 	}
-	logging.Exit(logg, "ok", nil)
+	logging.Exit(logScope, "ok", nil)
 	return nil
 }
 
 func GenerateDerivativeStep(j *Job) error {
-	logg := logging.Enter(j.Ctx, "derivative.generic.step", map[string]any{"job": j})
+	logScope, ctx := logging.Enter(j.Ctx, "service/derivative/task/worker", j.SourcePath, map[string]any{"job": j})
 
 	img, err := imaging.Open(j.SourcePath, imaging.AutoOrientation(false))
 	if err != nil {
-		logging.ExitErrParams(logg, err, map[string]any{"path": j.SourcePath, "step": "open"})
+		logging.ExitErrParams(logScope, err, map[string]any{"path": j.SourcePath, "step": "open"})
 		return err
 	}
 
@@ -58,13 +58,13 @@ func GenerateDerivativeStep(j *Job) error {
 	j.ImageParams.Focus.Rotate(j.ImageParams.Rotation)
 
 	for _, t := range j.Tasks {
-		err := applyTask(j.Ctx, t, img, j.ImageParams.Focus)
+		err := applyTask(ctx, t, img, j.ImageParams.Focus)
 		if err != nil {
-			logging.ErrorContinue(logg, err, map[string]any{"task": t.Mode.Name})
+			logging.ErrorContinue(logScope, err, map[string]any{"task": t.Mode.Name})
 		}
 	}
 
-	logging.Exit(logg, "ok", nil)
+	logging.Exit(logScope, "ok", nil)
 	return nil
 }
 
@@ -168,41 +168,41 @@ func resizeCrop(img image.Image, targetW, targetH int, focus data.Focus) image.I
 	return cropToTarget(img, targetW, targetH, focus)
 }
 
-func writeImage(ctx context.Context, img image.Image, path string) error {
-	logg := logging.Enter(ctx, "derivative.generic.step.write", map[string]any{"path": path})
+func writeImage(c context.Context, img image.Image, path string) error {
+	logScope, _ := logging.Enter(c, "service/derivative/task/write", path, map[string]any{"path": path})
 
 	tmp := path + ".tmp"
 
 	dir := filepath.Dir(tmp)
 	if err := os.MkdirAll(dir, 0755); err != nil {
-		logging.ExitErrParams(logg, err, map[string]any{"step": "create dirs"})
+		logging.ExitErrParams(logScope, err, map[string]any{"step": "create dirs"})
 		return err
 	}
 	out, err := os.Create(tmp)
 	if err != nil {
-		logging.ExitErrParams(logg, err, map[string]any{"step": "create file"})
+		logging.ExitErrParams(logScope, err, map[string]any{"step": "create file"})
 		return err
 	}
 	if err := imaging.Encode(out, img, imaging.JPEG, imaging.JPEGQuality(85)); err != nil {
 		out.Close()
 		os.Remove(tmp)
-		logging.ExitErrParams(logg, err, map[string]any{"step": "write"})
+		logging.ExitErrParams(logScope, err, map[string]any{"step": "write"})
 		return err
 	}
 	if err := out.Sync(); err != nil {
 		out.Close()
 		os.Remove(tmp)
-		logging.ExitErrParams(logg, err, map[string]any{"step": "sync"})
+		logging.ExitErrParams(logScope, err, map[string]any{"step": "sync"})
 		return err
 	}
 	if err := out.Close(); err != nil {
 		os.Remove(tmp)
-		logging.ExitErrParams(logg, err, map[string]any{"step": "close"})
+		logging.ExitErrParams(logScope, err, map[string]any{"step": "close"})
 		return err
 	}
 	if err := os.Rename(tmp, path); err != nil {
 		os.Remove(tmp)
-		logging.ExitErrParams(logg, err, map[string]any{"step": "rename"})
+		logging.ExitErrParams(logScope, err, map[string]any{"step": "rename"})
 		return err
 	}
 	return nil

@@ -7,10 +7,10 @@ import (
 	"strings"
 
 	"github.com/coreos/go-oidc/v3/oidc"
+	"github.com/ignisVeneficus/logging"
 	"github.com/ignisVeneficus/lumenta/auth/data"
 	authData "github.com/ignisVeneficus/lumenta/auth/data"
 	"github.com/ignisVeneficus/lumenta/db/dbo"
-	"github.com/ignisVeneficus/lumenta/logging"
 )
 
 type OIDCClaims struct {
@@ -52,8 +52,8 @@ func (r realVerifier) Verify(ctx context.Context, raw string) (oidcToken, error)
 	return realOIDCToken{tok}, nil
 }
 
-func NewOIDCVerifier(ctx context.Context, issuerURL, clientID, adminRole string) (*OIDCVerifier, error) {
-	logg := logging.Enter(ctx, "auth.oidc.verifer", map[string]any{"issuer": issuerURL, "client_id": clientID})
+func NewOIDCVerifier(c context.Context, issuerURL, clientID, adminRole string) (*OIDCVerifier, error) {
+	logg, ctx := logging.Enter(c, "auth/oidc/verifer", nil, map[string]any{"issuer": issuerURL, "client_id": clientID})
 	if issuerURL == "" || clientID == "" {
 		err := errors.New("oidc issuer/client_id is empty")
 		logging.ExitErr(logg, err)
@@ -74,8 +74,8 @@ func NewOIDCVerifier(ctx context.Context, issuerURL, clientID, adminRole string)
 	return &OIDCVerifier{verifier: realVerifier{v}, AdminRole: adminRole}, nil
 }
 
-func (o *OIDCVerifier) verify(ctx context.Context, token string) (*OIDCClaims, error) {
-	logg := logging.Enter(ctx, "auth.oidc.verif", nil)
+func (o *OIDCVerifier) verify(c context.Context, token string) (*OIDCClaims, error) {
+	logg, ctx := logging.Enter(c, "auth.oidc.verif", nil, nil)
 	if token == "" {
 		err := errors.New("empty token")
 		logging.ExitErr(logg, err)
@@ -105,8 +105,8 @@ func (o *OIDCVerifier) verify(ctx context.Context, token string) (*OIDCClaims, e
 	return ret, nil
 }
 
-func (o *OIDCVerifier) ContextFromRequest(ctx context.Context, ip string, request *http.Request) *authData.ACLContext {
-	logg := logging.Enter(ctx, "auth.oidc.ctxFromRequest", nil)
+func (o *OIDCVerifier) ContextFromRequest(c context.Context, ip string, request *http.Request) *authData.ACLContext {
+	logg, ctx := logging.Enter(c, "auth/oidc/ctxFromRequest", nil, nil)
 	token := TokenForOIDC(request)
 	if token == "" {
 		logging.Exit(logg, "NOT OK", map[string]any{"problem": "no token"})

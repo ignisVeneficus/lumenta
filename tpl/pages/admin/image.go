@@ -9,13 +9,13 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/ignisVeneficus/logging"
 	"github.com/ignisVeneficus/lumenta/config"
 	"github.com/ignisVeneficus/lumenta/data"
 	"github.com/ignisVeneficus/lumenta/db"
 	"github.com/ignisVeneficus/lumenta/db/dao"
 	"github.com/ignisVeneficus/lumenta/db/dbo"
 	"github.com/ignisVeneficus/lumenta/internal/i18n"
-	"github.com/ignisVeneficus/lumenta/logging"
 	"github.com/ignisVeneficus/lumenta/server/routes"
 	"github.com/ignisVeneficus/lumenta/tpl"
 	tplData "github.com/ignisVeneficus/lumenta/tpl/data"
@@ -61,42 +61,42 @@ func ImagePage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 		i18n := i18n.Get()
 		loc := tpl.L(c)
 		imageIDStr := c.Param("id")
-		logg := logging.Enter(c, "page.admin.image", map[string]any{
+		logScope, ctx := logging.Enter(c.Request.Context(), "server/page/admin/image", imageIDStr, map[string]any{
 			"image": imageIDStr,
 		})
 
 		imageID, err := tpl.ParseID(imageIDStr)
 		if err != nil {
-			logging.ExitErr(logg, fmt.Errorf("invalid image Id"))
+			logging.ExitErr(logScope, fmt.Errorf("invalid image Id"))
 			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "invalid image Id"})
 			return
 		}
 
 		database := db.GetDatabase()
 		// Image
-		image, err := dao.GetImageByIdWTags(database, c, imageID)
+		image, err := dao.GetImageByIdWTags(database, ctx, imageID)
 		switch {
 		case errors.Is(err, dao.ErrDataNotFound):
-			logging.ExitErr(logg, err)
+			logging.ExitErr(logScope, err)
 			pages.Soft404(r, cfg, c, tplData.SurfaceAdmin, "image", routes.CreateAdminRootPath(), imageID)
 			return
 		case err != nil:
-			logging.ExitErr(logg, err)
+			logging.ExitErr(logScope, err)
 			c.AbortWithStatus(http.StatusInternalServerError)
 			return
 		}
 		// Last sync / history
-		syncData, err := createHistoryDate(database, c, image.Root, image.Path, image.Filename, image.Ext)
+		syncData, err := createHistoryDate(database, ctx, image.Root, image.Path, image.Filename, image.Ext)
 		if err != nil {
-			logging.ExitErr(logg, err)
+			logging.ExitErr(logScope, err)
 			c.AbortWithStatus(http.StatusInternalServerError)
 			return
 		}
 
 		// Album related query
-		albums, err := dao.QueryAlbumsIdByCover(database, c, imageID)
+		albums, err := dao.QueryAlbumsIdByCover(database, ctx, imageID)
 		if err != nil {
-			logging.ExitErr(logg, err)
+			logging.ExitErr(logScope, err)
 			c.AbortWithStatus(http.StatusInternalServerError)
 			return
 		}
@@ -136,9 +136,9 @@ func ImagePage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 
 		if err := r.RenderPage(c.Writer, "admin/image", imageCtx, loc, i18n); err != nil {
 			c.AbortWithStatus(http.StatusInternalServerError)
-			logging.ExitErr(logg, err)
+			logging.ExitErr(logScope, err)
 			return
 		}
-		logging.Exit(logg, "ok", nil)
+		logging.Exit(logScope, "ok", nil)
 	}
 }

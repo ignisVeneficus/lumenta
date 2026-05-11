@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/ignisVeneficus/logging"
 	"github.com/ignisVeneficus/lumenta/api/endpoint"
 	"github.com/ignisVeneficus/lumenta/config"
 	"github.com/ignisVeneficus/lumenta/db/dbo"
@@ -19,8 +20,8 @@ import (
 
 var StaticRoot string = "web/static"
 
-func Server(cfg config.Config, i18n *i18n.Service) {
-	ctx := context.Background()
+func Server(cfg config.Config, i18n *i18n.Service, ctx context.Context) {
+	logScope, ctx := logging.Enter(ctx, "server/root", nil, nil)
 	gin.SetMode(gin.ReleaseMode)
 
 	if cfg.Env == config.EnvDevelopment {
@@ -29,6 +30,7 @@ func Server(cfg config.Config, i18n *i18n.Service) {
 
 	templatreResolver, err := tpl.NewTemplateResolver(ctx, "", i18n)
 	if err != nil {
+		logging.Panic(logScope, "template resolver", nil, err, "")
 		panic(err)
 	}
 
@@ -132,9 +134,11 @@ func Server(cfg config.Config, i18n *i18n.Service) {
 	}
 
 	if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-		// log fatal
+		logging.Panic(logScope, "start server", nil, err, "")
+		panic(err)
+
 	}
 
-	r.Run(cfg.Server.Addr)
-
+	err = r.Run(cfg.Server.Addr)
+	logging.Return(logScope, err)
 }

@@ -6,12 +6,12 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/ignisVeneficus/logging"
 	"github.com/ignisVeneficus/lumenta/auth"
 	"github.com/ignisVeneficus/lumenta/config"
 	"github.com/ignisVeneficus/lumenta/db"
 	"github.com/ignisVeneficus/lumenta/db/dao"
 	"github.com/ignisVeneficus/lumenta/internal/i18n"
-	"github.com/ignisVeneficus/lumenta/logging"
 	"github.com/ignisVeneficus/lumenta/server/routes"
 	"github.com/ignisVeneficus/lumenta/tpl"
 	"github.com/ignisVeneficus/lumenta/tpl/data"
@@ -23,13 +23,13 @@ func ImagePage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 		i18n := i18n.Get()
 		loc := tpl.L(c)
 		imageIdStr := c.Param("id")
-		logg := logging.Enter(c, "page.public.image", map[string]any{
+		logScope, ctx := logging.Enter(c, "server/page/public/image", imageIdStr, map[string]any{
 			"image_id": imageIdStr,
 		})
 
 		imageId, err := tpl.ParseID(imageIdStr)
 		if err != nil {
-			logging.ExitErr(logg, fmt.Errorf("invalid image id"))
+			logging.ExitErr(logScope, fmt.Errorf("invalid image id"))
 			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "invalid image id"})
 			return
 		}
@@ -37,20 +37,20 @@ func ImagePage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 		database := db.GetDatabase()
 		acl := auth.GetAuthContex(c)
 
-		image, err := dao.GetImageByIdACLWTags(database, c, imageId, acl.ACLContext)
+		image, err := dao.GetImageByIdACLWTags(database, ctx, imageId, acl.ACLContext)
 		switch {
 		case errors.Is(err, dao.ErrDataNotFound):
-			logging.ExitErr(logg, err)
+			logging.ExitErr(logScope, err)
 			pages.Soft404(r, cfg, c, data.SurfacePublic, "image", routes.CreateTagsRootPath(), imageId)
 			return
 		case err != nil:
-			logging.ExitErr(logg, err)
+			logging.ExitErr(logScope, err)
 			c.AbortWithStatus(http.StatusInternalServerError)
 			return
 		}
 
 		imagePageCtx := data.ImagePageContext{
-			Image:      tpl.CreateImage(c, cfg, image),
+			Image:      tpl.CreateImage(ctx, cfg, image),
 			Thumbnails: nil,
 			Next:       nil,
 			Prev:       nil,
@@ -68,9 +68,9 @@ func ImagePage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 
 		if err := r.RenderPage(c.Writer, "public/image", imagePageCtx, loc, i18n); err != nil {
 			c.AbortWithStatus(http.StatusInternalServerError)
-			logging.ExitErr(logg, err)
+			logging.ExitErr(logScope, err)
 			return
 		}
-		logging.Exit(logg, "ok", nil)
+		logging.Exit(logScope, "ok", nil)
 	}
 }

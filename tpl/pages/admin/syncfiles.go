@@ -7,12 +7,12 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/ignisVeneficus/logging"
 	"github.com/ignisVeneficus/lumenta/config"
 	"github.com/ignisVeneficus/lumenta/db"
 	"github.com/ignisVeneficus/lumenta/db/dao"
 	"github.com/ignisVeneficus/lumenta/db/dbo"
 	"github.com/ignisVeneficus/lumenta/internal/i18n"
-	"github.com/ignisVeneficus/lumenta/logging"
 	"github.com/ignisVeneficus/lumenta/server/routes"
 	"github.com/ignisVeneficus/lumenta/tpl"
 	"github.com/ignisVeneficus/lumenta/tpl/data"
@@ -68,7 +68,7 @@ func SyncFilesListPathPage(r *tpl.TemplateResolver, cfg config.Config) gin.Handl
 		loc := tpl.L(c)
 		fPath := c.Param("fPath")
 		pageStr := c.DefaultQuery(data.SyncPageParam, "1")
-		logg := logging.Enter(c, "page.admin.syncFile.Path", map[string]any{
+		logScope, ctx := logging.Enter(c.Request.Context(), "server/page/admin/sync_file/path", fPath, map[string]any{
 			"page": pageStr,
 			"path": fPath,
 		})
@@ -77,7 +77,7 @@ func SyncFilesListPathPage(r *tpl.TemplateResolver, cfg config.Config) gin.Handl
 
 		page, err := tpl.ParsePaging(pageStr)
 		if err != nil {
-			logging.ExitErr(logg, fmt.Errorf("invalid page"))
+			logging.ExitErr(logScope, fmt.Errorf("invalid page"))
 			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "invalid page"})
 			return
 		}
@@ -87,15 +87,15 @@ func SyncFilesListPathPage(r *tpl.TemplateResolver, cfg config.Config) gin.Handl
 
 		database := db.GetDatabase()
 
-		syncs, err := dao.QuerySyncFileByFilePathPaged(database, c, root, path, filename, ext, (page-1)*syncFilePerPage, syncFilePerPage)
+		syncs, err := dao.QuerySyncFileByFilePathPaged(database, ctx, root, path, filename, ext, (page-1)*syncFilePerPage, syncFilePerPage)
 		if err != nil {
-			logging.ExitErr(logg, err)
+			logging.ExitErr(logScope, err)
 			c.AbortWithStatus(http.StatusInternalServerError)
 			return
 		}
-		count, err := dao.CountSyncFileByPath(database, c, root, path, filename, ext)
+		count, err := dao.CountSyncFileByPath(database, ctx, root, path, filename, ext)
 		if err != nil {
-			logging.ExitErr(logg, err)
+			logging.ExitErr(logScope, err)
 			c.AbortWithStatus(http.StatusInternalServerError)
 			return
 		}
@@ -141,10 +141,10 @@ func SyncFilesListPathPage(r *tpl.TemplateResolver, cfg config.Config) gin.Handl
 
 		if err := r.RenderPage(c.Writer, "admin/syncfiles", syncCtx, loc, i18n); err != nil {
 			c.AbortWithStatus(http.StatusInternalServerError)
-			logging.ExitErr(logg, err)
+			logging.ExitErr(logScope, err)
 			return
 		}
-		logging.Exit(logg, "ok", nil)
+		logging.Exit(logScope, "ok", nil)
 	}
 }
 
@@ -158,7 +158,7 @@ func SyncRunFilesListPage(r *tpl.TemplateResolver, cfg config.Config) gin.Handle
 		syncRunIDStr := c.Param("id")
 		filterIn := c.QueryArray(data.FilterParam)
 		pageStr := c.DefaultQuery(data.SyncPageParam, "1")
-		logg := logging.Enter(c, "page.admin.syncFile.syncRun", map[string]any{
+		logScope, ctx := logging.Enter(c.Request.Context(), "server/page/admin/sync_file/sync_run", syncRunIDStr, map[string]any{
 			"page":       pageStr,
 			"syncRun_id": syncRunIDStr,
 			"filter":     filterIn,
@@ -173,14 +173,14 @@ func SyncRunFilesListPage(r *tpl.TemplateResolver, cfg config.Config) gin.Handle
 
 		syncRunId, err := tpl.ParseID(syncRunIDStr)
 		if err != nil {
-			logging.ExitErr(logg, fmt.Errorf("invalid page"))
+			logging.ExitErr(logScope, fmt.Errorf("invalid page"))
 			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "invalid page"})
 			return
 		}
 
 		page, err := tpl.ParsePaging(pageStr)
 		if err != nil {
-			logging.ExitErr(logg, fmt.Errorf("invalid page"))
+			logging.ExitErr(logScope, fmt.Errorf("invalid page"))
 			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "invalid page"})
 			return
 		}
@@ -192,22 +192,22 @@ func SyncRunFilesListPage(r *tpl.TemplateResolver, cfg config.Config) gin.Handle
 		}
 
 		database := db.GetDatabase()
-		_, err = dao.GetSyncRunByID(database, c, syncRunId)
+		_, err = dao.GetSyncRunByID(database, ctx, syncRunId)
 		if err != nil {
-			logging.ExitErr(logg, err)
+			logging.ExitErr(logScope, err)
 			pages.Soft404(r, cfg, c, tplData.SurfacePublic, "sync_run", routes.CreateAdminSyncRunListPath(), syncRunId)
 			return
 		}
 
-		syncs, err := dao.QuerySyncFileBySyncIDPaged(database, c, syncRunId, filter, (page-1)*syncFilePerPage, syncFilePerPage)
+		syncs, err := dao.QuerySyncFileBySyncIDPaged(database, ctx, syncRunId, filter, (page-1)*syncFilePerPage, syncFilePerPage)
 		if err != nil {
-			logging.ExitErr(logg, err)
+			logging.ExitErr(logScope, err)
 			c.AbortWithStatus(http.StatusInternalServerError)
 			return
 		}
-		count, err := dao.CountSyncFileBySyncID(database, c, syncRunId, filter)
+		count, err := dao.CountSyncFileBySyncID(database, ctx, syncRunId, filter)
 		if err != nil {
-			logging.ExitErr(logg, err)
+			logging.ExitErr(logScope, err)
 			c.AbortWithStatus(http.StatusInternalServerError)
 			return
 		}
@@ -243,10 +243,10 @@ func SyncRunFilesListPage(r *tpl.TemplateResolver, cfg config.Config) gin.Handle
 
 		if err := r.RenderPage(c.Writer, "admin/syncfiles", syncCtx, loc, i18n); err != nil {
 			c.AbortWithStatus(http.StatusInternalServerError)
-			logging.ExitErr(logg, err)
+			logging.ExitErr(logScope, err)
 			return
 		}
-		logging.Exit(logg, "ok", nil)
+		logging.Exit(logScope, "ok", nil)
 	}
 }
 
@@ -260,7 +260,7 @@ func SyncFilesListPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFu
 		pageStr := c.DefaultQuery(data.SyncPageParam, "1")
 		search := c.Query(data.SearchParam)
 		filterIn := c.QueryArray(data.FilterParam)
-		logg := logging.Enter(c, "page.admin.syncFile", map[string]any{
+		logScope, ctx := logging.Enter(c.Request.Context(), "server/page/admin/sync_file", nil, map[string]any{
 			"page":   pageStr,
 			"search": search,
 			"filter": filterIn,
@@ -275,7 +275,7 @@ func SyncFilesListPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFu
 
 		page, err := tpl.ParsePaging(pageStr)
 		if err != nil {
-			logging.ExitErr(logg, fmt.Errorf("invalid page"))
+			logging.ExitErr(logScope, fmt.Errorf("invalid page"))
 			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "invalid page"})
 			return
 		}
@@ -291,15 +291,15 @@ func SyncFilesListPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFu
 
 		database := db.GetDatabase()
 
-		syncs, err := dao.QuerySyncFileBySearchByStatusPaged(database, c, search, filter, (page-1)*syncFilePerPage, syncFilePerPage)
+		syncs, err := dao.QuerySyncFileBySearchByStatusPaged(database, ctx, search, filter, (page-1)*syncFilePerPage, syncFilePerPage)
 		if err != nil {
-			logging.ExitErr(logg, err)
+			logging.ExitErr(logScope, err)
 			c.AbortWithStatus(http.StatusInternalServerError)
 			return
 		}
-		count, err := dao.CountSyncFileBySearchByStatus(database, c, search, filter)
+		count, err := dao.CountSyncFileBySearchByStatus(database, ctx, search, filter)
 		if err != nil {
-			logging.ExitErr(logg, err)
+			logging.ExitErr(logScope, err)
 			c.AbortWithStatus(http.StatusInternalServerError)
 			return
 		}
@@ -336,9 +336,9 @@ func SyncFilesListPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFu
 
 		if err := r.RenderPage(c.Writer, "admin/syncfiles", syncCtx, loc, i18n); err != nil {
 			c.AbortWithStatus(http.StatusInternalServerError)
-			logging.ExitErr(logg, err)
+			logging.ExitErr(logScope, err)
 			return
 		}
-		logging.Exit(logg, "ok", nil)
+		logging.Exit(logScope, "ok", nil)
 	}
 }

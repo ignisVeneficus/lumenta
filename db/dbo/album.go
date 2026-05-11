@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/ignisVeneficus/logging"
 	"github.com/ignisVeneficus/lumenta/definitions"
-	"github.com/ignisVeneficus/lumenta/logging"
 	"github.com/rs/zerolog"
 )
 
@@ -38,19 +38,18 @@ func (a *Album) MarshalZerologObjectWithLevel(e *zerolog.Event, level zerolog.Le
 	if level <= zerolog.DebugLevel {
 		e.Str(string(definitions.AlbumFieldName), a.Name).
 			Uint64(string(definitions.AlbumFieldACLLevel), uint64(a.ACLLevel)).
-			Uint32(string(definitions.AlbumFieldChildAlbumCount), a.ChildAlbumCount).
-			Uint32(string(definitions.AlbumFieldImageCount), a.ImageCount).
 			Uint64(string(definitions.AlbumFieldACLUserID), a.ACLUserID)
-
 		logging.Uint64If(e, string(definitions.AlbumFieldParentID), a.ParentID)
-		logging.Uint64If(e, string(definitions.AlbumFieldCoverImageID), a.CoverImageID)
 		logging.Uint64If(e, string(definitions.AlbumFieldID), a.ID)
-
 	}
 	if level == zerolog.TraceLevel {
 		e.RawJSON(string(definitions.AlbumFieldRuleJSON), a.RuleJSON).
-			Time(string(definitions.AlbumFieldUpdatedAt), a.UpdatedAt)
+			Time(string(definitions.AlbumFieldUpdatedAt), a.UpdatedAt).
+			Uint32(string(definitions.AlbumFieldChildAlbumCount), a.ChildAlbumCount).
+			Uint32(string(definitions.AlbumFieldImageCount), a.ImageCount)
 		logging.StrIf(e, string(definitions.AlbumFieldDescription), a.Description)
+		logging.Uint64If(e, string(definitions.AlbumFieldCoverImageID), a.CoverImageID)
+
 	}
 }
 

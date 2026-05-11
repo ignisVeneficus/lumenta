@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/ignisVeneficus/logging"
 	authData "github.com/ignisVeneficus/lumenta/auth/data"
 	"github.com/ignisVeneficus/lumenta/db/dbo"
-	"github.com/ignisVeneficus/lumenta/logging"
 )
 
 type ForwardVerifier struct {
@@ -18,8 +18,8 @@ type ForwardVerifier struct {
 	AdminRole    string
 }
 
-func (fav ForwardVerifier) ContextFromRequest(ctx context.Context, ip string, request *http.Request) *authData.ACLContext {
-	logg := logging.Enter(ctx, "auth.forward.ctxFromRequest", map[string]any{"ip": ip})
+func (fav ForwardVerifier) ContextFromRequest(c context.Context, ip string, request *http.Request) *authData.ACLContext {
+	logg, _ := logging.Enter(c, "auth/forward/ctxFromRequest", nil, map[string]any{"ip": ip})
 	if !CIDRMatch(fav.Cidrs, ip) {
 		logging.Exit(logg, "NOT OK", map[string]any{"problem": "not allowed ip"})
 		return nil

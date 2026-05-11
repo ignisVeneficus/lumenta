@@ -11,12 +11,12 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/ignisVeneficus/logging"
 	"github.com/ignisVeneficus/lumenta/config"
 	"github.com/ignisVeneficus/lumenta/db"
 	"github.com/ignisVeneficus/lumenta/db/dao"
 	"github.com/ignisVeneficus/lumenta/db/dbo"
 	"github.com/ignisVeneficus/lumenta/internal/i18n"
-	"github.com/ignisVeneficus/lumenta/logging"
 	"github.com/ignisVeneficus/lumenta/server/routes"
 	"github.com/ignisVeneficus/lumenta/tpl"
 	tplData "github.com/ignisVeneficus/lumenta/tpl/data"
@@ -29,18 +29,18 @@ var (
 	imagePerPage uint64 = 48
 )
 
-func BuildRootDirGrid(ctx context.Context, database *sql.DB, page uint64, url tplData.URLBuilder) (adminData.FsDirs, error) {
-	logg := logging.Enter(ctx, "admin.fsPage.buildRootDirGrid", map[string]any{
+func BuildRootDirGrid(c context.Context, database *sql.DB, page uint64, url tplData.URLBuilder) (adminData.FsDirs, error) {
+	logScope, ctx := logging.Enter(c, "admin.fsPage.buildRootDirGrid", nil, map[string]any{
 		"page": page,
 	})
 	qty, err := dao.CountImageRoots(database, ctx)
 	if err != nil {
-		logging.ExitErr(logg, err)
+		logging.ExitErr(logScope, err)
 		return adminData.FsDirs{}, err
 	}
 	dirs, err := dao.QueryImageRoots(database, ctx)
 	if err != nil {
-		logging.ExitErr(logg, err)
+		logging.ExitErr(logScope, err)
 		return adminData.FsDirs{}, err
 	}
 	paging := tplData.CreatePaging(url, tplData.FolderPageParam, page, qty, dirPerPage)
@@ -57,12 +57,12 @@ func BuildRootDirGrid(ctx context.Context, database *sql.DB, page uint64, url tp
 		case err == nil:
 			dir.Image = img
 		case !errors.Is(err, dao.ErrDataNotFound):
-			logging.ExitErr(logg, err)
+			logging.ExitErr(logScope, err)
 			return adminData.FsDirs{}, err
 		}
 		qty, err := dao.CountImageByRoot(database, ctx, d)
 		if err != nil {
-			logging.ExitErr(logg, err)
+			logging.ExitErr(logScope, err)
 			return adminData.FsDirs{}, err
 		}
 		dir.ImgQty = qty
@@ -72,24 +72,24 @@ func BuildRootDirGrid(ctx context.Context, database *sql.DB, page uint64, url tp
 		Directories: dirItems,
 		Paging:      paging,
 	}
-	logging.Exit(logg, "ok", nil)
+	logging.Exit(logScope, "ok", nil)
 	return ret, nil
 }
 
-func BuildDirGrid(ctx context.Context, database *sql.DB, root, pagePath string, page uint64, url tplData.URLBuilder) (adminData.FsDirs, error) {
-	logg := logging.Enter(ctx, "admin.fsPage.buildDirGrid", map[string]any{
+func BuildDirGrid(c context.Context, database *sql.DB, root, pagePath string, page uint64, url tplData.URLBuilder) (adminData.FsDirs, error) {
+	logScope, ctx := logging.Enter(c, "admin.fsPage.buildDirGrid", root+"/"+pagePath, map[string]any{
 		"root": root,
 		"path": pagePath,
 		"page": page,
 	})
 	qty, err := dao.CountImagePathByParentPath(database, ctx, root, pagePath)
 	if err != nil {
-		logging.ExitErr(logg, err)
+		logging.ExitErr(logScope, err)
 		return adminData.FsDirs{}, err
 	}
 	dirs, err := dao.QueryImagePathByParentPathPaged(database, ctx, root, pagePath, (page-1)*dirPerPage, dirPerPage)
 	if err != nil {
-		logging.ExitErr(logg, err)
+		logging.ExitErr(logScope, err)
 		return adminData.FsDirs{}, err
 	}
 	paging := tplData.CreatePaging(url, tplData.FolderPageParam, page, qty, dirPerPage)
@@ -107,12 +107,12 @@ func BuildDirGrid(ctx context.Context, database *sql.DB, root, pagePath string, 
 		case err == nil:
 			dir.Image = img
 		case !errors.Is(err, dao.ErrDataNotFound):
-			logging.ExitErr(logg, err)
+			logging.ExitErr(logScope, err)
 			return adminData.FsDirs{}, err
 		}
 		qty, err := dao.CountImageByParentPath(database, ctx, root, d)
 		if err != nil {
-			logging.ExitErr(logg, err)
+			logging.ExitErr(logScope, err)
 			return adminData.FsDirs{}, err
 		}
 		dir.ImgQty = qty
@@ -122,27 +122,27 @@ func BuildDirGrid(ctx context.Context, database *sql.DB, root, pagePath string, 
 		Directories: dirItems,
 		Paging:      paging,
 	}
-	logging.Exit(logg, "ok", nil)
+	logging.Exit(logScope, "ok", nil)
 	return ret, nil
 }
-func BuildImageGrid(ctx context.Context, database *sql.DB, root, path string, page uint64, url tplData.URLBuilder) (adminData.FsImages, error) {
-	logg := logging.Enter(ctx, "admin.fsPage.buildImageGrid", map[string]any{
+func BuildImageGrid(c context.Context, database *sql.DB, root, path string, page uint64, url tplData.URLBuilder) (adminData.FsImages, error) {
+	logScope, ctx := logging.Enter(c, "admin.fsPage.buildImageGrid", root+"/"+path, map[string]any{
 		"root": root,
 		"path": path,
 		"page": page,
 	})
 	if root == "" {
-		logging.Exit(logg, "no root, no image", nil)
+		logging.Exit(logScope, "no root, no image", nil)
 		return adminData.FsImages{}, nil
 	}
 	qty, err := dao.CountImagesByPath(database, ctx, root, path)
 	if err != nil {
-		logging.ExitErr(logg, err)
+		logging.ExitErr(logScope, err)
 		return adminData.FsImages{}, err
 	}
 	images, err := dao.QueryImageWLastSyncWUserByPathPaged(database, ctx, root, path, (page-1)*imagePerPage, imagePerPage)
 	if err != nil {
-		logging.ExitErr(logg, err)
+		logging.ExitErr(logScope, err)
 		return adminData.FsImages{}, err
 	}
 
@@ -176,7 +176,7 @@ func BuildImageGrid(ctx context.Context, database *sql.DB, root, path string, pa
 		Images: imageItems,
 		Paging: paging,
 	}
-	logging.Exit(logg, "ok", nil)
+	logging.Exit(logScope, "ok", nil)
 	return ret, nil
 
 }
@@ -232,7 +232,7 @@ func FSPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 		path = strings.TrimPrefix(path, "/")
 		dPageStr := c.DefaultQuery(tplData.FolderPageParam, "1")
 		iPageStr := c.DefaultQuery(tplData.ImagePageParam, "1")
-		logg := logging.Enter(c, "page.admin.fs", map[string]any{
+		logScope, ctx := logging.Enter(c.Request.Context(), "server/page/admin/fs", path, map[string]any{
 			"path":           path,
 			"directory_page": dPageStr,
 			"image_page":     iPageStr,
@@ -240,14 +240,14 @@ func FSPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 
 		dPage, err := tpl.ParsePaging(dPageStr)
 		if err != nil {
-			logging.ExitErr(logg, fmt.Errorf("invalid directory_page"))
+			logging.ExitErr(logScope, fmt.Errorf("invalid directory_page"))
 			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "invalid directory page"})
 			return
 		}
 
 		iPage, err := tpl.ParsePaging(iPageStr)
 		if err != nil {
-			logging.ExitErr(logg, fmt.Errorf("invalid image_page"))
+			logging.ExitErr(logScope, fmt.Errorf("invalid image_page"))
 			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "invalid image page"})
 			return
 		}
@@ -266,18 +266,18 @@ func FSPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 		database := db.GetDatabase()
 		var dirs adminData.FsDirs
 		if root == "" {
-			dirs, err = BuildRootDirGrid(c, database, dPage, *url)
+			dirs, err = BuildRootDirGrid(ctx, database, dPage, *url)
 		} else {
-			dirs, err = BuildDirGrid(c, database, root, path, dPage, *url)
+			dirs, err = BuildDirGrid(ctx, database, root, path, dPage, *url)
 			if err != nil {
-				logging.ExitErr(logg, err)
+				logging.ExitErr(logScope, err)
 				c.AbortWithStatus(http.StatusInternalServerError)
 				return
 			}
 		}
-		images, err := BuildImageGrid(c, database, root, path, iPage, *url)
+		images, err := BuildImageGrid(ctx, database, root, path, iPage, *url)
 		if err != nil {
-			logging.ExitErr(logg, err)
+			logging.ExitErr(logScope, err)
 			c.AbortWithStatus(http.StatusInternalServerError)
 			return
 		}
@@ -291,9 +291,9 @@ func FSPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 
 		if err := r.RenderPage(c.Writer, "admin/fs", fsCtx, loc, i18n); err != nil {
 			c.AbortWithStatus(http.StatusInternalServerError)
-			logging.ExitErr(logg, err)
+			logging.ExitErr(logScope, err)
 			return
 		}
-		logging.Exit(logg, "ok", nil)
+		logging.Exit(logScope, "ok", nil)
 	}
 }

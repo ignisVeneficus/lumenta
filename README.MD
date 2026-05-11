@@ -70,6 +70,7 @@ The filesystem is the source of truth.
 - Your directory structure retains its meaning  
 
 Lumenta scans the configured root directory and builds its internal model from that structure.
+The system is designed around large, continuously growing filesystem-based photo archives.
 
 ## Rule-based automation
 
@@ -131,15 +132,21 @@ The following areas are implemented or actively being refined and are usable, th
 
 ### Data ingestion and backend core
 
-The complete filesystem → database ingestion path is implemented and under active refinement:
+The complete filesystem → database ingestion pipeline is implemented and operational.
 
-- Database schema and access layer, focused on the `images` domain model
-- Filesystem scanning and synchronization pipeline
-- Deterministic import driven by a rule engine
+Implemented features include:
+
+- Database schema and access layer centered around the `images` domain model
+- Concurrent filesystem scanning and synchronization pipeline
+- Deterministic rule-driven import and filtering
+- Metadata-based indexing and hierarchical tag support
 - Rule evaluation tracing and debug logging for full decision transparency
 - Structured configuration loading and validation
+- Incremental synchronization with change detection and metadata reuse
 
-Together, these form the backbone of the system: the authoritative **filesystem → database** data flow.
+The ingestion system is designed for large real-world archives, including mixed JPG/TIFF workloads stored on NAS systems.
+
+Together, these components form the backbone of the system: the authoritative **filesystem → database** data flow.
 
 ### Web backend and presentation layer
 
@@ -165,23 +172,39 @@ These components provide the foundation for browsing and interacting with the in
 
 ## Performance (typical photography setup)
 
-Test setup:
-- ~32,000 images
-- ~20 MB average TIFF files
-- stored on a NAS (network storage, not local disk)
-- metadata-based filtering (e.g. EXIF rating)
-- metadata extracted via exiftool (stay_open mode)
+Sync benchmark:
 
-Initial sync (cold start, empty database):
-- scanned files: 32,000
-- imported into database: ~12,000
-- total time: ~1h 8m
+- ~29,000 images scanned
+- ~16,000 filtered out during import based on metadata
+- ~13,000 inserted into database
+- cold start / empty database: ~41 minutes
+- warm cached run: ~37 minutes
+
+Dataset:
+
+- 18,515 × ~5 MB JPG with minimal metadata
+- 1,536 × ~5 MB JPG with EXIF + hierarchical tags
+- 5,145 × ~10–30 MB TIFF with extensive metadata
+- 4,063 × ~5 MB TIFF with metadata
+
+Environment:
+
+- Intel i7 workstation
+- 32 GB RAM
+- normal desktop/workstation usage during measurements
+- ~75% overall system memory usage during measurements
+- images stored on NAS (network storage)
+- MariaDB running remotely
+- 8 metadata workers
+- 2 hash workers
 
 Notes:
-- Filtering relies on image metadata, so each file must be opened and inspected
-- With large TIFF files stored on a NAS, performance is primarily bound by IO (network + disk)
-- This represents a worst-case scenario with full metadata extraction and no caching
-- Subsequent (incremental) runs are significantly faster due to change detection
+
+- Filtering depends on metadata evaluation, so files must still be opened and inspected
+- Large TIFF workloads are primarily limited by filesystem and network IO throughput
+- Metadata reuse significantly reduces metadata processing overhead on repeated runs
+- Increasing hash worker concurrency beyond this point no longer improved throughput, indicating that the current bottleneck is NAS throughput
+- Measurements were performed in a non-isolated real-world workstation environment
 
 ## Showcase
 

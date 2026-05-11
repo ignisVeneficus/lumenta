@@ -1,24 +1,25 @@
 package admin
 
 import (
+	"context"
 	"database/sql"
 	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/ignisVeneficus/logging"
 	"github.com/ignisVeneficus/lumenta/config"
 	"github.com/ignisVeneficus/lumenta/db"
 	"github.com/ignisVeneficus/lumenta/db/dao"
 	"github.com/ignisVeneficus/lumenta/db/dbo"
 	"github.com/ignisVeneficus/lumenta/internal/i18n"
-	"github.com/ignisVeneficus/lumenta/logging"
 	"github.com/ignisVeneficus/lumenta/server/routes"
 	"github.com/ignisVeneficus/lumenta/tpl"
 	"github.com/ignisVeneficus/lumenta/tpl/data"
 	adminData "github.com/ignisVeneficus/lumenta/tpl/data/admin"
 )
 
-type cardBuilder func(database *sql.DB, ctx *gin.Context, loc string, i18n *i18n.Service) (adminData.DashboardCard, error)
+type cardBuilder func(database *sql.DB, ctx context.Context, loc string, i18n *i18n.Service) (adminData.DashboardCard, error)
 
 func createDashboardStat(label, value string) adminData.DashboardStat {
 	return adminData.DashboardStat{
@@ -33,7 +34,7 @@ func createDashboardStatUint64(label string, value uint64) adminData.DashboardSt
 	}
 }
 
-func getImagesCard(database *sql.DB, ctx *gin.Context, loc string, i18n *i18n.Service) (adminData.DashboardCard, error) {
+func getImagesCard(database *sql.DB, ctx context.Context, loc string, i18n *i18n.Service) (adminData.DashboardCard, error) {
 	imageCount, err := dao.CountImage(database, ctx)
 	if err != nil {
 		return adminData.DashboardCard{}, err
@@ -69,7 +70,7 @@ func getImagesCard(database *sql.DB, ctx *gin.Context, loc string, i18n *i18n.Se
 	}, nil
 }
 
-func getAlbumCard(database *sql.DB, ctx *gin.Context, loc string, i18n *i18n.Service) (adminData.DashboardCard, error) {
+func getAlbumCard(database *sql.DB, ctx context.Context, loc string, i18n *i18n.Service) (adminData.DashboardCard, error) {
 	return adminData.DashboardCard{
 		ID:        "albums",
 		Title:     i18n.T(loc, "nav.page.admin.albums.short", nil),
@@ -78,7 +79,7 @@ func getAlbumCard(database *sql.DB, ctx *gin.Context, loc string, i18n *i18n.Ser
 		URL:       routes.CreateAdminAlbumsPath(),
 	}, nil
 }
-func getSyncRunCard(database *sql.DB, ctx *gin.Context, loc string, i18n *i18n.Service) (adminData.DashboardCard, error) {
+func getSyncRunCard(database *sql.DB, ctx context.Context, loc string, i18n *i18n.Service) (adminData.DashboardCard, error) {
 	return adminData.DashboardCard{
 		ID:        "sync_runs",
 		Title:     i18n.T(loc, "nav.page.admin.sync_runs.short", nil),
@@ -87,7 +88,7 @@ func getSyncRunCard(database *sql.DB, ctx *gin.Context, loc string, i18n *i18n.S
 		URL:       routes.CreateAdminSyncRunListPath(),
 	}, nil
 }
-func getSyncFilesCard(database *sql.DB, ctx *gin.Context, loc string, i18n *i18n.Service) (adminData.DashboardCard, error) {
+func getSyncFilesCard(database *sql.DB, ctx context.Context, loc string, i18n *i18n.Service) (adminData.DashboardCard, error) {
 	return adminData.DashboardCard{
 		ID:        "sync_files",
 		Title:     i18n.T(loc, "nav.page.admin.sync_files.short", nil),
@@ -101,7 +102,7 @@ func MainPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		i18n := i18n.Get()
 		loc := tpl.L(c)
-		logg := logging.Enter(c, "page.admin.main", nil)
+		logScope, ctx := logging.Enter(c.Request.Context(), "server/page/admin/main", nil, nil)
 
 		database := db.GetDatabase()
 
@@ -115,9 +116,9 @@ func MainPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 		cards := make([]adminData.DashboardCard, 0, len(builders))
 
 		for _, b := range builders {
-			card, err := b(database, c, loc, i18n)
+			card, err := b(database, ctx, loc, i18n)
 			if err != nil {
-				logging.ExitErr(logg, err)
+				logging.ExitErr(logScope, err)
 				c.AbortWithStatus(http.StatusInternalServerError)
 				return
 			}
@@ -132,9 +133,9 @@ func MainPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 
 		if err := r.RenderPage(c.Writer, "admin/main", mainPageCtx, loc, i18n); err != nil {
 			c.AbortWithStatus(http.StatusInternalServerError)
-			logging.ExitErr(logg, err)
+			logging.ExitErr(logScope, err)
 			return
 		}
-		logging.Exit(logg, "ok", nil)
+		logging.Exit(logScope, "ok", nil)
 	}
 }

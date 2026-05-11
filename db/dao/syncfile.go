@@ -5,8 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 
+	"github.com/ignisVeneficus/logging"
 	"github.com/ignisVeneficus/lumenta/db/dbo"
-	"github.com/ignisVeneficus/lumenta/logging"
 	"github.com/rs/zerolog/log"
 )
 
@@ -279,17 +279,18 @@ func (q *Queries) CountSyncFileBySearchByStatus(ctx context.Context, search stri
 // =========================================================
 //
 
-func CreateSyncFile(db *sql.DB, ctx context.Context, f dbo.SyncFile) error {
-	logg := logging.Enter(ctx, "dao.sync_file.create", map[string]any{
+func CreateSyncFile(db *sql.DB, c context.Context, f dbo.SyncFile) error {
+	logScope, ctx := logging.Enter(c, "dao/sync_file/create", f.PathFull(), map[string]any{
 		"sync_id": f.SyncID,
 		"root":    f.Root,
 		"path":    f.Path,
 		"file":    f.Filename,
+		"ext":     f.Ext,
 	})
 
 	tx, err := GetTx(db, ctx)
 	if err != nil {
-		logging.ExitErr(logg, err)
+		logging.ExitErr(logScope, err)
 		return err
 	}
 	defer tx.Rollback()
@@ -298,23 +299,23 @@ func CreateSyncFile(db *sql.DB, ctx context.Context, f dbo.SyncFile) error {
 
 	if err := q.CreateSyncFile(ctx, f); err != nil {
 		err = NormalizeSQLError(err)
-		logging.ExitErr(logg, err)
+		logging.ExitErr(logScope, err)
 		return err
 	}
 
-	return logging.Return(logg, tx.Commit())
+	return logging.Return(logScope, tx.Commit())
 }
-func GetSyncFileById(db *sql.DB, ctx context.Context, id uint64) (dbo.SyncFile, error) {
-	logg := logging.Enter(ctx, "dao.sync_file.get.byId", map[string]any{
+func GetSyncFileById(db *sql.DB, c context.Context, id uint64) (dbo.SyncFile, error) {
+	logScope, ctx := logging.Enter(c, "dao/sync_file/get/byId", id, map[string]any{
 		"id": id,
 	})
 	q := NewQueries(db)
 	i, err := q.GetSyncFileById(ctx, id)
-	return i, returnWrapNotFound(logg, err, "sync_file")
+	return i, returnWrapNotFound(logScope, err, "sync_file")
 }
 
-func QuerySyncFileBySyncIDPaged(db *sql.DB, ctx context.Context, syncID uint64, stats []string, from, qty uint64) ([]dbo.SyncFile, error) {
-	logg := logging.Enter(ctx, "dao.sync_file.query.bySyncId.Paged", map[string]any{
+func QuerySyncFileBySyncIDPaged(db *sql.DB, c context.Context, syncID uint64, stats []string, from, qty uint64) ([]dbo.SyncFile, error) {
+	logScope, ctx := logging.Enter(c, "dao/sync_file/query/bySyncId/paged", syncID, map[string]any{
 		"syncId": syncID,
 		"from":   from,
 		"qty":    qty,
@@ -323,33 +324,33 @@ func QuerySyncFileBySyncIDPaged(db *sql.DB, ctx context.Context, syncID uint64, 
 	q := NewQueries(db)
 	files, err := q.QuerySyncFileBySyncIDPaged(ctx, syncID, stats, from, qty)
 	if err != nil {
-		logging.ExitErr(logg, err)
+		logging.ExitErr(logScope, err)
 		return nil, err
 	}
 
-	logging.Exit(logg, "ok", map[string]any{
+	logging.Exit(logScope, "ok", map[string]any{
 		"found": len(files),
 	})
 
 	return files, nil
 }
 
-func CountSyncFileBySyncID(db *sql.DB, ctx context.Context, syncID uint64, status []string) (uint64, error) {
-	logg := logging.Enter(ctx, "dao.sync_file.count.bySyncId", map[string]any{
+func CountSyncFileBySyncID(db *sql.DB, c context.Context, syncID uint64, status []string) (uint64, error) {
+	logScope, ctx := logging.Enter(c, "dao/sync_file/count/bySyncId", syncID, map[string]any{
 		"syncId": syncID,
 	})
 	q := NewQueries(db)
 	qty, err := q.CountSyncFileBySyncID(ctx, syncID, status)
 	if err != nil {
-		logging.ExitErr(logg, err)
+		logging.ExitErr(logScope, err)
 		return 0, err
 	}
-	logging.Exit(logg, "ok", map[string]any{"return": qty})
+	logging.Exit(logScope, "ok", map[string]any{"return": qty})
 	return qty, nil
 }
 
-func QuerySyncFileByFilePathPaged(db *sql.DB, ctx context.Context, root, path, filename, ext string, from, qty uint64) ([]dbo.SyncFile, error) {
-	logg := logging.Enter(ctx, "dao.sync_file.query.byPath.Paged", map[string]any{
+func QuerySyncFileByFilePathPaged(db *sql.DB, c context.Context, root, path, filename, ext string, from, qty uint64) ([]dbo.SyncFile, error) {
+	logScope, ctx := logging.Enter(c, "dao/sync_file/query/byPath/paged", root+"/"+path+"/"+filename+"."+ext, map[string]any{
 		"root":     root,
 		"path":     path,
 		"filename": filename,
@@ -361,19 +362,19 @@ func QuerySyncFileByFilePathPaged(db *sql.DB, ctx context.Context, root, path, f
 	q := NewQueries(db)
 	files, err := q.QuerySyncFileByFilePathPaged(ctx, root, path, filename, ext, from, qty)
 	if err != nil {
-		logging.ExitErr(logg, err)
+		logging.ExitErr(logScope, err)
 		return nil, err
 	}
 
-	logging.Exit(logg, "ok", map[string]any{
+	logging.Exit(logScope, "ok", map[string]any{
 		"found": len(files),
 	})
 
 	return files, nil
 }
 
-func CountSyncFileByPath(db *sql.DB, ctx context.Context, root, path, filename, ext string) (uint64, error) {
-	logg := logging.Enter(ctx, "dao.sync_file.count.byPath", map[string]any{
+func CountSyncFileByPath(db *sql.DB, c context.Context, root, path, filename, ext string) (uint64, error) {
+	logScope, ctx := logging.Enter(c, "dao/sync_file/count/byPath", root+"/"+path+"/"+filename+"."+ext, map[string]any{
 		"root":     root,
 		"path":     path,
 		"filename": filename,
@@ -382,14 +383,14 @@ func CountSyncFileByPath(db *sql.DB, ctx context.Context, root, path, filename, 
 	q := NewQueries(db)
 	qty, err := q.CountSyncFileByPath(ctx, root, path, filename, ext)
 	if err != nil {
-		logging.ExitErr(logg, err)
+		logging.ExitErr(logScope, err)
 		return 0, err
 	}
-	logging.Exit(logg, "ok", map[string]any{"return": qty})
+	logging.Exit(logScope, "ok", map[string]any{"return": qty})
 	return qty, nil
 }
-func GetSyncFileByPathByStatusLast(db *sql.DB, ctx context.Context, root, path, filename, ext string, status dbo.SyncFileStatus) (dbo.SyncFile, error) {
-	logg := logging.Enter(ctx, "dao.sync_file.get.byId", map[string]any{
+func GetSyncFileByPathByStatusLast(db *sql.DB, c context.Context, root, path, filename, ext string, status dbo.SyncFileStatus) (dbo.SyncFile, error) {
+	logScope, ctx := logging.Enter(c, "dao/sync_file/get/byId", root+"/"+path+"/"+filename+"."+ext, map[string]any{
 		"root":     root,
 		"path":     path,
 		"filename": filename,
@@ -398,11 +399,11 @@ func GetSyncFileByPathByStatusLast(db *sql.DB, ctx context.Context, root, path, 
 	})
 	q := NewQueries(db)
 	i, err := q.GetSyncFileByPathByStatusLast(ctx, root, path, filename, ext, status)
-	return i, returnWrapNotFound(logg, err, "sync_file")
+	return i, returnWrapNotFound(logScope, err, "sync_file")
 }
 
-func QuerySyncFileBySearchByStatusPaged(db *sql.DB, ctx context.Context, search string, status []string, from, qty uint64) ([]dbo.SyncFile, error) {
-	logg := logging.Enter(ctx, "dao.sync_file.query.bySearch.byStatus.Paged", map[string]any{
+func QuerySyncFileBySearchByStatusPaged(db *sql.DB, c context.Context, search string, status []string, from, qty uint64) ([]dbo.SyncFile, error) {
+	logScope, ctx := logging.Enter(c, "dao/sync_file/query/bySearch/byStatus/paged", nil, map[string]any{
 		"search": search,
 		"status": status,
 		"from":   from,
@@ -412,28 +413,28 @@ func QuerySyncFileBySearchByStatusPaged(db *sql.DB, ctx context.Context, search 
 	q := NewQueries(db)
 	files, err := q.QuerySyncFileBySearchByStatusPaged(ctx, search, status, from, qty)
 	if err != nil {
-		logging.ExitErr(logg, err)
+		logging.ExitErr(logScope, err)
 		return nil, err
 	}
 
-	logging.Exit(logg, "ok", map[string]any{
+	logging.Exit(logScope, "ok", map[string]any{
 		"found": len(files),
 	})
 
 	return files, nil
 }
 
-func CountSyncFileBySearchByStatus(db *sql.DB, ctx context.Context, search string, status []string) (uint64, error) {
-	logg := logging.Enter(ctx, "dao.sync_file.count.byPath", map[string]any{
+func CountSyncFileBySearchByStatus(db *sql.DB, c context.Context, search string, status []string) (uint64, error) {
+	logScope, ctx := logging.Enter(c, "dao.sync_file.count.byPath", nil, map[string]any{
 		"search": search,
 		"status": status,
 	})
 	q := NewQueries(db)
 	qty, err := q.CountSyncFileBySearchByStatus(ctx, search, status)
 	if err != nil {
-		logging.ExitErr(logg, err)
+		logging.ExitErr(logScope, err)
 		return 0, err
 	}
-	logging.Exit(logg, "ok", map[string]any{"return": qty})
+	logging.Exit(logScope, "ok", map[string]any{"return": qty})
 	return qty, nil
 }

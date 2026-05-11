@@ -11,19 +11,22 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/ignisVeneficus/logging"
 	"github.com/ignisVeneficus/lumenta/auth"
 	"github.com/ignisVeneficus/lumenta/config"
 	"github.com/ignisVeneficus/lumenta/data"
 	"github.com/ignisVeneficus/lumenta/db/dao"
 	"github.com/ignisVeneficus/lumenta/db/dbo"
 	"github.com/ignisVeneficus/lumenta/internal/i18n"
-	"github.com/ignisVeneficus/lumenta/logging"
 	"github.com/ignisVeneficus/lumenta/server/routes"
 	tplData "github.com/ignisVeneficus/lumenta/tpl/data"
 	"github.com/ignisVeneficus/lumenta/utils"
 )
 
-func CreateImage(ctx context.Context, cfg config.Config, image dbo.Image) tplData.PageImage {
+func CreateImage(c context.Context, cfg config.Config, image dbo.Image) tplData.PageImage {
+	logScope, ctx := logging.Enter(c, "tpl/utils/image/create", image.ID, map[string]any{
+		"image": image,
+	})
 	// TODO: use visibility settings
 
 	flatForrest := tplData.NewFlatForrest()
@@ -55,6 +58,7 @@ func CreateImage(ctx context.Context, cfg config.Config, image dbo.Image) tplDat
 	}
 
 	ret.Metadata = handleImgMetadata(ctx, cfg, image)
+	logging.Exit(logScope, "ok", nil)
 	return ret
 }
 
@@ -143,7 +147,7 @@ func addListIfNotEmpty(list []string, data data.Metadata, key string) []string {
 	return list
 }
 
-func BuildTagBreadcumb(database *sql.DB, c *gin.Context, tag dbo.Tag, last bool) (tplData.Breadcrumbs, error) {
+func BuildTagBreadcumb(database *sql.DB, c context.Context, tag dbo.Tag, last bool) (tplData.Breadcrumbs, error) {
 	path := []dbo.Tag{tag}
 	var err error
 	for tag.ParentID != nil {
@@ -189,14 +193,13 @@ func createTagsBreadcrumbs(tags []dbo.Tag, last bool) tplData.Breadcrumbs {
 
 }
 func GetImageMetadata(ctx context.Context, img dbo.Image) (data.Metadata, error) {
+	logScope, _ := logging.Enter(ctx, "tpl/utils/metadata/unmarshal", img.ID, map[string]any{
+		"json":     img.ExifJSON,
+		"image_id": img.ID,
+	})
 	m := data.Metadata{}
 	err := json.Unmarshal([]byte(img.ExifJSON), &m)
-	if err != nil {
-		logging.Error(ctx, err, "tpl.getMetadata", "unmashal", "error", "", map[string]any{
-			"image_id": img.ID,
-		})
-	}
-	return m, err
+	return m, logging.Return(logScope, err)
 }
 
 func ParseID(s string) (uint64, error) {

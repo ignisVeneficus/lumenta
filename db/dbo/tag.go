@@ -1,7 +1,7 @@
 package dbo
 
 import (
-	"github.com/ignisVeneficus/lumenta/logging"
+	"github.com/ignisVeneficus/logging"
 	"github.com/rs/zerolog"
 )
 
@@ -43,10 +43,12 @@ func (t *Tag) GetSorting() string {
 
 func (a *Tag) MarshalZerologObjectWithLevel(e *zerolog.Event, level zerolog.Level) {
 	if level <= zerolog.DebugLevel {
-		e.Str("name", a.Name).
-			Str("source", string(a.Source))
+		e.Str("name", a.Name)
 		logging.Uint64If(e, "id", a.ID)
 		logging.Uint64If(e, "parent_id", a.ParentID)
+	}
+	if level <= zerolog.TraceLevel {
+		e.Str("source", string(a.Source))
 	}
 }
 
@@ -61,10 +63,12 @@ type TagWCount struct {
 func (t *TagWCount) MarshalZerologObjectWithLevel(e *zerolog.Event, level zerolog.Level) {
 	if level <= zerolog.DebugLevel {
 		e.Str("name", t.Name).
-			Str("source", string(t.Source)).
 			Uint64("count", t.Count)
 		logging.Uint64If(e, "id", t.ID)
 		logging.Uint64If(e, "parent_id", t.ParentID)
+	}
+	if level <= zerolog.TraceLevel {
+		e.Str("source", string(t.Source))
 	}
 }
 

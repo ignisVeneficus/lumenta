@@ -3,8 +3,8 @@ package data
 import (
 	"context"
 
+	"github.com/ignisVeneficus/logging"
 	"github.com/ignisVeneficus/lumenta/db/dbo"
-	"github.com/ignisVeneficus/lumenta/logging"
 )
 
 func CreateThumbnail(img dbo.ImageTitle, generator func(uint64) *string) *Thumbnail {
@@ -82,7 +82,7 @@ func GenerateThumbnail(c context.Context,
 	imageUrlGenerator func(uint64) *string,
 	pagingUrlGenerator func(uint64, int) string,
 ) (Thumbnails, error) {
-	logg := logging.Enter(c, "tpl.image.thumbnail", nil)
+	logScope, _ := logging.Enter(c, "tpl/image/thumbnail", image.ID, nil)
 	var err error
 	// starting point for the query for before/after queries
 	thumbnailAfterQty := 0
@@ -111,7 +111,7 @@ func GenerateThumbnail(c context.Context,
 		thumbnailBeforeQty = ThumbnailPerPage + 1
 		thumbnailBeforeStart = ((-1*page)-1)*ThumbnailPerPage + oneSide
 	}
-	logging.Inside(logg, map[string]any{
+	logging.Trace(logScope, "after paging", map[string]any{
 		"thumbnailAfterQty":    thumbnailAfterQty,
 		"thumbnailAfterStart":  thumbnailAfterStart,
 		"thumbnailBeforeQty":   thumbnailBeforeQty,
@@ -119,7 +119,7 @@ func GenerateThumbnail(c context.Context,
 		"window":               ThumbnailPerPage,
 		"oneSide":              oneSide,
 		"page":                 page,
-	}, "after paging")
+	})
 
 	after := []dbo.ImageTitle{}
 	if thumbnailAfterQty > 0 {
@@ -150,6 +150,6 @@ func GenerateThumbnail(c context.Context,
 		// always have prev image
 		urlBefore = pagingUrlGenerator(*image.ID, page-1)
 	}
-
+	logging.Exit(logScope, "ok", nil)
 	return CreateThumbnails(before, img, after, imageUrlGenerator, ThumbnailPerPage, urlBefore, urlAfter), nil
 }

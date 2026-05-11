@@ -8,11 +8,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ignisVeneficus/logging"
 	fileConfig "github.com/ignisVeneficus/lumenta/config/filesystem"
 	syncConfig "github.com/ignisVeneficus/lumenta/config/sync"
 	"github.com/ignisVeneficus/lumenta/data"
 	"github.com/ignisVeneficus/lumenta/db/dbo"
-	"github.com/ignisVeneficus/lumenta/logging"
 	"github.com/ignisVeneficus/lumenta/ruleengine"
 	"github.com/rs/zerolog"
 )
@@ -23,11 +23,15 @@ import (
 // The WorkItem accumulates all knowledge about a file from filesystem walk
 // to database persistence in a single, mutable envelope.
 type WorkItem struct {
+	// =========================================================
+	// LOGGING / CONTEXT
+	// =========================================================
+	Ctx      context.Context //for logging
+	LogScope logging.LogScope
 
 	// =========================================================
 	// FILESYSTEM (walk)
 	// =========================================================
-
 	RootName     string      // name of the root, defined in config
 	RootPath     string      // configured sync root
 	Path         string      // path relative to RootPath without filename
@@ -40,7 +44,6 @@ type WorkItem struct {
 	// =========================================================
 	// DATABASE PRECHECK (path-based lookup)
 	// =========================================================
-
 	Source DataSource
 
 	// Exists in db => DBImage.ID not null
@@ -58,41 +61,35 @@ type WorkItem struct {
 	// =========================================================
 	// DIRTY CHECK / CHANGE DETECTION
 	// =========================================================
-
 	IsDirty     bool             // true if file must be re-processed
 	DirtyReason data.DirtyReason // human-readable reason (debug / metrics)
 
 	// =========================================================
 	// CONTENT HASH (optional, policy-driven)
 	// =========================================================
-
 	FileHash         string // computed content hash
 	FileMetadataHash string // computed content hash
 
 	// =========================================================
 	// ACL
 	// =========================================================
-
 	ACLLevel *dbo.DBACLLevel
 	ACLUser  uint64
 
 	// =========================================================
 	// METADATA EXTRACTION (EXIF / XMP / IPTC)
 	// =========================================================
-
 	Metadata data.Metadata
 	Panorama bool
 
 	// =========================================================
 	// RULE ENGINE RESULTS
 	// =========================================================
-
 	RuleResults ruleengine.RuleResults
 
 	// =========================================================
 	// ERROR / DIAGNOSTICS
 	// =========================================================
-
 	Err error // non-fatal processing error (does not stop pipeline)
 }
 
@@ -104,29 +101,21 @@ func (w *WorkItem) MarshalZerologObjectWithLevel(e *zerolog.Event, level zerolog
 			Str("path", w.Path).
 			Str("real_path", w.RealPath).
 			Str("filename", w.Filename).
-			Str("ext", w.Ext)
+			Str("ext", w.Ext).
+			Str("source", string(w.Source))
 
+	}
+
+	if level == zerolog.TraceLevel {
 		if w.Info != nil {
 			e.Int64("fs_size", w.Info.Size()).
 				Time("fs_mtime", w.Info.ModTime())
 		}
-
-		e.Bool("exists_in_db", (w.DBImage != nil && w.DBImage.ID != nil)).
-			Bool("is_dirty", w.IsDirty)
-		if w.DirtyReason != "" {
-			e.Str("dirty_reason", string(w.DirtyReason))
-		}
+		e.Bool("is_dirty", w.IsDirty).Str("dirty_reason", string(w.DirtyReason))
 		if w.DBImage != nil && w.DBImage.ID != nil {
 			logging.Uint64If(e, "db_id", w.DBImage.ID)
 		}
-	}
-
-	if level == zerolog.TraceLevel {
-
 		e.Str("file_hash", w.FileHash)
-
-		// Nested objects – delegated logging
-
 		logging.ObjectIf(e, "metadata", logging.WithLevel(level, &w.Metadata), false)
 		logging.ObjectIf(e, "db_image", logging.WithLevel(level, w.DBImage), false)
 		if w.Err != nil {
@@ -140,7 +129,7 @@ type DataSource string
 const (
 	SourceImages   DataSource = "images"
 	SourceFiltered DataSource = "filteredOut"
-	SourceFS       DataSource = "fileesystem"
+	SourceFS       DataSource = "fileSystem"
 )
 
 type PipelineContext struct {

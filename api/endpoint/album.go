@@ -6,13 +6,13 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/ignisVeneficus/logging"
 	apiData "github.com/ignisVeneficus/lumenta/api/data"
 	"github.com/ignisVeneficus/lumenta/config"
 	"github.com/ignisVeneficus/lumenta/data"
 	"github.com/ignisVeneficus/lumenta/db"
 	"github.com/ignisVeneficus/lumenta/db/dao"
 	"github.com/ignisVeneficus/lumenta/db/dbo"
-	"github.com/ignisVeneficus/lumenta/logging"
 	"github.com/ignisVeneficus/lumenta/utils"
 	"github.com/ignisVeneficus/lumenta/validate"
 )
@@ -20,7 +20,7 @@ import (
 func AlbumQuery(cfg config.Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		view := ListView(c.DefaultQuery("view", "flat"))
-		logg := logging.Enter(c, "api.admin.albums.get", map[string]any{
+		logg, ctx := logging.Enter(c.Request.Context(), "api/admin/albums/get", nil, map[string]any{
 			"view": view,
 		})
 		ret := apiData.APIResponse[[]*apiData.Album]{}
@@ -33,7 +33,7 @@ func AlbumQuery(cfg config.Config) gin.HandlerFunc {
 		}
 
 		database := db.GetDatabase()
-		dboAlbums, err := dao.QueryAlbum(database, c)
+		dboAlbums, err := dao.QueryAlbum(database, ctx)
 		if err != nil {
 			logging.ExitErr(logg, err)
 			ret.HandleError("internal error")
@@ -80,7 +80,7 @@ func AlbumPatch(cfg config.Config) gin.HandlerFunc {
 		ret := apiData.APIStatusResponse{}
 		albumIDStr := c.Param("id")
 		c.BindJSON(&albumPatch)
-		logg := logging.Enter(c, "page.admin.album.patch", map[string]any{
+		logg, ctx := logging.Enter(c.Request.Context(), "page/admin/album/patch", albumIDStr, map[string]any{
 			"ID":    albumIDStr,
 			"album": albumPatch,
 		})
@@ -92,7 +92,7 @@ func AlbumPatch(cfg config.Config) gin.HandlerFunc {
 			return
 		}
 		database := db.GetDatabase()
-		album, err := dao.GetAlbumById(database, c, uint64(albumID))
+		album, err := dao.GetAlbumById(database, ctx, uint64(albumID))
 		if err != nil {
 			logging.ExitErr(logg, err)
 			ret.HandleError("album not found")
@@ -101,7 +101,7 @@ func AlbumPatch(cfg config.Config) gin.HandlerFunc {
 		}
 		album = mergeAlbumData(album, albumPatch)
 
-		dboGraph, err := dao.QueryAlbumGraph(database, c)
+		dboGraph, err := dao.QueryAlbumGraph(database, ctx)
 		if err != nil {
 			logging.ExitErr(logg, err)
 			ret.HandleError("cant query albums")
@@ -120,7 +120,7 @@ func AlbumPatch(cfg config.Config) gin.HandlerFunc {
 			c.AbortWithStatusJSON(http.StatusBadRequest, ret)
 			return
 		}
-		err = dao.UpdateAlbum(database, c, album)
+		err = dao.UpdateAlbum(database, ctx, album)
 		if err != nil {
 			logging.ExitErr(logg, err)
 			ret.HandleError("cant save album")

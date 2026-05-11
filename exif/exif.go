@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ignisVeneficus/lumenta/logging"
+	"github.com/ignisVeneficus/logging"
 	"github.com/rs/zerolog"
 )
 
@@ -48,8 +48,8 @@ type PersistentExiftool struct {
 	seq     uint64
 }
 
-func NewPersistentExiftool(ctx context.Context, exiftoolPath string, timeout time.Duration) (*PersistentExiftool, error) {
-	logg := logging.Enter(ctx, "exiftool.create", map[string]any{
+func NewPersistentExiftool(c context.Context, exiftoolPath string, timeout time.Duration) (*PersistentExiftool, error) {
+	logScope, ctx := logging.Enter(c, "exiftool/create", exiftoolPath, map[string]any{
 		"path": exiftoolPath,
 	})
 	cmd := exec.CommandContext(
@@ -61,24 +61,24 @@ func NewPersistentExiftool(ctx context.Context, exiftoolPath string, timeout tim
 
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
-		logging.ExitErr(logg, err)
+		logging.ExitErr(logScope, err)
 		return nil, err
 	}
 
 	stdoutPipe, err := cmd.StdoutPipe()
 	if err != nil {
-		logging.ExitErr(logg, err)
+		logging.ExitErr(logScope, err)
 		return nil, err
 	}
 
 	cmd.Stderr = os.Stderr
 
 	if err := cmd.Start(); err != nil {
-		logging.ExitErr(logg, err)
+		logging.ExitErr(logScope, err)
 		return nil, err
 	}
 
-	logging.Exit(logg, "ok", nil)
+	logging.Exit(logScope, "ok", nil)
 	return &PersistentExiftool{
 		cmd:     cmd,
 		stdin:   stdin,

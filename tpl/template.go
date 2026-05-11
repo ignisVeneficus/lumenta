@@ -13,9 +13,9 @@ import (
 	"time"
 
 	"github.com/goccy/go-yaml"
+	"github.com/ignisVeneficus/logging"
 	"github.com/ignisVeneficus/lumenta/internal/i18n"
 	"github.com/ignisVeneficus/lumenta/internal/locale"
-	"github.com/ignisVeneficus/lumenta/logging"
 	"github.com/ignisVeneficus/lumenta/tpl/data"
 )
 
@@ -48,48 +48,48 @@ func flattenMap(prefix string, input map[string]any, out map[string]string) {
 	}
 }
 
-func loadYamlMapFile(ctx context.Context, file string) (data.IconMap, error) {
-	logg := logging.Enter(ctx, "template.iconmap.load.yaml", map[string]any{"file": file})
+func loadYamlMapFile(c context.Context, file string) (data.IconMap, error) {
+	logScope, _ := logging.Enter(c, "template/iconmap/load/yaml", file, map[string]any{"file": file})
 
 	b, err := os.ReadFile(file)
 	if err != nil {
-		logging.ExitErr(logg, err)
+		logging.ExitErr(logScope, err)
 		return nil, err
 	}
 	var data map[string]any
 	if err := yaml.Unmarshal(b, &data); err != nil {
-		logging.ExitErr(logg, err)
+		logging.ExitErr(logScope, err)
 		return nil, err
 	}
 	flat := map[string]string{}
 	flattenMap("", data, flat)
-	logging.Exit(logg, "ok", map[string]any{"found": len(flat)})
+	logging.Exit(logScope, "ok", map[string]any{"found": len(flat)})
 	return flat, nil
 }
 
-func loadIconMap(ctx context.Context, userRoot string) (data.IconMap, error) {
-	logg := logging.Enter(ctx, "template.iconmap.load", map[string]any{"root": baseRoot, "user_root": userRoot})
+func loadIconMap(c context.Context, userRoot string) (data.IconMap, error) {
+	logScope, ctx := logging.Enter(c, "template/iconmap/load", userRoot, map[string]any{"root": baseRoot, "user_root": userRoot})
 	iconMap, err := loadYamlMapFile(ctx, baseRoot+iconMapFile)
 	if err != nil {
-		logging.ExitErr(logg, err)
+		logging.ExitErr(logScope, err)
 		return iconMap, err
 	}
 	if userRoot != "" {
 		usermap, err := loadYamlMapFile(ctx, userRoot+iconMapFile)
 		if err != nil && !os.IsNotExist(err) {
-			logging.ExitErr(logg, err)
+			logging.ExitErr(logScope, err)
 			return nil, err
 		}
 		for k, v := range usermap {
 			iconMap[k] = v
 		}
 	}
-	logging.Exit(logg, "ok", map[string]any{"found": len(iconMap)})
+	logging.Exit(logScope, "ok", map[string]any{"found": len(iconMap)})
 	return iconMap, nil
 }
 
-func collectTemplates(ctx context.Context, root string) (map[string]string, error) {
-	logg := logging.Enter(ctx, "template.collect", map[string]any{"root": root})
+func collectTemplates(c context.Context, root string) (map[string]string, error) {
+	logScope, _ := logging.Enter(c, "template/collect", root, map[string]any{"root": root})
 	result := map[string]string{}
 
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
@@ -118,24 +118,24 @@ func collectTemplates(ctx context.Context, root string) (map[string]string, erro
 		return nil
 	})
 	if err != nil {
-		logging.ExitErr(logg, err)
+		logging.ExitErr(logScope, err)
 	} else {
-		logging.Exit(logg, "ok", map[string]any{"result": len(result)})
+		logging.Exit(logScope, "ok", map[string]any{"result": len(result)})
 	}
 	return result, err
 }
 
-func NewTemplateResolver(ctx context.Context, userRoot string, i18n *i18n.Service) (*TemplateResolver, error) {
-	logg := logging.Enter(ctx, "template.resolver.create", map[string]any{"user_root": userRoot})
+func NewTemplateResolver(c context.Context, userRoot string, i18n *i18n.Service) (*TemplateResolver, error) {
+	logScope, ctx := logging.Enter(c, "template/resolver/create", userRoot, map[string]any{"user_root": userRoot})
 	allTpls, err := collectTemplates(ctx, baseRoot)
 	if err != nil {
-		logging.ExitErr(logg, err)
+		logging.ExitErr(logScope, err)
 		return nil, err
 	}
 	if userRoot != "" {
 		userTpls, err := collectTemplates(ctx, userRoot)
 		if err != nil && !os.IsNotExist(err) {
-			logging.ExitErr(logg, err)
+			logging.ExitErr(logScope, err)
 			return nil, err
 		}
 
@@ -146,7 +146,7 @@ func NewTemplateResolver(ctx context.Context, userRoot string, i18n *i18n.Servic
 
 	iconMap, err := loadIconMap(ctx, userRoot)
 	if err != nil {
-		logging.ExitErr(logg, err)
+		logging.ExitErr(logScope, err)
 		return nil, err
 	}
 
@@ -172,7 +172,7 @@ func NewTemplateResolver(ctx context.Context, userRoot string, i18n *i18n.Servic
 	for name, content := range baseTpls {
 		if _, err := base.New(name).Parse(content); err != nil {
 			err = fmt.Errorf("base template %s: %w", name, err)
-			logging.ExitErr(logg, err)
+			logging.ExitErr(logScope, err)
 			return nil, err
 		}
 	}
@@ -191,7 +191,7 @@ func NewTemplateResolver(ctx context.Context, userRoot string, i18n *i18n.Servic
 		pages[page] = tpl
 	}
 
-	logging.Exit(logg, "ok", nil)
+	logging.Exit(logScope, "ok", nil)
 	return &TemplateResolver{
 		pages: pages,
 	}, nil

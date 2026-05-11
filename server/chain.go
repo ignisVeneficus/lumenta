@@ -2,12 +2,11 @@ package server
 
 import (
 	"strings"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/ignisVeneficus/logging"
 	"github.com/ignisVeneficus/lumenta/config"
-	"github.com/ignisVeneficus/lumenta/logging"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
@@ -26,7 +25,7 @@ func RequestID() gin.HandlerFunc {
 		// contextbe
 		c.Set(RequestIDKey, reqID)
 		//logging
-		c.Set(logging.TraceIDKey, reqID)
+		c.Set(logging.LogContextName, logging.RootLogContext())
 
 		// response headerbe
 		c.Writer.Header().Set(RequestIDHeader, reqID)
@@ -42,29 +41,35 @@ func getLogEvent(status int, error string) *zerolog.Event {
 	case status >= 500:
 		return log.Logger.Error().Str("error", error)
 	default:
-		return log.Logger.Info()
+		return nil
 	}
 }
 
 func Logger() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		start := time.Now()
+		reqID, _ := c.Get(RequestIDKey)
+		scope, ctx := logging.Enter(c.Request.Context(), "http/request", c.Request.Method+":"+c.Request.URL.Path,
+			map[string]any{
+				"request_id": reqID,
+				"client_id":  c.ClientIP(),
+			})
+		c.Request = c.Request.WithContext(ctx)
 
 		c.Next()
 
-		latency := time.Since(start)
-		reqID, _ := c.Get(RequestIDKey)
-
+		logging.ReturnParams(scope, c.Errors.Last(), map[string]any{
+			"status": c.Writer.Status(),
+		})
 		logEvent := getLogEvent(c.Writer.Status(), c.Errors.String())
-		logEvent.Str(logging.FieldFunc, "server.request").
-			Str(logging.FieldEvent, "msg.response").Int(logging.FieldResult, c.Writer.Status())
-		d := zerolog.Dict()
-		d.Any("request_id", reqID).
-			Str("path", c.Request.URL.Path).
-			Str("method", c.Request.Method).
-			Dur("latency", latency)
-		logEvent.Dict(logging.FieldParams, d)
-		logEvent.Msg("")
+		if logEvent != nil {
+			logEvent.Int(logging.FieldResult, c.Writer.Status())
+			d := zerolog.Dict()
+			d.Any("request_id", reqID).
+				Str("path", c.Request.URL.Path).
+				Str("method", c.Request.Method)
+			logEvent.Dict(logging.FieldParams, d)
+			logEvent.Msg("")
+		}
 	}
 }
 

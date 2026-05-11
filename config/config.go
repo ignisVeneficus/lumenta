@@ -1,6 +1,7 @@
 package config
 
 import (
+	"context"
 	"os"
 
 	"github.com/ignisVeneficus/lumenta/config/auth"
@@ -35,7 +36,7 @@ type Config struct {
 	Presentation presentation.PresentationConfig `yaml:"presentation"`
 }
 
-func Load(path string) (*Config, error) {
+func Load(path string, ctx context.Context) (*Config, error) {
 	log.Logger.Debug().Msg("Configuration loading start")
 	data, err := os.ReadFile(path)
 	if err != nil {

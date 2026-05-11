@@ -3,10 +3,10 @@ package admin
 import (
 	"html/template"
 
+	"github.com/ignisVeneficus/logging"
 	"github.com/ignisVeneficus/lumenta/data"
 	"github.com/ignisVeneficus/lumenta/db/dbo"
 	"github.com/ignisVeneficus/lumenta/definitions"
-	"github.com/ignisVeneficus/lumenta/logging"
 	"github.com/ignisVeneficus/lumenta/server/routes"
 	tplData "github.com/ignisVeneficus/lumenta/tpl/data"
 	"github.com/ignisVeneficus/lumenta/validate"
@@ -30,8 +30,11 @@ type AlbumForm struct {
 func (a *AlbumForm) MarshalZerologObjectWithLevel(e *zerolog.Event, level zerolog.Level) {
 	if level <= zerolog.DebugLevel {
 		e.Str(string(definitions.AlbumFieldName), a.Name).
-			Str(string(definitions.AlbumFieldID), a.ID).
-			Str(string(definitions.AlbumFieldDescription), a.Description).
+			Str(string(definitions.AlbumFieldID), a.ID)
+		logging.Uint64If(e, "DBOID", a.DBOID)
+	}
+	if level <= zerolog.TraceLevel {
+		e.Str(string(definitions.AlbumFieldDescription), a.Description).
 			Str(string(definitions.AlbumFieldParentID), a.ParentID).
 			Str(string(definitions.AlbumFieldRuleJSON), a.RuleJSON).
 			Str(string(definitions.AlbumFieldACLLevel), a.ACLLevel).
@@ -42,7 +45,6 @@ func (a *AlbumForm) MarshalZerologObjectWithLevel(e *zerolog.Event, level zerolo
 			errors.Strs(string(k), v)
 		}
 		e.Dict("Error", errors)
-		logging.Uint64If(e, "DBOID", a.DBOID)
 	}
 
 }

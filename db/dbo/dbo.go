@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ignisVeneficus/lumenta/logging"
+	"github.com/ignisVeneficus/logging"
 	"github.com/rs/zerolog"
 )
 

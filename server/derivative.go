@@ -7,23 +7,26 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/ignisVeneficus/logging"
 	"github.com/ignisVeneficus/lumenta/auth"
 	authData "github.com/ignisVeneficus/lumenta/auth/data"
 	"github.com/ignisVeneficus/lumenta/config"
 	derivativeConfig "github.com/ignisVeneficus/lumenta/config/derivative"
 	"github.com/ignisVeneficus/lumenta/derivative"
-	"github.com/ignisVeneficus/lumenta/logging"
 )
 
 func DerivativeHandler(cfg config.Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		auth := c.MustGet(auth.AuthContextKey).(authData.ACLContext)
-		logg := logging.Enter(c, "server.derivativeHandler", map[string]any{
-			"id":   c.Param("id"),
-			"type": c.Param("type"),
+		imageIdStr := c.Param("id")
+		kind := c.Param("type")
+
+		logg, ctx := logging.Enter(c.Request.Context(), "server/derivativeHandler", imageIdStr, map[string]any{
+			"id":   imageIdStr,
+			"type": kind,
 		})
 
-		imgID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+		imgID, err := strconv.ParseUint(imageIdStr, 10, 64)
 		if err != nil {
 			logging.ExitErr(logg, err)
 			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
@@ -32,7 +35,6 @@ func DerivativeHandler(cfg config.Config) gin.HandlerFunc {
 			return
 		}
 
-		kind := c.Param("type")
 		derivativesCfx := cfg.Derivatives
 		var found *derivativeConfig.DerivativeConfig
 		for _, d := range derivativesCfx {
@@ -48,7 +50,7 @@ func DerivativeHandler(cfg config.Config) gin.HandlerFunc {
 			})
 			return
 		}
-		path, err := derivative.GetDerivativesPathWithACL(c, auth, imgID, *found, cfg.Filesystem)
+		path, err := derivative.GetDerivativesPathWithACL(ctx, auth, imgID, *found, cfg.Filesystem)
 		if err != nil {
 			logging.ExitErr(logg, err)
 			c.AbortWithStatus(http.StatusNotFound)

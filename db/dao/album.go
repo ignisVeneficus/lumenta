@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/ignisVeneficus/logging"
 	"github.com/ignisVeneficus/lumenta/db/dbo"
-	"github.com/ignisVeneficus/lumenta/logging"
 	"github.com/ignisVeneficus/lumenta/utils"
 
 	"database/sql"
@@ -381,47 +381,48 @@ func (q *Queries) ReorderAllImage(ctx context.Context) error {
 // =========================================================
 //
 
-func BindAlbumImage(db *sql.DB, ctx context.Context, albumId, imageId uint64, pos *uint32) error {
-	logg := logging.Enter(ctx, "dao.album.bindImage", map[string]any{"album_id": albumId, "image_id": imageId})
+func BindAlbumImage(db *sql.DB, c context.Context, albumId, imageId uint64, pos *uint32) error {
+	logScope, ctx := logging.Enter(c, "dao/album/bindImage", imageId, map[string]any{"album_id": albumId, "image_id": imageId})
 	tx, err := GetTx(db, ctx)
 	if err != nil {
-		logging.ExitErr(logg, err)
+		logging.ExitErr(logScope, err)
 		return err
 	}
 	defer tx.Rollback()
 
 	q := NewQueries(tx)
 	if err := q.BindAlbumImage(ctx, albumId, imageId, pos); err != nil {
-		logging.ExitErr(logg, err)
+		logging.ExitErr(logScope, err)
 		return err
 	}
-	return logging.Return(logg, tx.Commit())
+	return logging.Return(logScope, tx.Commit())
 }
 
-func BreakAlbumImage(db *sql.DB, ctx context.Context, albumId uint64, imageId uint64) error {
-	logg := logging.Enter(ctx, "dao.album.breakImage", map[string]any{"album_id": albumId, "image_id": imageId})
+func BreakAlbumImage(db *sql.DB, c context.Context, albumId uint64, imageId uint64) error {
+	logScope, ctx := logging.Enter(c, "dao/album/breakImage", imageId, map[string]any{"album_id": albumId, "image_id": imageId})
 	tx, err := GetTx(db, ctx)
 	if err != nil {
-		logging.ExitErr(logg, err)
+		logging.ExitErr(logScope, err)
 		return err
 	}
 	defer tx.Rollback()
 	q := NewQueries(tx)
 	if err := q.BreakAlbumImage(ctx, albumId, imageId); err != nil {
-		logging.ExitErr(logg, err)
+		logging.ExitErr(logScope, err)
 		return err
 	}
-	return logging.Return(logg, tx.Commit())
+	return logging.Return(logScope, tx.Commit())
 }
 
-func GetAlbumById(db *sql.DB, ctx context.Context, id uint64) (dbo.Album, error) {
-	logg := logging.Enter(ctx, "dao.album.getById", map[string]any{"album_id": id})
+func GetAlbumById(db *sql.DB, c context.Context, albumID uint64) (dbo.Album, error) {
+	logScope, ctx := logging.Enter(c, "dao/album/get/ById", albumID, map[string]any{"album_id": albumID})
 	q := NewQueries(db)
-	a, err := q.GetAlbumById(ctx, id)
-	return a, returnWrapNotFound(logg, err, "album")
+	a, err := q.GetAlbumById(ctx, albumID)
+	return a, returnWrapNotFound(logScope, err, "album")
 }
 
-func updateAlbumParentRecursive(q *Queries, ctx context.Context, albumID uint64) error {
+func updateAlbumParentRecursive(q *Queries, c context.Context, albumID uint64) error {
+	logScope, ctx := logging.Enter(c, "dao/album/update/parent/recursive", albumID, map[string]any{"album_id": albumID})
 	queue := []uint64{albumID}
 
 	for len(queue) > 0 {
@@ -430,24 +431,27 @@ func updateAlbumParentRecursive(q *Queries, ctx context.Context, albumID uint64)
 
 		err := q.UpdateAlbumParent(ctx, id)
 		if err != nil {
+			logging.ExitErr(logScope, err)
 			return err
 		}
 		children, err := q.QueryAlbumsChildren(ctx, id)
 		if err != nil {
+			logging.ExitErr(logScope, err)
 			return err
 		}
 		queue = append(queue, children...)
 	}
+	logging.Exit(logScope, "ok", nil)
 	return nil
 }
 
-func CreateAlbum(db *sql.DB, ctx context.Context, a *dbo.Album) (uint64, error) {
-	logg := logging.Enter(ctx, "dao.album.create", map[string]any{"name": a.Name,
+func CreateAlbum(db *sql.DB, c context.Context, a *dbo.Album) (uint64, error) {
+	logScope, ctx := logging.Enter(c, "dao/album/create", a.Name, map[string]any{"name": a.Name,
 		"album": a})
 
 	tx, err := GetTx(db, ctx)
 	if err != nil {
-		logging.ExitErr(logg, err)
+		logging.ExitErr(logScope, err)
 		return 0, err
 	}
 	defer tx.Rollback()
@@ -455,37 +459,42 @@ func CreateAlbum(db *sql.DB, ctx context.Context, a *dbo.Album) (uint64, error) 
 	q := NewQueries(tx)
 
 	if err := q.CreateAlbum(ctx, *a); err != nil {
-		logging.ExitErr(logg, err)
+		logging.ExitErr(logScope, err)
 		return 0, err
 	}
 
 	id, err := q.GetLastId(ctx)
 	if err != nil {
-		logging.ExitErr(logg, err)
+		logging.ExitErr(logScope, err)
 		return 0, err
 	}
 	a.ID = utils.PtrUint64(id)
-	logging.Inside(logg, map[string]any{"id": id}, "after insert")
+	logging.Debug(logScope, "after inser", map[string]any{"id": id})
 	err = updateAlbumParentRecursive(q, ctx, id)
 	if err != nil {
-		logging.ExitErr(logg, err)
+		logging.ExitErr(logScope, err)
 		return 0, err
 	}
 
 	err = tx.Commit()
 	if err != nil {
-		logging.ExitErr(logg, err)
+		logging.ExitErr(logScope, err)
 	} else {
-		logging.Exit(logg, "ok", map[string]any{"new_id": id})
+		logging.Exit(logScope, "ok", map[string]any{"new_id": id})
 	}
 	return uint64(id), err
 }
 
-func UpdateAlbum(db *sql.DB, ctx context.Context, a dbo.Album) error {
-	logg := logging.Enter(ctx, "dao.album.update", map[string]any{"album": a})
+func UpdateAlbum(db *sql.DB, c context.Context, a dbo.Album) error {
+	logScope, ctx := logging.Enter(c, "dao/album/update", a.ID, map[string]any{"album": a})
+	if a.ID == nil {
+		err := sql.ErrNoRows
+		logging.ExitErr(logScope, err)
+		return err
+	}
 	tx, err := GetTx(db, ctx)
 	if err != nil {
-		logging.ExitErr(logg, err)
+		logging.ExitErr(logScope, err)
 		return err
 	}
 	defer tx.Rollback()
@@ -493,76 +502,76 @@ func UpdateAlbum(db *sql.DB, ctx context.Context, a dbo.Album) error {
 	q := NewQueries(tx)
 
 	if err := q.UpdateAlbum(ctx, a); err != nil {
-		logging.ExitErr(logg, err)
+		logging.ExitErr(logScope, err)
 		return err
 	}
 
 	err = updateAlbumParentRecursive(q, ctx, *a.ID)
 	if err != nil {
-		logging.ExitErr(logg, err)
+		logging.ExitErr(logScope, err)
 		return err
 	}
 
-	return logging.Return(logg, tx.Commit())
+	return logging.Return(logScope, tx.Commit())
 }
 
-func DeleteAlbum(db *sql.DB, ctx context.Context, id uint64) error {
-	logg := logging.Enter(ctx, "dao.album.delete", map[string]any{"id": id})
+func DeleteAlbum(db *sql.DB, c context.Context, id uint64) error {
+	logScope, ctx := logging.Enter(c, "dao/album/delete", id, map[string]any{"id": id})
 
 	tx, err := GetTx(db, ctx)
 	if err != nil {
-		logging.ExitErr(logg, err)
+		logging.ExitErr(logScope, err)
 		return err
 	}
 	defer tx.Rollback()
 
 	q := NewQueries(tx)
 	if err := q.DeleteAlbum(ctx, id); err != nil {
-		logging.ExitErr(logg, err)
+		logging.ExitErr(logScope, err)
 		return err
 	}
 
-	return logging.Return(logg, tx.Commit())
+	return logging.Return(logScope, tx.Commit())
 }
 
-func QueryAlbum(db *sql.DB, ctx context.Context) ([]dbo.Album, error) {
-	logg := logging.Enter(ctx, "dao.album.query", nil)
+func QueryAlbum(db *sql.DB, c context.Context) ([]dbo.Album, error) {
+	logScope, ctx := logging.Enter(c, "dao/album/query", nil, nil)
 	q := NewQueries(db)
 	albums, err := q.QueryAlbum(ctx)
 	if err != nil {
-		logging.ExitErr(logg, err)
+		logging.ExitErr(logScope, err)
 		return nil, err
 	}
-	logging.Exit(logg, "ok", map[string]any{"found": len(albums)})
+	logging.Exit(logScope, "ok", map[string]any{"found": len(albums)})
 	return albums, nil
 }
 
-func QueryAlbumsChildByParentACL(db *sql.DB, ctx context.Context, parentID *uint64, acl dbo.ACLContext) ([]dbo.Album, error) {
-	logg := logging.Enter(ctx, "dao.album.queryChild.ACL", map[string]any{
+func QueryAlbumsChildByParentACL(db *sql.DB, c context.Context, parentID *uint64, acl dbo.ACLContext) ([]dbo.Album, error) {
+	logScope, ctx := logging.Enter(c, "dao/album/query/Child/ACL", parentID, map[string]any{
 		"partent": parentID,
 		"ACL":     acl,
 	})
 	q := NewQueries(db)
 	albums, err := q.QueryAlbumsChildByParentACL(ctx, parentID, acl)
 	if err != nil {
-		logging.ExitErr(logg, err)
+		logging.ExitErr(logScope, err)
 		return nil, err
 	}
-	logging.Exit(logg, "ok", map[string]any{"found": len(albums)})
+	logging.Exit(logScope, "ok", map[string]any{"found": len(albums)})
 	return albums, nil
 }
 
-func ReorderAlbumsSibling(db *sql.DB, ctx context.Context, albumIDs []uint64) error {
-	logg := logging.Enter(ctx, "dao.album.reorder", map[string]any{
+func ReorderAlbumsSibling(db *sql.DB, c context.Context, albumIDs []uint64) error {
+	logScope, ctx := logging.Enter(c, "dao/album/update/reorder", nil, map[string]any{
 		"ids": albumIDs})
 	if len(albumIDs) == 0 {
-		logging.Exit(logg, "emply list", nil)
+		logging.Exit(logScope, "emply list", nil)
 		return nil
 	}
 
 	tx, err := GetTx(db, ctx)
 	if err != nil {
-		logging.ExitErr(logg, err)
+		logging.ExitErr(logScope, err)
 		return err
 	}
 	defer tx.Rollback()
@@ -572,23 +581,23 @@ func ReorderAlbumsSibling(db *sql.DB, ctx context.Context, albumIDs []uint64) er
 	// use dense ranks: 0,1,2,... according to slice order
 	for rank, id := range albumIDs {
 		if err := q.UpdateAlbumRank(ctx, id, rank); err != nil {
-			logging.ExitErr(logg, err)
+			logging.ExitErr(logScope, err)
 			return err
 		}
 	}
 
-	return logging.Return(logg, tx.Commit())
+	return logging.Return(logScope, tx.Commit())
 }
 
-func MoveAlbum(db *sql.DB, ctx context.Context, albumID uint64, newParentID *uint64) error {
-	logg := logging.Enter(ctx, "dao.album.move", map[string]any{
+func MoveAlbum(db *sql.DB, c context.Context, albumID uint64, newParentID *uint64) error {
+	logScope, ctx := logging.Enter(c, "dao/album/update/move", albumID, map[string]any{
 		"album_id":   albumID,
 		"new_parent": newParentID,
 	})
 
 	tx, err := GetTx(db, ctx)
 	if err != nil {
-		logging.ExitErr(logg, err)
+		logging.ExitErr(logScope, err)
 		return err
 	}
 	defer tx.Rollback()
@@ -597,80 +606,72 @@ func MoveAlbum(db *sql.DB, ctx context.Context, albumID uint64, newParentID *uin
 
 	maxRank, err := q.GetAlbumMaxRankByParent(ctx, newParentID)
 	if err != nil {
-		logging.ExitErr(logg, err)
+		logging.ExitErr(logScope, err)
 		return err
 	}
 
 	newRank := maxRank + 1
 
 	if err := q.UpdateAlbumParentAndRank(ctx, albumID, newParentID, newRank); err != nil {
-		logging.ExitErr(logg, err)
+		logging.ExitErr(logScope, err)
 		return err
 	}
 
-	return logging.Return(logg, tx.Commit())
+	return logging.Return(logScope, tx.Commit())
 }
-func UpdateAlbumQuick(db *sql.DB, ctx context.Context, id uint64, name string, description *string) error {
-	logg := logging.Enter(ctx, "dao.album.update.quick", map[string]any{
+func UpdateAlbumQuick(db *sql.DB, c context.Context, id uint64, name string, description *string) error {
+	logScope, ctx := logging.Enter(c, "dao/album/update/quick", id, map[string]any{
 		"album_id": id,
 	})
 	tx, err := GetTx(db, ctx)
 	if err != nil {
-		logging.ExitErr(logg, err)
+		logging.ExitErr(logScope, err)
 		return err
 	}
 	defer tx.Rollback()
 
 	q := NewQueries(tx)
 	if err := q.UpdateAlbumQuick(ctx, id, name, description); err != nil {
-		logging.ExitErr(logg, err)
+		logging.ExitErr(logScope, err)
 	}
 
-	return logging.Return(logg, tx.Commit())
+	return logging.Return(logScope, tx.Commit())
 }
 
-func CollectAlbumSubtreeIDs(db *sql.DB, ctx context.Context, rootAlbumID uint64, acl dbo.ACLContext) ([]uint64, error) {
-	logg := logging.Enter(ctx, "dao.album.collectSubtree", map[string]any{
+func CollectAlbumSubtreeIDs(db *sql.DB, c context.Context, rootAlbumID uint64, acl dbo.ACLContext) ([]uint64, error) {
+	logScope, ctx := logging.Enter(c, "dao/album/query/id/subtree/ACL", rootAlbumID, map[string]any{
 		"album_id": rootAlbumID,
 		"acl":      acl,
 	})
 
 	q := NewQueries(db)
-	albums, err := q.QueryAlbumDescendantIDsByACL(
-		ctx,
-		rootAlbumID,
-		acl,
-	)
+	albums, err := q.QueryAlbumDescendantIDsByACL(ctx, rootAlbumID, acl)
 	if err != nil {
-		logging.ExitErr(logg, err)
+		logging.ExitErr(logScope, err)
 	} else {
-		logging.Exit(logg, "ok", map[string]any{
+		logging.Exit(logScope, "ok", map[string]any{
 			"albums": albums,
 		})
 	}
 	return albums, err
 }
 
-func CountAlbumSubtree(db *sql.DB, ctx context.Context, rootAlbumID uint64, acl dbo.ACLContext) (int, int, error) {
-	logg := logging.Enter(ctx, "dao.album.collectSubtree.count", map[string]any{
+func CountAlbumSubtree(db *sql.DB, c context.Context, rootAlbumID uint64, acl dbo.ACLContext) (int, int, error) {
+	logScope, ctx := logging.Enter(c, "dao/album/count/subtree/ACL", rootAlbumID, map[string]any{
 		"album_id": rootAlbumID,
 		"acl":      acl,
 	})
 
 	q := NewQueries(db)
 
-	albumIDs, err := q.QueryAlbumDescendantIDsByACL(
-		ctx,
-		rootAlbumID,
-		acl,
-	)
+	albumIDs, err := q.QueryAlbumDescendantIDsByACL(ctx, rootAlbumID, acl)
 	if err != nil {
-		logging.ExitErr(logg, err)
+		logging.ExitErr(logScope, err)
 		return 0, 0, err
 	}
 
 	if len(albumIDs) == 0 {
-		logging.Exit(logg, "ok", map[string]any{
+		logging.Exit(logScope, "ok", map[string]any{
 			"albums": 0,
 			"images": 0,
 		})
@@ -683,83 +684,83 @@ func CountAlbumSubtree(db *sql.DB, ctx context.Context, rootAlbumID uint64, acl 
 	}
 	imageCount, err := q.CountImageByAlbums(ctx, albumIDs, acl)
 	if err != nil {
-		logging.ExitErr(logg, err)
+		logging.ExitErr(logScope, err)
 		return 0, 0, err
 	}
-	logging.Exit(logg, "ok", map[string]any{
+	logging.Exit(logScope, "ok", map[string]any{
 		"albums": childAlbumCount,
 		"images": imageCount,
 	})
 	return childAlbumCount, int(imageCount), nil
 
 }
-func QueryAlbumGraph(db *sql.DB, ctx context.Context) ([]dbo.AlbumGraph, error) {
-	logg := logging.Enter(ctx, "dao.album.query.AlbumGraph", nil)
+func QueryAlbumGraph(db *sql.DB, c context.Context) ([]dbo.AlbumGraph, error) {
+	logScope, ctx := logging.Enter(c, "dao/album/query/AlbumGraph", nil, nil)
 	q := NewQueries(db)
 	albums, err := q.QueryAlbumGraph(ctx)
 	if err != nil {
-		logging.ExitErr(logg, err)
+		logging.ExitErr(logScope, err)
 		return nil, err
 	}
-	logging.Exit(logg, "ok", map[string]any{"found": len(albums)})
+	logging.Exit(logScope, "ok", map[string]any{"found": len(albums)})
 	return albums, nil
 }
-func QueryAlbumsIdByCover(db *sql.DB, ctx context.Context, cover uint64) ([]uint64, error) {
-	logg := logging.Enter(ctx, "dao.album.query.AlbumID.ByCover", map[string]any{
+func QueryAlbumsIdByCover(db *sql.DB, c context.Context, cover uint64) ([]uint64, error) {
+	logScope, ctx := logging.Enter(c, "dao/album/query/id/byCover", cover, map[string]any{
 		"cover": cover,
 	})
 	q := NewQueries(db)
 	albums, err := q.QueryAlbumsIDbyCover(ctx, cover)
 	if err != nil {
-		logging.ExitErr(logg, err)
+		logging.ExitErr(logScope, err)
 		return nil, err
 	}
-	logging.Exit(logg, "ok", map[string]any{"found": len(albums)})
+	logging.Exit(logScope, "ok", map[string]any{"found": len(albums)})
 	return albums, nil
 }
 
-func CountAlbum(db *sql.DB, ctx context.Context) (uint64, error) {
-	logg := logging.Enter(ctx, "dao.album.count", nil)
+func CountAlbum(db *sql.DB, c context.Context) (uint64, error) {
+	logScope, ctx := logging.Enter(c, "dao/album/count", nil, nil)
 	q := NewQueries(db)
 	qty, err := q.CountAlbum(ctx)
 	if err != nil {
-		logging.ExitErr(logg, err)
+		logging.ExitErr(logScope, err)
 		return 0, err
 	}
-	logging.Exit(logg, "ok", map[string]any{"return": qty})
+	logging.Exit(logScope, "ok", map[string]any{"return": qty})
 	return qty, nil
 }
-func QueryAlbumIDByImageID(db *sql.DB, ctx context.Context, imageID uint64) ([]uint64, error) {
-	logg := logging.Enter(ctx, "dao.album.query.AlbumID.ByImage", map[string]any{
+func QueryAlbumIDByImageID(db *sql.DB, c context.Context, imageID uint64) ([]uint64, error) {
+	logScope, ctx := logging.Enter(c, "dao/album/query/id/byImage", imageID, map[string]any{
 		"image_id": imageID,
 	})
 	q := NewQueries(db)
 	albums, err := q.QueryAlbumIDByImageID(ctx, imageID)
 	if err != nil {
-		logging.ExitErr(logg, err)
+		logging.ExitErr(logScope, err)
 		return nil, err
 	}
-	logging.Exit(logg, "ok", map[string]any{"found": len(albums)})
+	logging.Exit(logScope, "ok", map[string]any{"found": len(albums)})
 	return albums, nil
 }
-func QueryAlbumsIDImageIDACL(db *sql.DB, ctx context.Context, imageID uint64, acl dbo.ACLContext) ([]dbo.Album, error) {
-	logg := logging.Enter(ctx, "dao.album.query.ByImage.ByACL", map[string]any{
+func QueryAlbumsIDImageIDACL(db *sql.DB, c context.Context, imageID uint64, acl dbo.ACLContext) ([]dbo.Album, error) {
+	logScope, ctx := logging.Enter(c, "dao/album/query/byImage/byACL", imageID, map[string]any{
 		"image_id": imageID,
 		"ac":       acl,
 	})
 	q := NewQueries(db)
 	albums, err := q.QueryAlbumByImageIDACL(ctx, imageID, acl)
 	if err != nil {
-		logging.ExitErr(logg, err)
+		logging.ExitErr(logScope, err)
 		return nil, err
 	}
-	logging.Exit(logg, "ok", map[string]any{"found": len(albums)})
+	logging.Exit(logScope, "ok", map[string]any{"found": len(albums)})
 	return albums, nil
 }
 
-func ReorderAllImages(db *sql.DB, ctx context.Context) error {
-	logg := logging.Enter(ctx, "dao.album.reorderImages", nil)
+func ReorderAllImages(db *sql.DB, c context.Context) error {
+	logScope, ctx := logging.Enter(c, "dao/album/update/image/reorder", nil, nil)
 	q := NewQueries(db)
 	err := q.ReorderAllImage(ctx)
-	return logging.Return(logg, err)
+	return logging.Return(logScope, err)
 }

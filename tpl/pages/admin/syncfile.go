@@ -7,12 +7,12 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/ignisVeneficus/logging"
 	"github.com/ignisVeneficus/lumenta/config"
 	"github.com/ignisVeneficus/lumenta/db"
 	"github.com/ignisVeneficus/lumenta/db/dao"
 	"github.com/ignisVeneficus/lumenta/internal/i18n"
 	"github.com/ignisVeneficus/lumenta/internal/locale"
-	"github.com/ignisVeneficus/lumenta/logging"
 	"github.com/ignisVeneficus/lumenta/ruleengine"
 	"github.com/ignisVeneficus/lumenta/server/routes"
 	"github.com/ignisVeneficus/lumenta/tpl"
@@ -27,21 +27,21 @@ func SyncFilePage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 		i18n := i18n.Get()
 		loc := tpl.L(c)
 		syncFileIDStr := c.Param("id")
-		logg := logging.Enter(c, "page.admin.syncRun.one", map[string]any{
+		logScope, ctx := logging.Enter(c.Request.Context(), "server/page/admin/sync_file/one", syncFileIDStr, map[string]any{
 			"syncFile_id": syncFileIDStr,
 		})
 
 		syncFileId, err := tpl.ParseID(syncFileIDStr)
 		if err != nil {
-			logging.ExitErr(logg, fmt.Errorf("invalid page"))
+			logging.ExitErr(logScope, fmt.Errorf("invalid page"))
 			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "invalid page"})
 			return
 		}
 
 		database := db.GetDatabase()
-		syncFile, err := dao.GetSyncFileById(database, c, syncFileId)
+		syncFile, err := dao.GetSyncFileById(database, ctx, syncFileId)
 		if err != nil {
-			logging.ExitErr(logg, err)
+			logging.ExitErr(logScope, err)
 			pages.Soft404(r, cfg, c, tplData.SurfacePublic, "sync_file", routes.CreateAdminSyncFilesByPathPath(""), syncFileId)
 			return
 		}
@@ -49,7 +49,7 @@ func SyncFilePage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 		if len(syncFile.RuleResultsJSON) > 0 {
 			err := json.Unmarshal(syncFile.RuleResultsJSON, &ruleresult)
 			if err != nil {
-				logging.ExitErr(logg, err)
+				logging.ExitErr(logScope, err)
 				c.AbortWithStatus(http.StatusInternalServerError)
 				return
 			}
@@ -89,9 +89,9 @@ func SyncFilePage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 
 		if err := r.RenderPage(c.Writer, "admin/syncfile", syncCtx, loc, i18n); err != nil {
 			c.AbortWithStatus(http.StatusInternalServerError)
-			logging.ExitErr(logg, err)
+			logging.ExitErr(logScope, err)
 			return
 		}
-		logging.Exit(logg, "ok", nil)
+		logging.Exit(logScope, "ok", nil)
 	}
 }

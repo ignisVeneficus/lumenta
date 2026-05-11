@@ -12,22 +12,22 @@ import (
 	"github.com/ignisVeneficus/lumenta/server"
 )
 
-func Run(cfg config.Config, i18n *i18n.Service) error {
+func Run(cfg config.Config, i18n *i18n.Service, ctx context.Context) error {
 	if len(os.Args) == 1 {
-		return runServe(cfg, i18n)
+		return runServe(cfg, i18n, ctx)
 	}
 
 	cmd := os.Args[1]
 
 	switch cmd {
 	case "serve":
-		return runServe(cfg, i18n)
+		return runServe(cfg, i18n, ctx)
 
 	case "rebuild":
 		return runRebuild(cfg, os.Args[2:])
 
 	case "sync":
-		return runSync(cfg, os.Args[2:])
+		return runSync(cfg, ctx, os.Args[2:])
 
 	case "export":
 		return runExport(cfg, os.Args[2:])
@@ -56,8 +56,8 @@ Use "%s <command> --help" for command-specific options.
 `, os.Args[0], os.Args[0])
 }
 
-func runServe(cfg config.Config, i18n *i18n.Service) error {
-	server.Server(cfg, i18n)
+func runServe(cfg config.Config, i18n *i18n.Service, ctx context.Context) error {
+	server.Server(cfg, i18n, ctx)
 	return nil
 }
 
@@ -65,7 +65,7 @@ func runRebuild(cfg config.Config, args []string) error {
 	return nil
 }
 
-func runSync(cfg config.Config, args []string) error {
+func runSync(cfg config.Config, ctx context.Context, args []string) error {
 	fs := flag.NewFlagSet("sync", flag.ContinueOnError)
 
 	fs.Usage = func() {
@@ -85,7 +85,7 @@ func runSync(cfg config.Config, args []string) error {
 		cleanUp = false
 	}
 
-	err := pipeline.RunGlobalSync(context.Background(), cfg, cleanUp)
+	err := pipeline.RunGlobalSync(ctx, cfg, cleanUp)
 	return err
 }
 func runExport(cfg config.Config, args []string) error {

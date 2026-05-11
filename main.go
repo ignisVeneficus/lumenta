@@ -4,17 +4,18 @@ import (
 	"context"
 	"os"
 
+	"github.com/ignisVeneficus/logging"
 	"github.com/ignisVeneficus/lumenta/cli"
 	"github.com/ignisVeneficus/lumenta/config"
 	"github.com/ignisVeneficus/lumenta/db"
 	"github.com/ignisVeneficus/lumenta/db/dao"
 	"github.com/ignisVeneficus/lumenta/derivative"
 	"github.com/ignisVeneficus/lumenta/internal/i18n"
-	"github.com/ignisVeneficus/lumenta/logging"
 	"github.com/rs/zerolog/log"
 )
 
 func main() {
+	ctx := context.Background()
 	logging.LoadLogging(config.GetLogConfigPath())
 
 	cfgPath := os.Getenv("LUMENTA_CONFIG")
@@ -22,34 +23,35 @@ func main() {
 		cfgPath = "config.yaml"
 	}
 
-	cfg, err := config.Load(cfgPath)
+	logScope, ctx := logging.Enter(ctx, "main", nil, nil)
+	cfg, err := config.Load(cfgPath, ctx)
 	if err != nil {
-		log.Logger.Fatal().Err(err).Msg("failed to load configuration")
+		logging.Fatal(logScope, "load configuration", nil, err, "")
 		panic(err)
 	}
 	config.SetGlobal(cfg)
 
 	i18n, err := i18n.Init()
 	if err != nil {
-		log.Logger.Fatal().Err(err).Msg("failed to load i18n")
+		logging.Fatal(logScope, "load i18n", nil, err, "")
 		panic(err)
 	}
 
-	derivative.Init(context.Background(), 10)
-	defer derivative.Shutdown()
+	derivative.Init(ctx, 10)
+	defer derivative.Shutdown(ctx)
 
 	database := db.GetDatabaseMulti()
 	defer database.Close()
-	ctx := context.Background()
+
 	if err := dao.CreateDatabase(database, ctx); err != nil {
-		log.Logger.Fatal().Err(err).Msg("database Error")
+		logging.Fatal(logScope, "connect to database", nil, err, "")
 		log.Logger.Info().Msg("Stopping")
 		panic(err)
 	}
 
-	err = cli.Run(*cfg, i18n)
+	err = cli.Run(*cfg, i18n, ctx)
 	if err != nil {
-		log.Logger.Fatal().Err(err).Msg("failed to run Lumenta")
+		logging.Fatal(logScope, "run cli", nil, err, "")
 		log.Logger.Info().Msg("Stopping")
 		panic(err)
 	}

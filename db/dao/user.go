@@ -2,14 +2,12 @@ package dao
 
 import (
 	"context"
-	"errors"
 
+	"github.com/ignisVeneficus/logging"
 	"github.com/ignisVeneficus/lumenta/auth"
 	"github.com/ignisVeneficus/lumenta/db/dbo"
 
 	"database/sql"
-
-	"github.com/rs/zerolog/log"
 )
 
 const userFields = `u.id, u.username, u.email, u.role, u.disabled, u.created_at, u.pass_hash`
@@ -57,78 +55,85 @@ func (q *Queries) UpdateUserPassword(ctx context.Context, userID uint64, passHas
 	return err
 }
 
-func GetUserById(db *sql.DB, ctx context.Context, id uint64) (dbo.User, error) {
-	log.Logger.Debug().Uint64("user_id", id).Msg("Get User")
+func GetUserById(db *sql.DB, c context.Context, id uint64) (dbo.User, error) {
+	logScope, ctx := logging.Enter(c, "dao/user/get/byId", id, map[string]any{"user_id": id})
 	q := NewQueries(db)
 	u, err := q.GetUserById(ctx, id)
-	return u, wrapNotFound(err, "user")
+	return u, returnWrapNotFound(logScope, err, "user")
 }
-func AuthenticateUser(db *sql.DB, ctx context.Context, username string, password string) (dbo.User, error) {
-
-	log.Logger.Debug().Str("username", username).Msg("Authenticate User")
+func AuthenticateUser(db *sql.DB, c context.Context, username string, password string) (dbo.User, error) {
+	logScope, ctx := logging.Enter(c, "dao/user/get/authenticate", username, map[string]any{"name": username})
 
 	q := NewQueries(db)
 	ur, hash, err := q.GetUserByUsername(ctx, username)
 	if err != nil {
-		return dbo.User{}, wrapNotFound(err, "user")
+		return dbo.User{}, returnWrapNotFound(logScope, err, "user")
 	}
 
 	if !auth.VerifyPassword(hash, password) {
-		return dbo.User{}, GetDataNotFoundError("user")
+		ur = dbo.User{}
+		err = GetDataNotFoundError("user")
 	}
 
-	return ur, nil
+	return ur, logging.Return(logScope, err)
 }
-func CreateUser(db *sql.DB, ctx context.Context, u dbo.User, passHash string) error {
-	log.Logger.Debug().Str("username", u.Username).Msg("Create User")
+func CreateUser(db *sql.DB, c context.Context, u dbo.User, passHash string) error {
+	logScope, ctx := logging.Enter(c, "dao/user/create", u.Username, map[string]any{"user": u})
 	tx, err := GetTx(db, ctx)
 	if err != nil {
+		logging.ExitErr(logScope, err)
 		return err
 	}
 	defer tx.Rollback()
 
 	q := NewQueries(tx)
 	if err := q.CreateUser(ctx, u, passHash); err != nil {
+		logging.ExitErr(logScope, err)
 		return err
 	}
 
-	return tx.Commit()
+	return logging.Return(logScope, tx.Commit())
 }
 
-func DeleteUser(db *sql.DB, ctx context.Context, id uint64) error {
-	log.Logger.Debug().Uint64("user_id", id).Msg("Delete User")
+func DeleteUser(db *sql.DB, c context.Context, id uint64) error {
+	logScope, ctx := logging.Enter(c, "dao/user/delete", id, map[string]any{"user_id": id})
 	tx, err := GetTx(db, ctx)
 	if err != nil {
+		logging.ExitErr(logScope, err)
 		return err
 	}
 	defer tx.Rollback()
 
 	q := NewQueries(tx)
 	if err := q.DeleteUser(ctx, id); err != nil {
+		logging.ExitErr(logScope, err)
 		return err
 	}
-	return tx.Commit()
+	return logging.Return(logScope, tx.Commit())
 }
 
-func UpdateUser(db *sql.DB, ctx context.Context, u dbo.User) error {
-	log.Logger.Debug().Uint64("user", *u.ID).Msg("Update User")
+func UpdateUser(db *sql.DB, c context.Context, u dbo.User) error {
+	logScope, ctx := logging.Enter(c, "dao/user/update", u.ID, map[string]any{"user": u})
 	tx, err := GetTx(db, ctx)
 	if err != nil {
+		logging.ExitErr(logScope, err)
 		return err
 	}
 	defer tx.Rollback()
 
 	q := NewQueries(tx)
 	if err := q.UpdateUser(ctx, u); err != nil {
+		logging.ExitErr(logScope, err)
 		return err
 	}
-	return tx.Commit()
+	return logging.Return(logScope, tx.Commit())
 }
 
-func ChangePasswordByUser(db *sql.DB, ctx context.Context, username string, currentPassword string, newPassword string) error {
-	log.Logger.Debug().Str("username", username).Msg("User initiated password change")
+func ChangePasswordByUser(db *sql.DB, c context.Context, username string, currentPassword string, newPassword string) error {
+	logScope, ctx := logging.Enter(c, "dao/user/update/password", username, map[string]any{"username": username})
 	tx, err := GetTx(db, ctx)
 	if err != nil {
+		logging.ExitErr(logScope, err)
 		return err
 	}
 	defer tx.Rollback()
@@ -137,33 +142,32 @@ func ChangePasswordByUser(db *sql.DB, ctx context.Context, username string, curr
 
 	u, hash, err := q.GetUserByUsername(ctx, username)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return GetDataNotFoundError("users")
-		}
-		return err
+		return returnWrapNotFound(logScope, err, "user")
 	}
 
 	if !auth.VerifyPassword(hash, currentPassword) {
-		return GetDataNotFoundError("users")
+		err := GetDataNotFoundError("users")
+		logging.ExitErr(logScope, err)
+		return err
 	}
 
 	newHash, err := auth.HashPassword(newPassword)
 	if err != nil {
+		logging.ExitErr(logScope, err)
 		return err
 	}
 	if err := q.UpdateUserPassword(ctx, *u.ID, newHash); err != nil {
+		logging.ExitErr(logScope, err)
 		return err
 	}
-	return tx.Commit()
+	return logging.Return(logScope, tx.Commit())
 }
-func ResetPasswordByAdmin(db *sql.DB, ctx context.Context, username string, newPassword string) error {
-
-	log.Logger.Debug().
-		Str("target_user", username).
-		Msg("Admin initiated password reset")
+func ResetPasswordByAdmin(db *sql.DB, c context.Context, username string, newPassword string) error {
+	logScope, ctx := logging.Enter(c, "dao/user/update/password/admin", username, map[string]any{"username": username})
 
 	tx, err := GetTx(db, ctx)
 	if err != nil {
+		logging.ExitErr(logScope, err)
 		return err
 	}
 	defer tx.Rollback()
@@ -171,20 +175,19 @@ func ResetPasswordByAdmin(db *sql.DB, ctx context.Context, username string, newP
 
 	u, _, err := q.GetUserByUsername(ctx, username)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return GetDataNotFoundError("users")
-		}
-		return err
+		return returnWrapNotFound(logScope, err, "users")
 	}
 
 	newHash, err := auth.HashPassword(newPassword)
 	if err != nil {
+		logging.ExitErr(logScope, err)
 		return err
 	}
 
 	if err := q.UpdateUserPassword(ctx, *u.ID, newHash); err != nil {
+		logging.ExitErr(logScope, err)
 		return err
 	}
 
-	return tx.Commit()
+	return logging.Return(logScope, tx.Commit())
 }

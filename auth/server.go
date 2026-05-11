@@ -1,15 +1,17 @@
 package auth
 
 import (
+	"context"
+
 	"github.com/gin-gonic/gin"
 	"github.com/ignisVeneficus/lumenta/auth/data"
 )
 
 const AuthContextKey = "auth"
 
-func GetAuthContex(c *gin.Context) data.ACLContext {
-	acl, ok := c.Get(AuthContextKey)
-	if ok {
+func GetAuthContex(c context.Context) data.ACLContext {
+	acl := c.Value(AuthContextKey)
+	if acl != nil {
 		return acl.(data.ACLContext)
 	}
 	return *data.GuestContext()

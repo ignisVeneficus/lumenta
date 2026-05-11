@@ -6,22 +6,22 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/ignisVeneficus/logging"
 	"github.com/ignisVeneficus/lumenta/config"
 	metadataConfig "github.com/ignisVeneficus/lumenta/config/sync"
 	"github.com/ignisVeneficus/lumenta/data"
 	"github.com/ignisVeneficus/lumenta/exif"
-	"github.com/ignisVeneficus/lumenta/logging"
 	"github.com/rs/zerolog/log"
 )
 
-func ExtractMetadata(exiftool *exif.PersistentExiftool, ctx context.Context, paths ...string) (data.Metadata, error) {
-	logg := logging.Enter(ctx, "metadata.extract", map[string]any{"source": paths})
+func ExtractMetadata(exiftool *exif.PersistentExiftool, c context.Context, paths ...string) (data.Metadata, error) {
+	logScope, ctx := logging.Enter(c, "metadata.extract", paths[0], map[string]any{"source": paths})
 
 	var metadata data.Metadata
 	for i, path := range paths {
 		rawdata, err := exiftool.Read(ctx, path)
 		if err != nil {
-			logging.ExitErr(logg, err)
+			logging.ExitErr(logScope, err)
 			return nil, err
 		}
 		mtd := resolveMetadata(rawdata)
@@ -33,7 +33,7 @@ func ExtractMetadata(exiftool *exif.PersistentExiftool, ctx context.Context, pat
 			}
 		}
 	}
-	logging.Exit(logg, "ok", nil)
+	logging.Exit(logScope, "ok", nil)
 	return metadata, nil
 }
 

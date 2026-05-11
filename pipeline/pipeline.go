@@ -9,12 +9,12 @@ import (
 	"sort"
 	"sync"
 
+	"github.com/ignisVeneficus/logging"
 	"github.com/ignisVeneficus/lumenta/config"
 	"github.com/ignisVeneficus/lumenta/data"
 	"github.com/ignisVeneficus/lumenta/db"
 	"github.com/ignisVeneficus/lumenta/db/dao"
 	"github.com/ignisVeneficus/lumenta/db/dbo"
-	"github.com/ignisVeneficus/lumenta/logging"
 	"github.com/ignisVeneficus/lumenta/ruleengine"
 	"github.com/rs/zerolog/log"
 )
@@ -56,8 +56,8 @@ func RunForcedImageSync(ctx context.Context, cfg config.Config, imageIDs []uint6
 	return err
 }
 
-func RunGlobalSync(ctx context.Context, cfg config.Config, cleanUp bool) error {
-	logScope := logging.Enter(ctx, "sync.global", map[string]any{"root": cfg.Filesystem.Originals, "cleanup": cleanUp})
+func RunGlobalSync(c context.Context, cfg config.Config, cleanUp bool) error {
+	logScope, ctx := logging.Enter(c, "sync/global", nil, map[string]any{"root": cfg.Filesystem.Originals, "cleanup": cleanUp})
 	pipelineCtx := createPipelineContex(cfg, ctx)
 	metaHash := cfg.Sync.MetadataHash
 	dbMetaHash, err := dao.GetSyncRunLastHash(pipelineCtx.Database, ctx)
@@ -127,8 +127,8 @@ func RunGlobalSync(ctx context.Context, cfg config.Config, cleanUp bool) error {
 	}()
 	pipelineCtx.Ctx = cancelCtx
 	pipelineCtx.Cancel = cancel
-	logging.Info("image.sync.global", "start", "", "", nil)
-	logging.Inside(logScope, map[string]any{"context": pipelineCtx}, "contex.created")
+	logging.Info(logScope, "start", nil)
+	logging.Debug(logScope, "ctx created", map[string]any{"context": pipelineCtx})
 
 	ch := make(chan WorkItem, 128)
 	filterOut := make(chan WorkItem, 128)
@@ -222,11 +222,11 @@ func RunGlobalSync(ctx context.Context, cfg config.Config, cleanUp bool) error {
 	return err
 }
 
-func collectAlbums(database *sql.DB, ctx context.Context) (*AlbumContext, error) {
-	logg := logging.Enter(ctx, "pipeline.albumContext.create", nil)
+func collectAlbums(database *sql.DB, c context.Context) (*AlbumContext, error) {
+	logScope, ctx := logging.Enter(c, "sync/pipeline/albums", nil, nil)
 	albums, err := dao.QueryAlbum(database, ctx)
 	if err != nil {
-		logging.ExitErr(logg, err)
+		logging.ExitErr(logScope, err)
 		return nil, err
 	}
 
@@ -249,7 +249,7 @@ func collectAlbums(database *sql.DB, ctx context.Context) (*AlbumContext, error)
 		var rawRule ruleengine.RuleGroup
 		err := json.Unmarshal(a.RuleJSON, &rawRule)
 		if err != nil {
-			logging.ErrorContinue(logg, err, map[string]any{
+			logging.ErrorContinue(logScope, err, map[string]any{
 				"album_id":   a.ID,
 				"album_name": a.Name,
 			})
@@ -258,12 +258,12 @@ func collectAlbums(database *sql.DB, ctx context.Context) (*AlbumContext, error)
 		rule, err := ruleengine.CompileGroupFilter(rawRule, fmt.Sprintf("%s (%d)", a.Name, *a.ID))
 		if err != nil {
 			if errors.Is(err, ruleengine.ErrEmptyFilter) {
-				logging.Inside(logg, map[string]any{
+				logging.Debug(logScope, "empty rule", map[string]any{
 					"album_id":   a.ID,
 					"album_name": a.Name,
-				}, "Empty rule")
+				})
 			} else {
-				logging.ErrorContinue(logg, err, map[string]any{
+				logging.ErrorContinue(logScope, err, map[string]any{
 					"album_id":   a.ID,
 					"album_name": a.Name,
 				})
@@ -271,10 +271,10 @@ func collectAlbums(database *sql.DB, ctx context.Context) (*AlbumContext, error)
 			continue
 		}
 		albumrule.Rule = rule
-		logging.Inside(logg, map[string]any{
+		logging.Debug(logScope, "compiled", map[string]any{
 			"album_id":   a.ID,
 			"album_name": a.Name,
-		}, "Compiled")
+		})
 	}
 	sort.Slice(rules, func(i, j int) bool {
 		return rules[i].Depth < rules[j].Depth
@@ -318,6 +318,7 @@ func collectAlbums(database *sql.DB, ctx context.Context) (*AlbumContext, error)
 		}
 		return rules[i].ID < rules[j].ID
 	})
+	logging.Exit(logScope, "ok", nil)
 	return &AlbumContext{
 		NameMap:      paths,
 		AlbumStructs: albumStuct,
@@ -350,13 +351,13 @@ func createPipelineContex(cfg config.Config, ctx context.Context) PipelineContex
 	return pipelineContext
 }
 
-func runPipeline(ctx PipelineContext, input chan WorkItem, workers ...step) (chan WorkItem, error) {
-	logg := logging.Enter(ctx.Ctx, "image.sync.pipeline", nil)
+func runPipeline(c PipelineContext, input chan WorkItem, workers ...step) (chan WorkItem, error) {
+	logScope, _ := logging.Enter(c.Ctx, "sync/pipeline/run", nil, nil)
 	var err error
 	for _, w := range workers {
-		input, err = w(ctx, input)
+		input, err = w(c, input)
 		if err != nil {
-			logging.ExitErr(logg, err)
+			logging.ExitErr(logScope, err)
 			return input, err
 		}
 	}
@@ -371,17 +372,22 @@ const (
 	reasonOk      writeReason = "ok"
 )
 
-func SaveResultSkip(px *PipelineContext, job WorkItem) error {
-	return saveResult(px, job, reasonSkipped)
+func SaveResultSkip(px *PipelineContext, job WorkItem, ct context.Context) error {
+	return saveResult(px, job, ct, reasonSkipped)
 }
-func SaveResultSucess(px *PipelineContext, job WorkItem) error {
-	return saveResult(px, job, reasonOk)
+func SaveResultSucess(px *PipelineContext, job WorkItem, ct context.Context) error {
+	return saveResult(px, job, ct, reasonOk)
 }
-func SaveResultError(px *PipelineContext, job WorkItem) error {
-	return saveResult(px, job, reasonError)
+func SaveResultError(px *PipelineContext, job WorkItem, ct context.Context) error {
+	return saveResult(px, job, ct, reasonError)
 }
 
-func saveResult(px *PipelineContext, job WorkItem, reason writeReason) error {
+func saveResult(px *PipelineContext, job WorkItem, ct context.Context, reason writeReason) error {
+	logScope, c := logging.Enter(ct, "pipeline/save_result", job.RealPath, map[string]any{
+		"path":   job.RealPath,
+		"reason": reason,
+		"source": job.Source,
+	})
 	dbItem := dbo.SyncFile{
 		SyncID:   px.SyncId,
 		Root:     job.RootName,
@@ -392,6 +398,7 @@ func saveResult(px *PipelineContext, job WorkItem, reason writeReason) error {
 	if job.RuleResults != nil {
 		ruleResultsJSON, err := json.Marshal(job.RuleResults)
 		if err != nil {
+			logging.ExitErr(logScope, err)
 			return err
 		}
 		dbItem.RuleResultsJSON = ruleResultsJSON
@@ -425,22 +432,26 @@ func saveResult(px *PipelineContext, job WorkItem, reason writeReason) error {
 	case reasonError:
 		dbItem.Status = dbo.SyncFileStatusError
 	}
-	err := dao.CreateSyncFile(px.Database, px.Ctx, dbItem)
-	return err
+	err := dao.CreateSyncFile(px.Database, c, dbItem)
+	return logging.Return(logScope, err)
 
 }
 func drain(a <-chan WorkItem, b <-chan WorkItem) {
 	for a != nil || b != nil {
 		select {
-		case _, ok := <-a:
+		case w, ok := <-a:
 			if !ok {
 				a = nil
+				continue
 			}
+			logging.Return(w.LogScope, w.Err)
 
-		case _, ok := <-b:
+		case w, ok := <-b:
 			if !ok {
 				b = nil
+				continue
 			}
+			logging.Return(w.LogScope, w.Err)
 		}
 	}
 }

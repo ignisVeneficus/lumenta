@@ -8,13 +8,13 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/ignisVeneficus/logging"
 	"github.com/ignisVeneficus/lumenta/config"
 	"github.com/ignisVeneficus/lumenta/db"
 	"github.com/ignisVeneficus/lumenta/db/dao"
 	"github.com/ignisVeneficus/lumenta/db/dbo"
 	"github.com/ignisVeneficus/lumenta/definitions"
 	"github.com/ignisVeneficus/lumenta/internal/i18n"
-	"github.com/ignisVeneficus/lumenta/logging"
 	"github.com/ignisVeneficus/lumenta/ruleengine"
 	"github.com/ignisVeneficus/lumenta/server/routes"
 	"github.com/ignisVeneficus/lumenta/tpl"
@@ -145,7 +145,7 @@ func NewAlbumPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		i18n := i18n.Get()
 		loc := tpl.L(c)
-		logg := logging.Enter(c, "page.admin.album.new", nil)
+		logScope, ctx := logging.Enter(c.Request.Context(), "server/page/admin/album/new", nil, nil)
 		database := db.GetDatabase()
 		RuleJson, _ := json.Marshal(ruleengine.CreateEmptyRuleGroup())
 		album := dbo.Album{
@@ -153,9 +153,9 @@ func NewAlbumPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 			Rank:     0,
 			RuleJSON: RuleJson,
 		}
-		graph, err := dao.QueryAlbumGraph(database, c)
+		graph, err := dao.QueryAlbumGraph(database, ctx)
 		if err != nil {
-			logging.ExitErr(logg, err)
+			logging.ExitErr(logScope, err)
 			c.AbortWithStatus(http.StatusInternalServerError)
 			return
 		}
@@ -163,18 +163,18 @@ func NewAlbumPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 			c,
 			album,
 			func(a dbo.Album) (uint64, error) {
-				return dao.CreateAlbum(database, c, &a)
+				return dao.CreateAlbum(database, ctx, &a)
 			},
 			dbo.AlbumGraphToPointer(graph),
 		)
 		if err != nil {
-			logging.ExitErr(logg, err)
+			logging.ExitErr(logScope, err)
 			c.AbortWithStatus(http.StatusInternalServerError)
 			return
 		}
 
 		if albumCtx.State == adminData.StateSaved {
-			logging.Exit(logg, "redirect", nil)
+			logging.Exit(logScope, "redirect", nil)
 			url := routes.BuildAdminAlbumPath(*albumCtx.DBOID)
 			url.WithParam(routes.QueryFlash, string(adminData.FlashCreated))
 
@@ -189,10 +189,10 @@ func NewAlbumPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 		albumPageCtx.Breadcrumbs = createAlbumBreadcrumbs("New Album", loc, i18n)
 		if err := r.RenderPage(c.Writer, "admin/album", albumPageCtx, loc, i18n); err != nil {
 			c.AbortWithStatus(http.StatusInternalServerError)
-			logging.ExitErr(logg, err)
+			logging.ExitErr(logScope, err)
 			return
 		}
-		logging.Exit(logg, "ok", nil)
+		logging.Exit(logScope, "ok", nil)
 
 	}
 }
@@ -203,13 +203,13 @@ func EditAlbumPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 		loc := tpl.L(c)
 		albumIDStr := c.Param("id")
 		flash := c.Query(routes.QueryFlash)
-		logg := logging.Enter(c, "page.admin.album.new", map[string]any{
+		logScope, ctx := logging.Enter(c.Request.Context(), "server/page/admin/album/edit", albumIDStr, map[string]any{
 			"album": albumIDStr,
 			"flash": flash,
 		})
 		albumID, err := tpl.ParseID(albumIDStr)
 		if err != nil {
-			logging.ExitErr(logg, fmt.Errorf("invalid album Id"))
+			logging.ExitErr(logScope, fmt.Errorf("invalid album Id"))
 			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "invalid album Id"})
 			return
 		}
@@ -217,13 +217,13 @@ func EditAlbumPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 		database := db.GetDatabase()
 		album, err := dao.GetAlbumById(database, c, albumID)
 		if err != nil {
-			logging.ExitErr(logg, err)
+			logging.ExitErr(logScope, err)
 			pages.Soft404(r, cfg, c, tplData.SurfacePublic, "tag", routes.CreateAdminAlbumsPath(), albumID)
 			return
 		}
-		graph, err := dao.QueryAlbumGraph(database, c)
+		graph, err := dao.QueryAlbumGraph(database, ctx)
 		if err != nil {
-			logging.ExitErr(logg, err)
+			logging.ExitErr(logScope, err)
 			c.AbortWithStatus(http.StatusInternalServerError)
 			return
 		}
@@ -232,17 +232,17 @@ func EditAlbumPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 			c,
 			album,
 			func(a dbo.Album) (uint64, error) {
-				return albumID, dao.UpdateAlbum(database, c, a)
+				return albumID, dao.UpdateAlbum(database, ctx, a)
 			},
 			dbo.AlbumGraphToPointer(graph),
 		)
 		if err != nil {
-			logging.ExitErr(logg, err)
+			logging.ExitErr(logScope, err)
 			c.AbortWithStatus(http.StatusInternalServerError)
 			return
 		}
 		if albumCtx.State == adminData.StateSaved {
-			logging.Exit(logg, "redirect", nil)
+			logging.Exit(logScope, "redirect", nil)
 			url := routes.BuildAdminAlbumPath(*albumCtx.DBOID)
 			url.WithParam(routes.QueryFlash, string(adminData.FlashSaved))
 
@@ -258,9 +258,9 @@ func EditAlbumPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 
 		if err := r.RenderPage(c.Writer, "admin/album", albumPageCtx, loc, i18n); err != nil {
 			c.AbortWithStatus(http.StatusInternalServerError)
-			logging.ExitErr(logg, err)
+			logging.ExitErr(logScope, err)
 			return
 		}
-		logging.Exit(logg, "ok", nil)
+		logging.Exit(logScope, "ok", nil)
 	}
 }

@@ -6,12 +6,12 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/ignisVeneficus/logging"
 	"github.com/ignisVeneficus/lumenta/api/data"
 	"github.com/ignisVeneficus/lumenta/auth"
 	"github.com/ignisVeneficus/lumenta/config"
 	"github.com/ignisVeneficus/lumenta/db"
 	"github.com/ignisVeneficus/lumenta/db/dao"
-	"github.com/ignisVeneficus/lumenta/logging"
 	"github.com/ignisVeneficus/lumenta/server/routes"
 	tlpData "github.com/ignisVeneficus/lumenta/tpl/data"
 )
@@ -24,7 +24,7 @@ func ImageCoordByTags(cfg config.Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		tagIdStr := c.Param("tid")
 		iPageStr := c.DefaultQuery(tlpData.ImagePageParam, "1")
-		logg := logging.Enter(c, "api.public.images.tags", map[string]any{
+		logg, ctx := logging.Enter(c.Request.Context(), "api/public/images/tags", tagIdStr, map[string]any{
 			"tag_id":     tagIdStr,
 			"image_page": iPageStr,
 		})
@@ -47,9 +47,9 @@ func ImageCoordByTags(cfg config.Config) gin.HandlerFunc {
 		}
 
 		database := db.GetDatabase()
-		acl := auth.GetAuthContex(c)
+		acl := auth.GetAuthContex(ctx)
 
-		images, err := dao.QueryImageCoordByTagByACL(database, c, uint64(tagId), acl.ACLContext)
+		images, err := dao.QueryImageCoordByTagByACL(database, ctx, uint64(tagId), acl.ACLContext)
 		if err != nil {
 			logging.ExitErr(logg, err)
 			ret.HandleError("internal error")

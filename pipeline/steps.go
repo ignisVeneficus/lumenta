@@ -1,15 +1,12 @@
 package pipeline
 
 import (
-	"context"
 	"sync"
 
+	"github.com/ignisVeneficus/logging"
 	syncConfig "github.com/ignisVeneficus/lumenta/config/sync"
 	"github.com/ignisVeneficus/lumenta/db"
 	"github.com/ignisVeneficus/lumenta/db/dao"
-	"github.com/ignisVeneficus/lumenta/logging"
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
 )
 
 const (
@@ -19,10 +16,11 @@ const (
 type step func(ctx PipelineContext, in chan WorkItem) (chan WorkItem, error)
 
 func stepDBLoopupByPath(ctx PipelineContext, in chan WorkItem) (chan WorkItem, error) {
-
+	logScope, c := logging.Enter(ctx.Ctx, "sync/pipeline/db_lookup/build", nil, nil)
 	out := make(chan WorkItem, 128)
 
 	go func() {
+		logScope, _ := logging.Enter(c, "sync/pipeline/db_lookup/run", nil, nil)
 		defer close(out)
 
 		pc := ctx
@@ -30,25 +28,23 @@ func stepDBLoopupByPath(ctx PipelineContext, in chan WorkItem) (chan WorkItem, e
 		pc.Out = out
 
 		if err := dBLoopupByPathWorker(&pc); err != nil {
-
-			log.Logger.Error().
-				Object("pipeline", logging.WithLevel(zerolog.DebugLevel, &pc)).
-				Err(err).
-				Msg("Db lookup worker failed")
-
+			logging.ExitErr(logScope, err)
 			ctx.Cancel(err)
 			return
 		}
+		logging.Exit(logScope, "ok", nil)
 	}()
-
+	logging.Exit(logScope, "end", nil)
 	return out, nil
 }
 
 func stepDirtyCheck(ctx PipelineContext, in chan WorkItem) (chan WorkItem, error) {
+	logScope, c := logging.Enter(ctx.Ctx, "sync/pipeline/dirty_check/build", nil, nil)
 
 	out := make(chan WorkItem, 128)
 
 	go func() {
+		logScope, _ := logging.Enter(c, "sync/pipeline/dirty_check/run", nil, nil)
 		defer close(out)
 
 		pc := ctx
@@ -57,20 +53,18 @@ func stepDirtyCheck(ctx PipelineContext, in chan WorkItem) (chan WorkItem, error
 
 		if err := dirtyCheckWorker(&pc); err != nil {
 
-			log.Logger.Error().
-				Object("pipeline", logging.WithLevel(zerolog.DebugLevel, &pc)).
-				Err(err).
-				Msg("dirty check worker failed")
-
+			logging.ExitErr(logScope, err)
 			ctx.Cancel(err)
 			return
 		}
+		logging.Exit(logScope, "ok", nil)
 	}()
-
+	logging.Exit(logScope, "end", nil)
 	return out, nil
 }
 
 func stepHash(ctx PipelineContext, in chan WorkItem) (chan WorkItem, error) {
+	logScope, c := logging.Enter(ctx.Ctx, "sync/pipeline/hash/build", nil, nil)
 	out := make(chan WorkItem, 128)
 
 	pc := ctx
@@ -89,28 +83,29 @@ func stepHash(ctx PipelineContext, in chan WorkItem) (chan WorkItem, error) {
 	for i := 0; i < workers; i++ {
 
 		go func() {
+			logScope, _ := logging.Enter(c, "sync/pipeline/hash/run", i, map[string]any{
+				"index": i,
+			})
 			defer wg.Done()
 
 			if err := hashWorker(&pc); err != nil {
-
-				log.Logger.Error().
-					Object("pipeline", logging.WithLevel(zerolog.DebugLevel, &pc)).
-					Err(err).
-					Msg("hash calculation worker failed")
-
+				logging.ExitErr(logScope, err)
 				ctx.Cancel(err)
+				return
 			}
+			logging.Exit(logScope, "ok", nil)
 		}()
 	}
 	go func() {
 		wg.Wait()
 		close(out)
 	}()
-
+	logging.Exit(logScope, "end", nil)
 	return out, nil
 }
 
 func stepMetadataReader(ctx PipelineContext, in chan WorkItem) (chan WorkItem, error) {
+	logScope, c := logging.Enter(ctx.Ctx, "sync/pipeline/metadat_reader/build", nil, nil)
 
 	out := make(chan WorkItem, 128)
 
@@ -130,34 +125,35 @@ func stepMetadataReader(ctx PipelineContext, in chan WorkItem) (chan WorkItem, e
 	for i := 0; i < workers; i++ {
 
 		go func() {
+			logScope, _ := logging.Enter(c, "sync/pipeline/metadat_reader/run", i, map[string]any{
+				"index": i,
+			})
 			defer wg.Done()
 
 			if err := metadataReaderWorker(&pc); err != nil {
-
-				log.Logger.Error().
-					Object("pipeline", logging.WithLevel(zerolog.DebugLevel, &pc)).
-					Err(err).
-					Msg("metadata extractor worker failed")
-
+				logging.ExitErr(logScope, err)
 				ctx.Cancel(err)
+				return
 			}
+			logging.Exit(logScope, "ok", nil)
 		}()
 	}
 	go func() {
 		wg.Wait()
 		close(out)
 	}()
-
+	logging.Exit(logScope, "end", nil)
 	return out, nil
 }
 
 func stepFilter(ctx PipelineContext, in chan WorkItem) (chan WorkItem, error) {
-
+	logScope, c := logging.Enter(ctx.Ctx, "sync/pipeline/import_filter/build", nil, nil)
 	out := make(chan WorkItem, 128)
 	if ctx.FilterOut != nil {
 		ctx.WG.Add(1)
 	}
 	go func() {
+		logScope, _ := logging.Enter(c, "sync/pipeline/import_filter/run", nil, nil)
 		defer close(out)
 
 		pc := ctx
@@ -165,24 +161,21 @@ func stepFilter(ctx PipelineContext, in chan WorkItem) (chan WorkItem, error) {
 		pc.Out = out
 
 		if err := filterWorker(&pc); err != nil {
-
-			log.Logger.Error().
-				Object("pipeline", logging.WithLevel(zerolog.DebugLevel, &pc)).
-				Err(err).
-				Msg("filter worker failed")
-
+			logging.ExitErr(logScope, err)
 			ctx.Cancel(err)
 			return
 		}
+		logging.Exit(logScope, "ok", nil)
 	}()
-
+	logging.Exit(logScope, "end", nil)
 	return out, nil
 }
 func stepDBImageWriter(ctx PipelineContext, in chan WorkItem) (chan WorkItem, error) {
-
+	logScope, c := logging.Enter(ctx.Ctx, "sync/pipeline/image_writer/build", nil, nil)
 	out := make(chan WorkItem, 128)
 
 	go func() {
+		logScope, _ := logging.Enter(c, "sync/pipeline/image_writer/run", nil, nil)
 		defer close(out)
 
 		pc := ctx
@@ -190,28 +183,29 @@ func stepDBImageWriter(ctx PipelineContext, in chan WorkItem) (chan WorkItem, er
 		pc.Out = out
 
 		if err := dbImageWriterWorker(&pc); err != nil {
-
-			log.Logger.Error().
-				Object("pipeline", logging.WithLevel(zerolog.DebugLevel, &pc)).
-				Err(err).
-				Msg("DB Update worker failed")
-
+			logging.ExitErr(logScope, err)
 			ctx.Cancel(err)
 			return
 		}
+		logging.Exit(logScope, "ok", nil)
 	}()
-
+	logging.Exit(logScope, "end", nil)
 	return out, nil
 }
 
 func stepACL(ctx PipelineContext, in chan WorkItem) (chan WorkItem, error) {
+	logScope, c := logging.Enter(ctx.Ctx, "sync/pipeline/acl_rules/build", nil, map[string]any{
+		"acl_rules": len(ctx.ACLRules),
+	})
 	if len(ctx.ACLRules) == 0 {
+		logging.Exit(logScope, "not need", nil)
 		return in, nil
 	}
 
 	out := make(chan WorkItem, 128)
 
 	go func() {
+		logScope, _ := logging.Enter(c, "sync/pipeline/acl_rules/run", nil, nil)
 		defer close(out)
 
 		pc := ctx
@@ -219,31 +213,32 @@ func stepACL(ctx PipelineContext, in chan WorkItem) (chan WorkItem, error) {
 		pc.Out = out
 
 		if err := aclWorker(&pc); err != nil {
-
-			log.Logger.Error().
-				Object("pipeline", logging.WithLevel(zerolog.DebugLevel, &pc)).
-				Err(err).
-				Msg("acl worker failed")
-
+			logging.ExitErr(logScope, err)
 			ctx.Cancel(err)
 			return
 		}
+		logging.Exit(logScope, "ok", nil)
 	}()
-
+	logging.Exit(logScope, "end", nil)
 	return out, nil
 }
 func stepAlbumInsertion(ctx PipelineContext, in chan WorkItem) (chan WorkItem, error) {
+	logScope, c := logging.Enter(ctx.Ctx, "sync/pipeline/album_rules/build", nil, nil)
 	database := db.GetDatabase()
-	albumQty, err := dao.CountAlbum(database, context.Background())
+	albumQty, err := dao.CountAlbum(database, c)
 	if err != nil {
+		logging.ExitErr(logScope, err)
+		ctx.Cancel(err)
 		return nil, err
 	}
 	if albumQty == 0 {
+		logging.Exit(logScope, "not need", nil)
 		return in, nil
 	}
 	out := make(chan WorkItem, 128)
 
 	go func() {
+		logScope, _ := logging.Enter(c, "sync/pipeline/album_rules/run", nil, nil)
 		defer close(out)
 
 		pc := ctx
@@ -251,23 +246,21 @@ func stepAlbumInsertion(ctx PipelineContext, in chan WorkItem) (chan WorkItem, e
 		pc.Out = out
 
 		if err := albumInsertionWorker(&pc); err != nil {
-
-			log.Logger.Error().
-				Object("pipeline", logging.WithLevel(zerolog.DebugLevel, &pc)).
-				Err(err).
-				Msg("album worker failed")
-
+			logging.ExitErr(logScope, err)
 			ctx.Cancel(err)
 			return
 		}
+		logging.Exit(logScope, "ok", nil)
 	}()
-
+	logging.Exit(logScope, "end", nil)
 	return out, nil
 }
 func stepResultSaver(ctx PipelineContext, in chan WorkItem) (chan WorkItem, error) {
+	logScope, c := logging.Enter(ctx.Ctx, "sync/pipeline/result_saver/build", nil, nil)
 	out := make(chan WorkItem, 128)
 
 	go func() {
+		logScope, _ := logging.Enter(c, "sync/pipeline/result_saver/run", nil, nil)
 		defer close(out)
 
 		pc := ctx
@@ -275,24 +268,22 @@ func stepResultSaver(ctx PipelineContext, in chan WorkItem) (chan WorkItem, erro
 		pc.Out = out
 
 		if err := resultSaverWorker(&pc); err != nil {
-
-			log.Logger.Error().
-				Object("pipeline", logging.WithLevel(zerolog.DebugLevel, &pc)).
-				Err(err).
-				Msg("result save worker failed")
-
+			logging.ExitErr(logScope, err)
 			ctx.Cancel(err)
 			return
 		}
+		logging.Exit(logScope, "ok", nil)
 	}()
-
+	logging.Exit(logScope, "end", nil)
 	return out, nil
 }
 func stepDBFilterWriter(ctx PipelineContext, in chan WorkItem) (chan WorkItem, error) {
+	logScope, c := logging.Enter(ctx.Ctx, "sync/pipeline/filtered_writer/build", nil, nil)
 
 	out := make(chan WorkItem, 128)
 
 	go func() {
+		logScope, _ := logging.Enter(c, "sync/pipeline/filtered_writer/run", nil, nil)
 		defer close(out)
 
 		pc := ctx
@@ -300,15 +291,12 @@ func stepDBFilterWriter(ctx PipelineContext, in chan WorkItem) (chan WorkItem, e
 		pc.Out = out
 
 		if err := dbFilteredWriterWorker(&pc); err != nil {
-
-			log.Logger.Error().
-				Object("pipeline", logging.WithLevel(zerolog.DebugLevel, &pc)).
-				Err(err).
-				Msg("filtered worker failed")
-
+			logging.ExitErr(logScope, err)
 			ctx.Cancel(err)
 			return
 		}
+		logging.Exit(logScope, "ok", nil)
 	}()
+	logging.Exit(logScope, "end", nil)
 	return out, nil
 }

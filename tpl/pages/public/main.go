@@ -4,12 +4,12 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/ignisVeneficus/logging"
 	"github.com/ignisVeneficus/lumenta/auth"
 	"github.com/ignisVeneficus/lumenta/config"
 	"github.com/ignisVeneficus/lumenta/db"
 	"github.com/ignisVeneficus/lumenta/db/dao"
 	"github.com/ignisVeneficus/lumenta/internal/i18n"
-	"github.com/ignisVeneficus/lumenta/logging"
 	"github.com/ignisVeneficus/lumenta/server/routes"
 	"github.com/ignisVeneficus/lumenta/tpl"
 	"github.com/ignisVeneficus/lumenta/tpl/data"
@@ -21,16 +21,16 @@ func MainPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		i18n := i18n.Get()
 		loc := tpl.L(c)
-		logg := logging.Enter(c, "page.main", nil)
+		logScope, ctx := logging.Enter(c.Request.Context(), "server/page/main", nil, nil)
 
 		database := db.GetDatabase()
 		acl := auth.GetAuthContex(c)
 		qty := 24
 		hash := utils.ComputeDailyHash()
 
-		images, err := dao.QueryImageRandomByACL(database, c, hash, acl.ACLContext, qty)
+		images, err := dao.QueryImageRandomByACL(database, ctx, hash, acl.ACLContext, qty)
 		if err != nil {
-			logging.ExitErr(logg, err)
+			logging.ExitErr(logScope, err)
 			c.AbortWithStatus(http.StatusInternalServerError)
 		}
 		makeURL := func(id uint64) string {
@@ -47,10 +47,10 @@ func MainPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 
 		if err := r.RenderPage(c.Writer, "public/main", albumCtx, loc, i18n); err != nil {
 			c.AbortWithStatus(http.StatusInternalServerError)
-			logging.ExitErr(logg, err)
+			logging.ExitErr(logScope, err)
 			return
 		}
-		logging.Exit(logg, "ok", nil)
+		logging.Exit(logScope, "ok", nil)
 
 	}
 }

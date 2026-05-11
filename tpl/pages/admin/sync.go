@@ -5,11 +5,11 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/ignisVeneficus/logging"
 	"github.com/ignisVeneficus/lumenta/config"
 	"github.com/ignisVeneficus/lumenta/db"
 	"github.com/ignisVeneficus/lumenta/db/dao"
 	"github.com/ignisVeneficus/lumenta/internal/i18n"
-	"github.com/ignisVeneficus/lumenta/logging"
 	"github.com/ignisVeneficus/lumenta/server/routes"
 	"github.com/ignisVeneficus/lumenta/tpl"
 	"github.com/ignisVeneficus/lumenta/tpl/data"
@@ -25,13 +25,13 @@ func SyncRunsListPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFun
 		i18n := i18n.Get()
 		loc := tpl.L(c)
 		pageStr := c.DefaultQuery(data.SyncPageParam, "1")
-		logg := logging.Enter(c, "page.admin.syncRun", map[string]any{
+		logScope, ctx := logging.Enter(c.Request.Context(), "server/page/admin/sync_run", nil, map[string]any{
 			"page": pageStr,
 		})
 
 		page, err := tpl.ParsePaging(pageStr)
 		if err != nil {
-			logging.ExitErr(logg, fmt.Errorf("invalid page"))
+			logging.ExitErr(logScope, fmt.Errorf("invalid page"))
 			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "invalid page"})
 			return
 		}
@@ -40,9 +40,9 @@ func SyncRunsListPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFun
 		url.WithUintQuery(data.SyncPageParam, page)
 
 		database := db.GetDatabase()
-		syncs, err := dao.QuerySyncRunPaged(database, c, (page-1)*syncRunPerPage, syncRunPerPage)
+		syncs, err := dao.QuerySyncRunPaged(database, ctx, (page-1)*syncRunPerPage, syncRunPerPage)
 		if err != nil {
-			logging.ExitErr(logg, err)
+			logging.ExitErr(logScope, err)
 			c.AbortWithStatus(http.StatusInternalServerError)
 			return
 		}
@@ -54,7 +54,7 @@ func SyncRunsListPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFun
 		}
 		count, err := dao.CountSyncRun(database, c)
 		if err != nil {
-			logging.ExitErr(logg, err)
+			logging.ExitErr(logScope, err)
 			c.AbortWithStatus(http.StatusInternalServerError)
 			return
 		}
@@ -78,9 +78,9 @@ func SyncRunsListPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFun
 
 		if err := r.RenderPage(c.Writer, "admin/syncruns", syncCtx, loc, i18n); err != nil {
 			c.AbortWithStatus(http.StatusInternalServerError)
-			logging.ExitErr(logg, err)
+			logging.ExitErr(logScope, err)
 			return
 		}
-		logging.Exit(logg, "ok", nil)
+		logging.Exit(logScope, "ok", nil)
 	}
 }

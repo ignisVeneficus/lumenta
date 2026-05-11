@@ -5,20 +5,20 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/ignisVeneficus/logging"
 	apiData "github.com/ignisVeneficus/lumenta/api/data"
 	"github.com/ignisVeneficus/lumenta/config"
 	"github.com/ignisVeneficus/lumenta/data"
 	"github.com/ignisVeneficus/lumenta/db"
 	"github.com/ignisVeneficus/lumenta/db/dao"
 	"github.com/ignisVeneficus/lumenta/db/dbo"
-	"github.com/ignisVeneficus/lumenta/logging"
 	"github.com/ignisVeneficus/lumenta/utils"
 )
 
 func TagsQuery(cfg config.Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		view := ListView(c.DefaultQuery("view", "flat"))
-		logg := logging.Enter(c, "api.admin.tags", map[string]any{
+		logg, ctx := logging.Enter(c.Request.Context(), "api/admin/tags", nil, map[string]any{
 			"view": view,
 		})
 		ret := apiData.APIResponse[[]*apiData.Tag]{}
@@ -31,7 +31,7 @@ func TagsQuery(cfg config.Config) gin.HandlerFunc {
 		}
 
 		database := db.GetDatabase()
-		dboTags, err := dao.QueryTags(database, c)
+		dboTags, err := dao.QueryTags(database, ctx)
 		if err != nil {
 			logging.ExitErr(logg, err)
 			ret.HandleError("internal error")

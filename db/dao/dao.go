@@ -9,8 +9,8 @@ import (
 	"strings"
 
 	"github.com/go-sql-driver/mysql"
+	"github.com/ignisVeneficus/logging"
 	"github.com/ignisVeneficus/lumenta/db/dbo"
-	"github.com/ignisVeneficus/lumenta/logging"
 )
 
 //go:embed schema.sql
@@ -85,15 +85,15 @@ func NormalizeSQLError(err error) error {
 	return err
 }
 
-func CreateDatabase(db *sql.DB, ctx context.Context) error {
-	logg := logging.Enter(ctx, "dao.database.create", nil)
+func CreateDatabase(db *sql.DB, c context.Context) error {
+	logScope, ctx := logging.Enter(c, "dao.database.create", nil, nil)
 	queries := NewQueries(db)
 	err := queries.CreateDatabase(ctx)
 	if err != nil {
-		logging.ExitErr(logg, err)
+		logging.ExitErr(logScope, err)
 		return err
 	}
-	logging.Exit(logg, "ok", nil)
+	logging.Exit(logScope, "ok", nil)
 	return nil
 }
 
@@ -129,7 +129,7 @@ func wrapNotFound(err error, entity string) error {
 	}
 	return err
 }
-func returnWrapNotFound(scope logging.Scope, err error, entity string) error {
+func returnWrapNotFound(scope logging.LogScope, err error, entity string) error {
 	if err == nil {
 		logging.Exit(scope, "ok", nil)
 		return nil

@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/ignisVeneficus/logging"
 	derivativeConfig "github.com/ignisVeneficus/lumenta/config/derivative"
 	"github.com/ignisVeneficus/lumenta/data"
-	"github.com/ignisVeneficus/lumenta/logging"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
@@ -65,7 +65,10 @@ type Job struct {
 func (j *Job) MarshalZerologObjectWithLevel(e *zerolog.Event, level zerolog.Level) {
 	if level <= zerolog.DebugLevel {
 		e.Str("key", string(j.Key)).
-			Uint64("image_id", j.Image)
+			Uint64("image_id", j.Image).
+			Str("path", j.SourcePath)
+	}
+	if level <= zerolog.TraceLevel {
 		a := zerolog.Arr()
 		for i := range j.Tasks {
 			a.Object(logging.WithLevel(level, &j.Tasks[i]))
@@ -116,7 +119,7 @@ func NewService(step Step, workers int) *Service {
 }
 
 func (s *Service) Submit(j Job) (bool, error) {
-	logg := logging.Enter(j.Ctx, "derivative.Service.Submit", map[string]any{"job": j})
+	logg, _ := logging.Enter(j.Ctx, "derivative/service/submit", j.Key, map[string]any{"job": j})
 	if j.Key == "" {
 		err := fmt.Errorf("missing job key")
 		logging.ExitErr(logg, err)
@@ -166,19 +169,22 @@ func (s *Service) Run(ctx context.Context) {
 }
 
 func (s *Service) workerLoop(ctx context.Context, workerID int) {
-	logging.Enter(ctx, "service.derivative.workerloop", map[string]any{"worker Id": workerID})
+	logScope, ctx := logging.Enter(ctx, "service/derivative/workerloop", workerID, map[string]any{"worker Id": workerID})
 	for {
 		j := s.pop(ctx)
 		if j == nil {
-			logging.Error(ctx, nil, "service.derivative.loop", "pop", "error", "job is nil", nil)
+			err := fmt.Errorf("job is nil")
+			logging.ExitErr(logScope, err)
 			return
 		}
-		logg := logging.Enter(j.Ctx, "service.derivative.loop", map[string]any{"worker Id": workerID})
+		loopLogScope, _ := logging.EnterWithCtx(j.Ctx, "service/derivative/task", j.SourcePath, map[string]any{"worker Id": workerID,
+			"path":  j.SourcePath,
+			"image": j.Image})
 
 		res := "ok"
 		err := s.execute(j)
 		if err != nil {
-			logging.ErrorContinue(logg, err, nil)
+			logging.ErrorContinue(loopLogScope, err, nil)
 			res = "error"
 		}
 
@@ -194,7 +200,7 @@ func (s *Service) workerLoop(ctx context.Context, workerID int) {
 				}
 			}
 		*/
-		logging.Exit(logg, res, nil)
+		logging.Exit(loopLogScope, res, nil)
 	}
 }
 
@@ -223,25 +229,27 @@ func (s *Service) execute(j *Job) error {
 	return s.step(j)
 }
 
-func Init(ctx context.Context, workers int) {
-	logging.Info("service.derivative", "init", "ok", "", nil)
+func Init(c context.Context, workers int) {
+	logScope, ctx := logging.Enter(c, "service/derivative/init", nil, nil)
 	globalOnce.Do(func() {
 		global = NewService(GenerateDerivativeStep, workers)
 		go global.Run(ctx)
 	})
+	logging.Exit(logScope, "started", nil)
 }
 
 func Get() *Service {
 	if global == nil {
-		log.Logger.Panic().Str(logging.FieldFunc, "service.derivative.get").Str(logging.FieldEvent, "not initialized").Msg("")
+		log.Logger.Panic().Str(logging.FieldScope, "service.derivative.get").Str(logging.FieldEvent, "not initialized").Msg("")
 		panic("derivative service not initialized")
 	}
 	return global
 }
 
-func Shutdown() {
-	logging.Info("service.derivative", "shutdown", "ok", "", nil)
+func Shutdown(c context.Context) {
+	logScope, _ := logging.Enter(c, "service/derivative/init", nil, nil)
 	if global != nil {
 		global.Close()
 	}
+	logging.Exit(logScope, "stopped", nil)
 }
