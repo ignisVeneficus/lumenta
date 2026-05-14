@@ -95,6 +95,9 @@ WHERE t.id = ?
 func parseTagRow(row *sql.Row) (dbo.Tag, error) {
 	var t dbo.Tag
 	err := row.Scan(&t.ID, &t.Name, &t.ParentID, &t.Source)
+	if (*t.ParentID) == 0 {
+		t.ParentID = nil
+	}
 	return t, err
 }
 
@@ -106,6 +109,9 @@ func parseTagRows(rows *sql.Rows) ([]dbo.Tag, error) {
 		var t dbo.Tag
 		if err := rows.Scan(&t.ID, &t.Name, &t.ParentID, &t.Source); err != nil {
 			return nil, err
+		}
+		if (*t.ParentID) == 0 {
+			t.ParentID = nil
 		}
 		out = append(out, t)
 	}
@@ -135,6 +141,10 @@ func (q *Queries) ListTagsByParent(ctx context.Context, parentID *uint64) ([]dbo
 }
 
 func (q *Queries) CreateTag(ctx context.Context, t dbo.Tag) error {
+	if t.ParentID == nil {
+		v := uint64(0)
+		t.ParentID = &v
+	}
 	_, err := q.db.ExecContext(ctx, createTag, t.Name, t.ParentID, t.Source)
 	return err
 }
@@ -179,7 +189,7 @@ func (q *Queries) QueryTags(ctx context.Context) ([]dbo.Tag, error) {
 
 	return tags, nil
 }
-func (q *Queries) QueryTagsByACL(ctx context.Context, acl dbo.ACLContext) ([]dbo.TagWCount, error) {
+func (q *Queries) QueryTagWCountByACL(ctx context.Context, acl dbo.ACLContext) ([]dbo.TagWCount, error) {
 	aclWhere, aclParams := CreateAclWhere("i", acl)
 
 	rows, err := q.db.QueryContext(ctx, fmt.Sprintf(queryTagsByACL, aclWhere), aclParams...)
@@ -192,6 +202,9 @@ func (q *Queries) QueryTagsByACL(ctx context.Context, acl dbo.ACLContext) ([]dbo
 		var t dbo.TagWCount
 		if err := rows.Scan(&t.ID, &t.Name, &t.ParentID, &t.Source, &t.Count); err != nil {
 			return nil, err
+		}
+		if (*t.ParentID) == 0 {
+			t.ParentID = nil
 		}
 		tags = append(tags, t)
 	}
@@ -217,6 +230,9 @@ func (q *Queries) QueryTagsByParentACLPaged(ctx context.Context, parent uint64, 
 		var t dbo.TagWCount
 		if err := rows.Scan(&t.ID, &t.Name, &t.ParentID, &t.Source, &t.Count); err != nil {
 			return nil, err
+		}
+		if (*t.ParentID) == 0 {
+			t.ParentID = nil
 		}
 		tags = append(tags, t)
 	}
@@ -381,7 +397,7 @@ func QueryTags(db *sql.DB, c context.Context) ([]dbo.Tag, error) {
 func QueryTagsByACL(db *sql.DB, c context.Context, acl dbo.ACLContext) ([]dbo.TagWCount, error) {
 	logScope, ctx := logging.Enter(c, "dao/tag/query/ACL", nil, map[string]any{"ACL": acl})
 	q := NewQueries(db)
-	tags, err := q.QueryTagsByACL(ctx, acl)
+	tags, err := q.QueryTagWCountByACL(ctx, acl)
 	return tags, logging.ReturnParams(logScope, err, map[string]any{"found": len(tags)})
 }
 func QueryTagsByParentACLPaged(db *sql.DB, c context.Context, parent uint64, acl dbo.ACLContext, from, qty uint64) ([]dbo.TagWCount, error) {

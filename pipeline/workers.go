@@ -445,9 +445,6 @@ func filterWorker(ctx *PipelineContext) error {
 		logging.ExitErr(logScope, err)
 		return err
 	}
-	if ctx.FilterOut != nil {
-		defer ctx.WG.Done()
-	}
 	type DirKey struct {
 		Root string
 		Path string
@@ -621,13 +618,14 @@ func aclWorker(ctx *PipelineContext) error {
 	return nil
 }
 
-func dbImageWriterWorker(ctx *PipelineContext) error {
+func dbImageWriterWorker(ctx *PipelineContext, tagCache *TagCache) error {
 	logScope, _ := logging.Enter(ctx.Ctx, "sync/pipeline/image_writer/run/inside", nil, nil)
 	if ctx.In == nil || ctx.Out == nil {
 		err := fmt.Errorf("In/Out channel is nil")
 		logging.ExitErr(logScope, err)
 		return err
 	}
+
 	for job := range ctx.In {
 		select {
 		case <-ctx.Ctx.Done():
@@ -647,9 +645,36 @@ func dbImageWriterWorker(ctx *PipelineContext) error {
 				logging.ExitErrParams(logScope, err, map[string]any{"is_dirty": job.IsDirty})
 				SaveResultError(ctx, job, c)
 				continue
-			} else {
-				job.DBImage.ID = &updateID
 			}
+			tagSet := make(map[uint64]struct{})
+			tags := job.Metadata.GetTags()
+			for _, t := range tags {
+				var tagIDs []uint64
+				tagIDs, err = tagCache.Resolve(ctx.Database, c, t, "Digikam")
+				if err != nil {
+					logging.ExitErrParams(logScope, err, map[string]any{"is_dirty": job.IsDirty})
+					SaveResultError(ctx, job, c)
+					break
+				}
+				for _, id := range tagIDs {
+					tagSet[id] = struct{}{}
+				}
+			}
+			if err != nil {
+				continue
+			}
+			tagIDs := make([]uint64, 0, len(tagSet))
+			for id := range tagSet {
+				tagIDs = append(tagIDs, id)
+			}
+			err = dao.BindImageTags(ctx.Database, c, updateID, tagIDs)
+			if err != nil {
+				logging.ExitErrParams(logScope, err, map[string]any{"is_dirty": job.IsDirty})
+				SaveResultError(ctx, job, c)
+				continue
+			}
+			job.DBImage.ID = &updateID
+
 		}
 		ws := time.Now()
 		select {

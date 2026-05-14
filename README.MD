@@ -172,13 +172,7 @@ These components provide the foundation for browsing and interacting with the in
 
 ## Performance (typical photography setup)
 
-Sync benchmark:
-
-- ~29,000 images scanned
-- ~16,000 filtered out during import based on metadata
-- ~13,000 inserted into database
-- cold start / empty database: ~41 minutes
-- warm cached run: ~37 minutes
+### Remote NAS benchmark
 
 Dataset:
 
@@ -186,6 +180,21 @@ Dataset:
 - 1,536 × ~5 MB JPG with EXIF + hierarchical tags
 - 5,145 × ~10–30 MB TIFF with extensive metadata
 - 4,063 × ~5 MB TIFF with metadata
+- total dataset size: ~320 GB
+
+Configuration:
+
+- 2 hash workers
+- 8 metadata workers
+- 1 downstream pipeline workers
+
+Results:
+
+- cold ingest (empty database): ~41 minutes
+- cached sync (database already populated): ~37 minutes
+- ~29,000 images scanned
+- ~16,000 filtered out during import based on metadata
+- ~13,000 inserted into database
 
 Environment:
 
@@ -204,7 +213,38 @@ Notes:
 - Large TIFF workloads are primarily limited by filesystem and network IO throughput
 - Metadata reuse significantly reduces metadata processing overhead on repeated runs
 - Increasing hash worker concurrency beyond this point no longer improved throughput, indicating that the current bottleneck is NAS throughput
+- The measured workload operates close to the practical throughput limit of the ~100 MB/s network/storage setup
+- The concurrent ingestion pipeline remained stable throughout the measured runs
 - Measurements were performed in a non-isolated real-world workstation environment
+
+### Local SSD benchmark (subset of the original dataset)
+
+A subset of the original benchmark dataset was copied from NAS to local SSD storage while keeping the MariaDB server remote.
+
+Dataset:
+
+- ~10,000 images
+- mixed JPG/TIFF workload
+- ~160 GB total data
+
+Configuration:
+
+- aggressively increased worker concurrency
+- 16 hash workers
+- 32 metadata and downstream pipeline workers
+
+Results:
+
+- cold ingest (empty database): ~4m 25s
+- ~620 MB/s effective cold ingest throughput
+- cached sync (database already populated): ~2m 33s
+- ~1.0–1.1 GB/s effective cached ingest throughput
+
+Notes:
+
+- Local SSD storage significantly reduced ingest time compared to the NAS-based benchmark
+- Cached synchronization removed most metadata processing overhead
+- The ingestion pipeline remained stable under very high worker concurrency
 
 ## Showcase
 

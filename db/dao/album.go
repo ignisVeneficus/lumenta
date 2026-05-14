@@ -12,7 +12,7 @@ import (
 	"database/sql"
 )
 
-const albumFields = `a.id, a.parent_id, a.name, a.description, a.rank, a.ancestor_ids, a.rule_json, a.cover_image_id, a.child_album_count, a.image_count, a.acl_level, a.acl_user_id, a.updated_at`
+const albumFields = `a.id, a.parent_id, a.name, a.description, a.rank, a.ancestor_ids, a.rule_json, a.cover_image_id, a.acl_level, a.acl_user_id, a.updated_at`
 
 const getAlbumById = `SELECT ` + albumFields + ` FROM albums a WHERE a.id=?`
 const createAlbum = `INSERT INTO albums (parent_id, name, description, rank, rule_json, acl_level, acl_user_id, ancestor_ids) VALUES (?,?,?,?,?,?,?, JSON_ARRAY())`
@@ -25,19 +25,33 @@ const bindAlbumImage = `INSERT INTO album_images (album_id, image_id, position) 
 const breakAlbumImage = `DELETE FROM album_images WHERE album_id = ? AND image_id = ?`
 
 // children by parent (parent_id may be NULL)
-const queryAlbumsChildByParentACLBegin = `
+const queryAlbumByParentACLBegin = `
 SELECT ` + albumFields + `
 FROM albums a
 WHERE `
 
-const queryAlbumsChildByParentACLEnd = `
+const queryAlbumByParentACLPagedEnd = `
 AND %s 
 ORDER BY a.rank ASC, a.name ASC
+LIMIT ?, ?
 `
-const queryAlbumsChildByParentACL = queryAlbumsChildByParentACLBegin +
-	` a.parent_id = ? ` + queryAlbumsChildByParentACLEnd
-const queryAlbumsChildByParentACLRoot = queryAlbumsChildByParentACLBegin +
-	` a.parent_id IS NULL ` + queryAlbumsChildByParentACLEnd
+const queryAlbumByParentACLPaged = queryAlbumByParentACLBegin +
+	` a.parent_id = ? ` + queryAlbumByParentACLPagedEnd
+const queryAlbumByParentACLRootPaged = queryAlbumByParentACLBegin +
+	` a.parent_id IS NULL ` + queryAlbumByParentACLPagedEnd
+
+const countAlbumByParentACLBegin = `
+SELECT count(*)
+FROM albums a
+WHERE `
+
+const countAlbumByParentACLEnd = `
+AND %s 
+`
+const countAlbumByParentACL = countAlbumByParentACLBegin +
+	` a.parent_id = ? ` + countAlbumByParentACLEnd
+const countAlbumByParentACLRoot = countAlbumByParentACLBegin +
+	` a.parent_id IS NULL ` + countAlbumByParentACLEnd
 
 // reorder siblings
 const updateAlbumRank = `UPDATE albums SET rank=? WHERE id=?`
@@ -50,7 +64,7 @@ const updateAlbumQuick = `UPDATE albums SET name = ?, description = ? WHERE id =
 
 const queryAlbumDescendantIDsByACL = `SELECT a.id
 FROM albums a
-WHERE JSON_CONTAINS(a.ancestor_ids, CAST(? AS JSON))
+WHERE JSON_CONTAINS(a.ancestor_ids, ?)
 AND %s `
 
 const queryAlbumGraph = `SELECT a.id, a.parent_id, a.name FROM albums AS a`
@@ -106,6 +120,24 @@ AND ai.image_id = x.image_id
 SET ai.position = x.new_position;
 `
 
+const countAlbumDescendantIDsByACL = `SELECT count(a.id)
+FROM albums a
+WHERE JSON_CONTAINS(a.ancestor_ids, ?)
+AND %s `
+
+const countAlbumImagesDescendantIDsByACL = `SELECT count(DISTINCT i.id)
+FROM albums a
+JOIN album_images ai ON a.ID = ai.album_id
+JOIN images i ON i.id = ai.image_id
+AND %s 
+WHERE JSON_CONTAINS(a.ancestor_ids, ?)
+AND %s `
+
+const getAlbumByIdACL = `
+SELECT ` + albumFields + ` FROM albums a WHERE 
+a.id=?
+AND %s `
+
 const updateAlbumCountersBydepth = `
 UPDATE albums parent
 LEFT JOIN (
@@ -139,7 +171,7 @@ func parseAlbum(row *sql.Row) (dbo.Album, error) {
 	var a dbo.Album
 	var ancestors []byte
 	err := row.Scan(&a.ID, &a.ParentID, &a.Name, &a.Description, &a.Rank, &ancestors, &a.RuleJSON, &a.CoverImageID,
-		&a.ChildAlbumCount, &a.ImageCount, &a.ACLLevel, &a.ACLUserID, &a.UpdatedAt)
+		&a.ACLLevel, &a.ACLUserID, &a.UpdatedAt)
 	if err != nil {
 		return a, err
 	}
@@ -153,7 +185,7 @@ func parseAlbums(rows *sql.Rows) ([]dbo.Album, error) {
 		var a dbo.Album
 		var ancestors []byte
 		err := rows.Scan(&a.ID, &a.ParentID, &a.Name, &a.Description, &a.Rank, &ancestors, &a.RuleJSON, &a.CoverImageID,
-			&a.ChildAlbumCount, &a.ImageCount, &a.ACLLevel, &a.ACLUserID, &a.UpdatedAt)
+			&a.ACLLevel, &a.ACLUserID, &a.UpdatedAt)
 		if err != nil {
 			return nil, err
 		}
@@ -205,13 +237,15 @@ func (q *Queries) BreakAlbumImage(ctx context.Context, albumId, imageId uint64) 
 }
 
 // parentID may be nil (root level)
-func (q *Queries) QueryAlbumsChildByParentACL(ctx context.Context, parentID *uint64, acl dbo.ACLContext) ([]dbo.Album, error) {
+func (q *Queries) QueryAlbumByParentACLPaged(ctx context.Context, parentID *uint64, acl dbo.ACLContext, from, qty uint64) ([]dbo.Album, error) {
 	sql, args := CreateAclWhere("a", acl)
-	sqlStr := queryAlbumsChildByParentACLRoot
+	sqlStr := queryAlbumByParentACLRootPaged
 	if parentID != nil {
-		sqlStr = queryAlbumsChildByParentACL
+		sqlStr = queryAlbumByParentACLPaged
 		args = append([]any{parentID}, args...)
 	}
+	args = append(args, from)
+	args = append(args, qty)
 	sqlStr = fmt.Sprintf(sqlStr, sql)
 	rows, err := q.db.QueryContext(ctx, sqlStr, args...)
 	if err != nil {
@@ -220,6 +254,22 @@ func (q *Queries) QueryAlbumsChildByParentACL(ctx context.Context, parentID *uin
 	defer rows.Close()
 
 	return parseAlbums(rows)
+}
+
+func (q *Queries) CountAlbumByParentACL(ctx context.Context, parentID *uint64, acl dbo.ACLContext) (uint64, error) {
+	sql, args := CreateAclWhere("a", acl)
+	sqlStr := countAlbumByParentACLRoot
+	if parentID != nil {
+		sqlStr = countAlbumByParentACL
+		args = append([]any{parentID}, args...)
+	}
+
+	sqlStr = fmt.Sprintf(sqlStr, sql)
+	row := q.db.QueryRowContext(ctx, sqlStr, args...)
+	var count uint64
+	err := row.Scan(&count)
+	return count, err
+
 }
 
 func (q *Queries) UpdateAlbumRank(ctx context.Context, albumID uint64, rank int) error {
@@ -373,6 +423,40 @@ func (q *Queries) QueryAlbumByImageIDACL(ctx context.Context, imageID uint64, ac
 func (q *Queries) ReorderAllImage(ctx context.Context) error {
 	_, err := q.db.ExecContext(ctx, reorderAllImages)
 	return err
+}
+
+func (q *Queries) CountAlbumDescendantIDsByACL(ctx context.Context, albumId uint64, acl dbo.ACLContext) (uint64, error) {
+	aclWhere, aclParams := CreateAclWhere("a", acl)
+	params := []any{fmt.Sprintf("[%d]", albumId)}
+	params = append(params, aclParams...)
+	sql := fmt.Sprintf(countAlbumDescendantIDsByACL, aclWhere)
+	row := q.db.QueryRowContext(ctx, sql, params...)
+	var count uint64
+	err := row.Scan(&count)
+	return count, err
+}
+
+func (q *Queries) CountAlbumImagesDescendantIDsByACL(ctx context.Context, albumID uint64, acl dbo.ACLContext) (uint64, error) {
+	aclAWhere, aclAParams := CreateAclWhere("a", acl)
+	aclIWhere, aclIParams := CreateAclWhere("i", acl)
+	params := []any{}
+	params = append(params, aclIParams...)
+	params = append(params, fmt.Sprintf("[%d]", albumID))
+	params = append(params, aclAParams...)
+	sql := fmt.Sprintf(countAlbumImagesDescendantIDsByACL, aclIWhere, aclAWhere)
+	row := q.db.QueryRowContext(ctx, sql, params...)
+	var count uint64
+	err := row.Scan(&count)
+	return count, err
+}
+
+func (q *Queries) GetAlbumByIdACL(ctx context.Context, albumID uint64, acl dbo.ACLContext) (dbo.Album, error) {
+	aclWhere, aclParams := CreateAclWhere("a", acl)
+	params := []any{albumID}
+	params = append(params, aclParams...)
+	sql := fmt.Sprintf(getAlbumByIdACL, aclWhere)
+	row := q.db.QueryRowContext(ctx, sql, params...)
+	return parseAlbum(row)
 }
 
 //
@@ -546,19 +630,36 @@ func QueryAlbum(db *sql.DB, c context.Context) ([]dbo.Album, error) {
 	return albums, nil
 }
 
-func QueryAlbumsChildByParentACL(db *sql.DB, c context.Context, parentID *uint64, acl dbo.ACLContext) ([]dbo.Album, error) {
-	logScope, ctx := logging.Enter(c, "dao/album/query/Child/ACL", parentID, map[string]any{
+func QueryAlbumByParentACLPaged(db *sql.DB, c context.Context, parentID *uint64, acl dbo.ACLContext, from, qty uint64) ([]dbo.Album, error) {
+	logScope, ctx := logging.Enter(c, "dao/album/query/byParent/ACL/Paged", parentID, map[string]any{
 		"partent": parentID,
 		"ACL":     acl,
+		"from":    from,
+		"qty":     qty,
 	})
 	q := NewQueries(db)
-	albums, err := q.QueryAlbumsChildByParentACL(ctx, parentID, acl)
+	albums, err := q.QueryAlbumByParentACLPaged(ctx, parentID, acl, from, qty)
 	if err != nil {
 		logging.ExitErr(logScope, err)
 		return nil, err
 	}
 	logging.Exit(logScope, "ok", map[string]any{"found": len(albums)})
 	return albums, nil
+}
+
+func CountAlbumByParentACL(db *sql.DB, c context.Context, parentID *uint64, acl dbo.ACLContext) (uint64, error) {
+	logScope, ctx := logging.Enter(c, "dao/album/count/byParent/ACL", parentID, map[string]any{
+		"partent": parentID,
+		"ACL":     acl,
+	})
+	q := NewQueries(db)
+	count, err := q.CountAlbumByParentACL(ctx, parentID, acl)
+	if err != nil {
+		logging.ExitErr(logScope, err)
+		return 0, err
+	}
+	logging.Exit(logScope, "ok", nil)
+	return count, nil
 }
 
 func ReorderAlbumsSibling(db *sql.DB, c context.Context, albumIDs []uint64) error {
@@ -763,4 +864,43 @@ func ReorderAllImages(db *sql.DB, c context.Context) error {
 	q := NewQueries(db)
 	err := q.ReorderAllImage(ctx)
 	return logging.Return(logScope, err)
+}
+
+func CountAlbumDescendantIDsByACL(db *sql.DB, c context.Context, albumId uint64, acl dbo.ACLContext) (uint64, error) {
+	logScope, ctx := logging.Enter(c, "dao/album/count/albums/descendant/acl", nil, map[string]any{
+		"acl":      acl,
+		"album_id": albumId,
+	})
+	q := NewQueries(db)
+	qty, err := q.CountAlbumDescendantIDsByACL(ctx, albumId, acl)
+	if err != nil {
+		logging.ExitErr(logScope, err)
+		return 0, err
+	}
+	logging.Exit(logScope, "ok", map[string]any{"return": qty})
+	return qty, nil
+}
+
+func CountAlbumImagesDescendantIDsByACL(db *sql.DB, c context.Context, albumId uint64, acl dbo.ACLContext) (uint64, error) {
+	logScope, ctx := logging.Enter(c, "dao/album/count/images/descendant/acl", nil, map[string]any{
+		"acl":      acl,
+		"album_id": albumId,
+	})
+	q := NewQueries(db)
+	qty, err := q.CountAlbumImagesDescendantIDsByACL(ctx, albumId, acl)
+	if err != nil {
+		logging.ExitErr(logScope, err)
+		return 0, err
+	}
+	logging.Exit(logScope, "ok", map[string]any{"return": qty})
+	return qty, nil
+}
+func GetAlbumByIDACL(db *sql.DB, c context.Context, albumId uint64, acl dbo.ACLContext) (dbo.Album, error) {
+	logScope, ctx := logging.Enter(c, "dao/album/get/byID/acl", nil, map[string]any{
+		"acl":      acl,
+		"album_id": albumId,
+	})
+	q := NewQueries(db)
+	album, err := q.GetAlbumByIdACL(ctx, albumId, acl)
+	return album, returnWrapNotFound(logScope, err, "album")
 }

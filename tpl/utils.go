@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html/template"
 	"strconv"
@@ -147,7 +148,7 @@ func addListIfNotEmpty(list []string, data data.Metadata, key string) []string {
 	return list
 }
 
-func BuildTagBreadcumb(database *sql.DB, c context.Context, tag dbo.Tag, last bool) (tplData.Breadcrumbs, error) {
+func BuildTagBreadcumb(database *sql.DB, c context.Context, loc string, i18n *i18n.Service, tag dbo.Tag, last bool) (tplData.Breadcrumbs, error) {
 	path := []dbo.Tag{tag}
 	var err error
 	for tag.ParentID != nil {
@@ -157,16 +158,16 @@ func BuildTagBreadcumb(database *sql.DB, c context.Context, tag dbo.Tag, last bo
 		}
 		path = append([]dbo.Tag{tag}, path...)
 	}
-	return createTagsBreadcrumbs(path, last), nil
+	return createTagsBreadcrumbs(loc, i18n, path, last), nil
 }
 
-func createTagsBreadcrumbs(tags []dbo.Tag, last bool) tplData.Breadcrumbs {
-	res := tplData.Breadcrumbs{
+func createTagsBreadcrumbs(loc string, i18n *i18n.Service, tags []dbo.Tag, last bool) tplData.Breadcrumbs {
+	ret := tplData.Breadcrumbs{
 		tplData.Breadcrumb{
-			Label: "Tags",
+			Label: i18n.T(loc, "nav.page.public.tags.short", nil),
 			Link:  template.URL(routes.CreateTagsRootPath()),
 			Type:  "page",
-			Title: "View all tags",
+			Title: i18n.T(loc, "nav.page.public.tags.long", nil),
 		},
 	}
 	end := len(tags)
@@ -180,16 +181,56 @@ func createTagsBreadcrumbs(tags []dbo.Tag, last bool) tplData.Breadcrumbs {
 			Type:  "tag",
 			Title: fmt.Sprintf("View: %s", tags[i].Name),
 		}
-		res = append(res, brc)
+		ret = append(ret, brc)
 	}
 	if last {
 		brc := tplData.Breadcrumb{
 			Label: tags[len(tags)-1].Name,
 			Type:  "tag",
 		}
-		res = append(res, brc)
+		ret = append(ret, brc)
 	}
-	return res
+	return ret
+
+}
+
+func BuildAlbumBreadcumb(database *sql.DB, c context.Context, loc string, i18n *i18n.Service, album dbo.Album, acl dbo.ACLContext, last bool) (tplData.Breadcrumbs, error) {
+	ret := tplData.Breadcrumbs{
+		tplData.Breadcrumb{
+			Label: i18n.T(loc, "nav.page.public.albums.short", nil),
+			Link:  template.URL(routes.CreateAlbumsRootPath()),
+			Type:  "albums",
+			Title: i18n.T(loc, "nav.page.public.albums.long", nil),
+		},
+	}
+	ids := album.AncestorIDs
+	ids = ids[:len(ids)-1]
+
+	for _, id := range ids {
+		a, err := dao.GetAlbumByIDACL(database, c, id, acl)
+		switch {
+		case err == nil:
+			br := tplData.Breadcrumb{
+				Label: a.Name,
+				Link:  template.URL(routes.CreateAlbumPath(int64(id))),
+				Type:  "album",
+				Title: utils.FromStringPtr(a.Description),
+			}
+			ret = append(ret, br)
+		case !errors.Is(err, dao.ErrDataNotFound):
+			return ret, err
+		}
+	}
+	br := tplData.Breadcrumb{
+		Label: album.Name,
+		Type:  "album",
+	}
+	if !last {
+		br.Link = template.URL(routes.CreateAlbumPath(int64(*album.ID)))
+		br.Title = utils.FromStringPtr(album.Description)
+	}
+	ret = append(ret, br)
+	return ret, nil
 
 }
 func GetImageMetadata(ctx context.Context, img dbo.Image) (data.Metadata, error) {

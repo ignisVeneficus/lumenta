@@ -52,9 +52,14 @@ func SetTagsMeaning(forest *data.Forest[*ViewTreeNode], tagMeaningConfig *presen
 		}
 		SetTags(forest, types)
 		typeSetter := func(node *ViewTreeNode, data string) {
-			node.Type = data
+			if node != nil {
+				node.Type = data
+			}
 		}
 		typeGetter := func(node *ViewTreeNode) string {
+			if node == nil {
+				return ""
+			}
 			return node.Type
 		}
 		data.Populate(forest, typeGetter, typeSetter)

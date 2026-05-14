@@ -6,7 +6,6 @@ import (
 
 	"github.com/ignisVeneficus/lumenta/data"
 	"github.com/ignisVeneficus/lumenta/db/dbo"
-	"github.com/ignisVeneficus/lumenta/mapper"
 	"github.com/rs/zerolog/log"
 )
 
@@ -26,25 +25,25 @@ func UpdateImageMetadata(i *dbo.Image, metadata data.Metadata) error {
 	i.Rotation = metadata.GetRotation()
 	i.Caption = metadata.GetCaption()
 	i.Title = metadata.GetTitle()
-	tags := metadata.GetTags()
 	JSONMetadata, err := json.Marshal(metadata)
 	if err != nil {
 		return err
 	}
 	i.ExifJSON = JSONMetadata
-	i.Tags = dbo.TagsTree{}
-	for _, t := range tags {
-		tname := mapper.SplitTagPath(t)
-		current := &dbo.Tag{Name: tname[len(tname)-1], Source: "digikam"}
-		current.Children = nil
-		for j := len(tname) - 2; j >= 0; j-- {
-			parent := &dbo.Tag{Name: tname[j], Source: "digikam"}
-			parent.Children = dbo.TagsTree{current}
-			current = parent
+	/*
+		i.Tags = dbo.TagsTree{}
+		for _, t := range tags {
+			tname := mapper.SplitTagPath(t)
+			current := &dbo.Tag{Name: tname[len(tname)-1], Source: "digikam"}
+			current.Children = nil
+			for j := len(tname) - 2; j >= 0; j-- {
+				parent := &dbo.Tag{Name: tname[j], Source: "digikam"}
+				parent.Children = dbo.TagsTree{current}
+				current = parent
+			}
+			i.Tags = append(i.Tags, current)
 		}
-		i.Tags = append(i.Tags, current)
-	}
-
+	*/
 	return nil
 }
 

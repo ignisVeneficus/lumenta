@@ -307,7 +307,6 @@ action:
         label: "Create new album"
 page:
   common:
-    #kirakni
     search: "Search"
     filter: "Filter"
     name: "Name"
@@ -319,8 +318,12 @@ page:
   footer:
     powered: "Powered by"
   public:
+    album:
+      nr_content: "{images} images in {albums} albums"
     tags:
-      nr_images: "{count} photos"
+      nr_images: "{images} photos"
+    tag:
+      nr_images: "{images} photos"
   admin:
     common:
       no_records: "No records found"

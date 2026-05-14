@@ -3,8 +3,10 @@ package pipeline
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"os"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -12,7 +14,9 @@ import (
 	fileConfig "github.com/ignisVeneficus/lumenta/config/filesystem"
 	syncConfig "github.com/ignisVeneficus/lumenta/config/sync"
 	"github.com/ignisVeneficus/lumenta/data"
+	"github.com/ignisVeneficus/lumenta/db/dao"
 	"github.com/ignisVeneficus/lumenta/db/dbo"
+	"github.com/ignisVeneficus/lumenta/mapper"
 	"github.com/ignisVeneficus/lumenta/ruleengine"
 	"github.com/rs/zerolog"
 )
@@ -259,4 +263,47 @@ type AlbumContext struct {
 	NameMap      map[uint64]string
 	AlbumStructs ruleengine.AlbumsStruct
 	Rules        []*AlbumRule
+}
+
+type TagCache struct {
+	mu sync.Mutex
+	m  map[string]uint64
+}
+
+func (c *TagCache) Resolve(database *sql.DB, ctx context.Context, tagPath string, source string) ([]uint64, error) {
+	ret := make([]uint64, 0)
+	if tagPath == "" {
+		return ret, fmt.Errorf("empty path")
+	}
+	parts := mapper.SplitTagPath(tagPath)
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	var parentID *uint64 = nil
+	for j := 0; j < len(parts); j++ {
+		cacheKey := strings.Join(parts[:j+1], "/")
+		if id, ok := c.m[cacheKey]; ok {
+			ret = append(ret, id)
+			parent := id
+			parentID = &parent
+			continue
+		}
+
+		tag := dbo.Tag{
+			Name:     parts[j],
+			Source:   dbo.TagSource(source),
+			ParentID: parentID,
+		}
+		id, err := dao.CreateTag(database, ctx, tag)
+		if err != nil {
+			return ret, err
+		}
+		c.m[cacheKey] = id
+		ret = append(ret, id)
+		parent := id
+		parentID = &parent
+	}
+
+	return ret, nil
 }

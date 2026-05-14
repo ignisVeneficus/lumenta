@@ -70,6 +70,9 @@ func Server(cfg config.Config, i18n *i18n.Service, ctx context.Context) {
 
 		publicGrp.GET(routes.GetImagePath(), public.ImagePage(templatreResolver, cfg))
 
+		publicGrp.GET(routes.GetAlbumPath(), public.AlbumPage(templatreResolver, cfg))
+		publicGrp.GET(routes.GetAlbumsRootPath(), public.AlbumsRootPage(templatreResolver, cfg))
+
 		/// "/img/:id/:type"
 		publicGrp.GET(routes.GetImageDerivativePath(), DerivativeHandler(cfg))
 	}

@@ -10,6 +10,7 @@ require (
 	github.com/goccy/go-yaml v1.18.0
 	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/google/uuid v1.6.0
+	github.com/ignisVeneficus/logging v0.0.0-20260514155300-ffe90f5918f0
 	github.com/rs/zerolog v1.35.1
 	golang.org/x/crypto v0.46.0
 	golang.org/x/text v0.32.0
@@ -29,7 +30,6 @@ require (
 	github.com/go-playground/universal-translator v0.18.1 // indirect
 	github.com/go-playground/validator/v10 v10.27.0 // indirect
 	github.com/goccy/go-json v0.10.5 // indirect
-	github.com/ignisVeneficus/logging v0.0.0-20260511172107-a57bdb13e9c2 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/cpuid/v2 v2.3.0 // indirect
 	github.com/kr/pretty v0.3.0 // indirect

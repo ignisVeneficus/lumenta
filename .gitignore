@@ -22,6 +22,8 @@
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
 
+.gocache
+
 # Dependency directories (remove the comment below to include it)
 # vendor/
 
@@ -31,5 +33,6 @@
 # config files
 config.yaml
 config-large.yaml
+config-stress.yaml
 log.config
 log-large.config

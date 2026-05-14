@@ -156,6 +156,21 @@ SELECT COUNT(*) FROM images`
 const countImageACLLevels = `
 SELECT i.acl_level, COUNT(*) FROM images AS i GROUP BY i.acl_level`
 
+const countImageByAlbumACL = `SELECT count(i.id)
+FROM album_images ai
+JOIN images i ON i.id = ai.image_id
+AND %s 
+WHERE ai.album_id=? `
+
+const queryImageByAlbumACLPaged = `SELECT ` + imageFields + `
+FROM album_images ai
+JOIN images i ON i.id = ai.image_id
+AND %s 
+WHERE ai.album_id=? 
+ORDER BY ai.position
+LIMIT ?,?
+`
+
 func parseImage(row *sql.Row) (dbo.Image, error) {
 	var i dbo.Image
 	err := row.Scan(
@@ -769,6 +784,33 @@ func (q *Queries) CountImageACLLevels(ctx context.Context) (dbo.ImageACLCount, e
 	return out, nil
 }
 
+func (q *Queries) QueryImageByAlbumACLPaged(ctx context.Context, albumId uint64, acl dbo.ACLContext, from, qty uint64) ([]dbo.Image, error) {
+	aclWhere, aclParams := CreateAclWhere("i", acl)
+	params := []any{}
+	params = append(params, aclParams...)
+	params = append(params, albumId)
+	params = append(params, from)
+	params = append(params, qty)
+	rows, err := q.db.QueryContext(ctx, fmt.Sprintf(queryImageByAlbumACLPaged, aclWhere), params...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	images, err := parseImageRows(rows)
+	return images, err
+}
+
+func (q *Queries) CountImageByAlbumACL(ctx context.Context, albumId uint64, acl dbo.ACLContext) (uint64, error) {
+	aclWhere, aclParams := CreateAclWhere("i", acl)
+	params := []any{}
+	params = append(params, aclParams...)
+	params = append(params, albumId)
+	row := q.db.QueryRowContext(ctx, fmt.Sprintf(countImageByAlbumACL, aclWhere), params...)
+	var count uint64
+	err := row.Scan(&count)
+	return count, err
+}
+
 //
 // =========================================================
 // Public API functions
@@ -998,7 +1040,7 @@ func QueryImageIDsByAlbumsPage(db *sql.DB, c context.Context, albumIDs []uint64,
 	return images, logging.Return(logScope, err)
 }
 func BindImageTags(db *sql.DB, c context.Context, imageID uint64, tagIDs []uint64) error {
-	logScope, ctx := logging.Enter(c, "dao/image/update/tag/bind", imageID, map[string]any{
+	logScope, ctx := logging.Enter(c, "dao/image/update/tag/bind/multiple", imageID, map[string]any{
 		"image": imageID,
 		"tags":  tagIDs,
 	})
@@ -1451,6 +1493,49 @@ func CountImageACLLevels(db *sql.DB, c context.Context) (dbo.ImageACLCount, erro
 	if err != nil {
 		logging.ExitErr(logScope, err)
 		return dbo.ImageACLCount{}, err
+	}
+	logging.Exit(logScope, "ok", map[string]any{"return": qty})
+	return qty, nil
+}
+
+func QueryImageByAlbumACLPaged(db *sql.DB, c context.Context, album uint64, acl dbo.ACLContext, from, qty uint64) ([]dbo.Image, error) {
+	logScope, ctx := logging.Enter(c, "dao/image/query/byAlbum/ACL/paged", album, map[string]any{
+		"album": album,
+		"acl":   acl,
+		"from":  from,
+		"qty":   qty,
+	})
+	q := NewQueries(db)
+	images, err := q.QueryImageByAlbumACLPaged(ctx, album, acl, from, qty)
+	if err != nil {
+		logging.ExitErr(logScope, err)
+		return nil, err
+	}
+	for i, img := range images {
+		tags, err := q.QueryTagsByImageID(ctx, *img.ID)
+		if err != nil {
+			logging.ExitErr(logScope, err)
+			return images, err
+		}
+		img.Tags = dbo.TagsToPointer(tags)
+		images[i] = img
+	}
+
+	logging.Exit(logScope, "ok", map[string]any{
+		"found": len(images),
+	})
+	return images, nil
+}
+func CountImageByAlbumACL(db *sql.DB, c context.Context, album uint64, acl dbo.ACLContext) (uint64, error) {
+	logScope, ctx := logging.Enter(c, "dao/image/count/byAlbum/Acl", album, map[string]any{
+		"album": album,
+		"acl":   acl,
+	})
+	q := NewQueries(db)
+	qty, err := q.CountImageByAlbumACL(ctx, album, acl)
+	if err != nil {
+		logging.ExitErr(logScope, err)
+		return 0, err
 	}
 	logging.Exit(logScope, "ok", map[string]any{"return": qty})
 	return qty, nil

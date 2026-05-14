@@ -57,7 +57,11 @@ func Logger() gin.HandlerFunc {
 
 		c.Next()
 
-		logging.ReturnParams(scope, c.Errors.Last(), map[string]any{
+		var err error
+		if ginErr := c.Errors.Last(); ginErr != nil {
+			err = ginErr.Err
+		}
+		logging.ReturnParams(scope, err, map[string]any{
 			"status": c.Writer.Status(),
 		})
 		logEvent := getLogEvent(c.Writer.Status(), c.Errors.String())

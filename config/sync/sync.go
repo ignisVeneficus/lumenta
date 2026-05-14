@@ -14,11 +14,27 @@ const (
 	//WorkerFS WorkerName ="filesystem"
 	StepMetadata StepName = "metadata"
 	StepHash     StepName = "hash"
+	StepACL      StepName = "acl"
+	StepAlbum    StepName = "album_rules"
+	StepImage    StepName = "image_writer"
+	StepFiltered StepName = "filtered_writer"
+	StepDB       StepName = "db_reader"
+	StepDirty    StepName = "dirty_check"
+	StepFilter   StepName = "insertion_filter"
+	StepResult   StepName = "result_writer"
 )
 
 var ValidStepName = map[StepName]struct{}{
 	StepMetadata: {},
 	StepHash:     {},
+	StepACL:      {},
+	StepAlbum:    {},
+	StepImage:    {},
+	StepFiltered: {},
+	StepDB:       {},
+	StepDirty:    {},
+	StepFilter:   {},
+	StepResult:   {},
 }
 
 type SyncConfig struct {

@@ -61,8 +61,6 @@ func newAlbumPageContext(album dbo.Album) adminData.AlbumContext {
 			Rank:        tpl.UintToString(&album.Rank),
 		},
 		CoverImage: album.CoverImageID,
-		AlbumCount: uint64(album.ChildAlbumCount),
-		ImageCount: uint64(album.ImageCount),
 		State:      state,
 	}
 }

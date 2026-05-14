@@ -3,8 +3,18 @@
         {{- range $card:= .Cards -}}
         <a class="card" href="{{$card.URL}}">
             <div class="media">
-                <img src="{{imagePath $card.Image "w640" }}"
-                class="derivative-img"/>
+                {{- if  $card.Image -}}
+                <img
+                    class="derivative-img"
+                    src="{{ imagePath $card.Image "w640" }}"
+                    loading="lazy"
+                    decoding="async"
+                >
+                {{- else -}}
+                <div class="no-image">
+                    {{ template "icon" (i "page.public.common.cover_placeholder" "")}}
+                </div>
+                {{- end -}}
             </div>
             <div class="meta">
                 <div class="name">{{$card.Name}}</div>

@@ -112,3 +112,6 @@ page:
     fs:
       directories: "fa-solid fa-folder"
       images: "fa-solid fa-image"
+  public:
+    common:
+      cover_placeholder: "fa-regular fa-image"

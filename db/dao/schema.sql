@@ -185,10 +185,6 @@ CREATE TABLE IF NOT EXISTS albums (
     COMMENT 'Sibling ordering index within the same parent album',
   cover_image_id BIGINT UNSIGNED NULL 
     COMMENT 'Optional fixed cover image overriding automatic selection',
-  child_album_count INT UNSIGNED NOT NULL DEFAULT 0 
-    COMMENT 'Cached recursive count of child albums',
-  image_count INT UNSIGNED NOT NULL DEFAULT 0
-    COMMENT 'Cached recursive count of images in this album',
   acl_level INT NOT NULL DEFAULT 0
     COMMENT 'Album-level access control level',
   acl_user_id BIGINT UNSIGNED DEFAULT 0
@@ -238,8 +234,8 @@ CREATE TABLE IF NOT EXISTS tags (
 
   name VARCHAR(100) NOT NULL
     COMMENT 'Single segment tag name',
-  parent_id BIGINT NULL
-    COMMENT 'Parent tag ID for hierarchy',
+  parent_id BIGINT
+    COMMENT 'Parent tag ID for hierarchy, 0 for root items',
 
   source ENUM('digikam') NOT NULL DEFAULT 'digikam'
     COMMENT 'Origin of the tag taxonomy',

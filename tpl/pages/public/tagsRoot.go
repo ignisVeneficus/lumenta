@@ -46,7 +46,7 @@ func TagsRootPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 					Label:    t.Name,
 					Notes: []string{
 						i18n.T(loc, "page.public.tags.nr_images", map[string]any{
-							"count": t.Count,
+							"images": t.Count,
 						}),
 					},
 					URL: template.URL(routes.CreateTagPath(*t.ID)),

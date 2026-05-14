@@ -23,9 +23,6 @@ type Album struct {
 	RuleJSON     json.RawMessage
 	CoverImageID *uint64
 
-	ChildAlbumCount uint32
-	ImageCount      uint32
-
 	ACLLevel  DBACLLevel
 	ACLUserID uint64
 
@@ -44,9 +41,7 @@ func (a *Album) MarshalZerologObjectWithLevel(e *zerolog.Event, level zerolog.Le
 	}
 	if level == zerolog.TraceLevel {
 		e.RawJSON(string(definitions.AlbumFieldRuleJSON), a.RuleJSON).
-			Time(string(definitions.AlbumFieldUpdatedAt), a.UpdatedAt).
-			Uint32(string(definitions.AlbumFieldChildAlbumCount), a.ChildAlbumCount).
-			Uint32(string(definitions.AlbumFieldImageCount), a.ImageCount)
+			Time(string(definitions.AlbumFieldUpdatedAt), a.UpdatedAt)
 		logging.StrIf(e, string(definitions.AlbumFieldDescription), a.Description)
 		logging.Uint64If(e, string(definitions.AlbumFieldCoverImageID), a.CoverImageID)
 

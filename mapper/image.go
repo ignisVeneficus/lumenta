@@ -2,12 +2,9 @@ package mapper
 
 import (
 	"strings"
-
-	"github.com/rs/zerolog/log"
 )
 
 func SplitTagPath(path string) []string {
-	log.Logger.Debug().Str("path", path).Msg("splitPath")
 	path = strings.TrimSpace(path)
 	if path == "" {
 		return nil

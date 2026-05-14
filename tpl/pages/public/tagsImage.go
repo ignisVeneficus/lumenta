@@ -132,7 +132,7 @@ func TagImagePage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 
 		prev, next, err := TagsImagePrevNext(database, ctx, acl.ACLContext, tagId, image)
 
-		breadcrumbs, err := tpl.BuildTagBreadcumb(database, ctx, thisTag, false)
+		breadcrumbs, err := tpl.BuildTagBreadcumb(database, ctx, loc, i18n, thisTag, false)
 		title := image.GetTitle()
 		breadcrumbs = append(breadcrumbs, data.Breadcrumb{
 			Label: title,
