@@ -6,16 +6,16 @@ import (
 	"github.com/ignisVeneficus/lumenta/server/routes"
 )
 
-func ImagePath(imageId uint64, derivative string) template.URL {
-	return template.URL(routes.CreateDerivativePath(imageId, derivative))
+func ImagePath(imageID routes.ImageID, derivative string) template.URL {
+	return template.URL(routes.CreateDerivativePath(imageID, derivative))
 }
 
 func AlbumsRootPath() template.URL {
 	return template.URL(routes.CreateAlbumsRootPath())
 }
 
-func TagPath(tagId uint64) template.URL {
-	return template.URL(routes.CreateTagPath(uint64(tagId)))
+func TagPath(tagID routes.TagID) template.URL {
+	return template.URL(routes.CreateTagPath(tagID))
 }
 
 func TagsRootPath() template.URL {
@@ -26,8 +26,8 @@ func AdminRootPath() template.URL {
 	return template.URL(routes.CreateAdminRootPath())
 }
 
-func AdminImagePath(img uint64) template.URL {
-	return template.URL(routes.CreateAdminImgPath(img))
+func AdminImagePath(imageID routes.ImageID) template.URL {
+	return template.URL(routes.CreateAdminImgPath(imageID))
 }
 
 func AdminAlbumsPath() template.URL {
@@ -45,14 +45,14 @@ func AdminFsPath() template.URL {
 func AdminSyncRunsPath() template.URL {
 	return template.URL(routes.CreateAdminSyncRunListPath())
 }
-func AdminSyncRunPath(id uint64) template.URL {
-	return template.URL(routes.CreateAdminSyncRunFilesPath(id))
+func AdminSyncRunPath(syncRunID routes.SyncRunID) template.URL {
+	return template.URL(routes.CreateAdminSyncRunFilesPath(syncRunID))
 }
 func AdminSyncFilesPathPath(path string) template.URL {
 	return template.URL(routes.CreateAdminSyncFilesByPathPath(path))
 }
-func AdminSyncFilePath(id uint64) template.URL {
-	return template.URL(routes.CreateAdminSyncFilePath(id))
+func AdminSyncFilePath(syncFileID routes.SyncFileID) template.URL {
+	return template.URL(routes.CreateAdminSyncFilePath(syncFileID))
 }
 func AdminSyncFilesPath() template.URL {
 	return template.URL(routes.CreateAdminSyncFilesPath())
@@ -68,8 +68,8 @@ func ApiAdminAlbumsPathView(view string) template.URL {
 	return template.URL(path.String())
 }
 
-func ApiAdminImagePath(img uint64) template.URL {
-	return template.URL(routes.CreateApiAdminImagePath(img))
+func ApiAdminImagePath(imageID routes.ImageID) template.URL {
+	return template.URL(routes.CreateApiAdminImagePath(imageID))
 }
 
 func ApiAdminTagsPathView(view string) template.URL {

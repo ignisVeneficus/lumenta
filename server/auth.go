@@ -26,9 +26,10 @@ func ContextFromToken(token string, jwtSvc *JWTService) *authData.ACLContext {
 	if err != nil {
 		return nil
 	}
+	userID := claims.UserID
 	ctx := authData.ACLContext{
 		ACLContext: dbo.ACLContext{
-			ViewerUserID: &claims.UserID,
+			ViewerUserID: (*dbo.UserID)(&userID),
 			Role:         dbo.RoleUser,
 		},
 		UserName: &claims.Subject,
@@ -130,9 +131,10 @@ func AuthContextMiddleware(ctx context.Context, issuer string, cfg authConfig.Au
 		}
 
 		if env == config.EnvDevelopment {
+			userID := dbo.UserID(1)
 			ctx = &authData.ACLContext{
 				ACLContext: dbo.ACLContext{
-					ViewerUserID: utils.PtrUint64(uint64(1)),
+					ViewerUserID: &userID,
 					Role:         dbo.RoleAdmin,
 				},
 				UserName: utils.PtrString("dev admin"),

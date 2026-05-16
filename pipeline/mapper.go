@@ -47,7 +47,7 @@ func UpdateImageMetadata(i *dbo.Image, metadata data.Metadata) error {
 	return nil
 }
 
-func getDBOImageFromJob(job WorkItem, syncID uint64) {
+func getDBOImageFromJob(job WorkItem, syncID dbo.SyncRunID) {
 	job.DBImage.Root = job.RootName
 	job.DBImage.Path = job.Path
 	job.DBImage.Filename = job.Filename
@@ -65,10 +65,10 @@ func getDBOImageFromJob(job WorkItem, syncID uint64) {
 	if job.ACLLevel != nil {
 		job.DBImage.ACLLevel = *job.ACLLevel
 	}
-	job.DBImage.ACLUserID = job.ACLUser
+	job.DBImage.ACLUserID = dbo.UserID(job.ACLUser)
 	UpdateImageMetadata(job.DBImage, job.Metadata)
 }
-func getDBOFilteredFromJob(job WorkItem, syncID uint64) dbo.FilteredOut {
+func getDBOFilteredFromJob(job WorkItem, syncRunID dbo.SyncRunID) dbo.FilteredOut {
 	ret := dbo.FilteredOut{
 		Root:         job.RootName,
 		Path:         job.Path,
@@ -78,7 +78,7 @@ func getDBOFilteredFromJob(job WorkItem, syncID uint64) dbo.FilteredOut {
 		Ext:          job.Ext,
 		FileHash:     job.FileHash,
 		MetaHash:     job.FileMetadataHash,
-		LastSeenSync: &syncID,
+		LastSeenSync: &syncRunID,
 	}
 	JSONMetadata, err := json.Marshal(job.Metadata)
 	if err == nil {
@@ -93,7 +93,7 @@ func setJobFromImage(job *WorkItem) {
 	}
 	job.Panorama = (job.DBImage.Panorama == 1)
 	job.ACLLevel = &job.DBImage.ACLLevel
-	job.ACLUser = job.DBImage.ACLUserID
+	job.ACLUser = uint64(job.DBImage.ACLUserID)
 	job.CachedFileHash = job.DBImage.FileHash
 	job.CachedFileMetadataHash = job.DBImage.MetaHash
 	job.CachedSize = job.DBImage.FileSize

@@ -44,7 +44,7 @@
         {{- end -}}
 
         {{- if eq .User.Role "admin" -}}
-        <a href="{{ adminImagePath .Image.Image.ID }}" class="action button action-admin">
+        <a href="{{ adminImagePath .Image.RoutesImagedID }}" class="action button action-admin">
             {{- template "icon" (i "action.public.image.open_admin" (t "action.public.image.open_admin.label") "admin-icon") -}}
         </a>
         {{- end -}}        
@@ -71,7 +71,7 @@
   <div class="image-content">
     <div class="image-wrapper">
         <div class="image" id="theImage">
-            <img src="{{ imagePath .Image.Image.ID "w2400" }}"
+            <img src="{{ imagePath .Image.RoutesImagedID "w2400" }}"
                class="derivative-img"
             />
             <figcaption class="caption">{{ .Image.Image.GetTitle }}</figcaption>

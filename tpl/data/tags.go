@@ -12,10 +12,10 @@ func ForrestFromTags(tags []*dbo.Tag, UrlBuilder func(uint64) string) *data.Fore
 	flatForrest := NewFlatForrest()
 	mapper := func(t *dbo.Tag) ViewTreeNode {
 		return ViewTreeNode{
-			ID:       *t.ID,
-			ParentID: t.ParentID,
+			ID:       uint64(*t.ID),
+			ParentID: (*uint64)(t.ParentID),
 			Label:    t.Name,
-			URL:      template.URL(UrlBuilder(*t.ID)),
+			URL:      template.URL(UrlBuilder(uint64(*t.ID))),
 		}
 	}
 	tagsList := MapToViewNodes(tags, mapper)

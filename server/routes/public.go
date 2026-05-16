@@ -2,8 +2,6 @@ package routes
 
 import (
 	"fmt"
-
-	"github.com/ignisVeneficus/lumenta/tpl/data"
 )
 
 const (
@@ -20,14 +18,14 @@ const (
 func GetAlbumImagePath() string {
 	return getPath(albumImagePath, ":aid", ":iid")
 }
-func CreateAlbumImagePath(aid, iid uint64) string {
-	return fmt.Sprintf(albumImagePath, aid, iid)
+func CreateAlbumImagePath(albumID AlbumID, imageID ImageID) string {
+	return fmt.Sprintf(albumImagePath, albumID, imageID)
 }
 
 func GetImageDerivativePath() string {
 	return getPath(derivativePath, ":id", ":type")
 }
-func CreateDerivativePath(id uint64, derivative string) string {
+func CreateDerivativePath(id ImageID, derivative string) string {
 	return fmt.Sprintf(derivativePath, id, derivative)
 }
 
@@ -37,18 +35,18 @@ func GetAlbumsRootPath() string {
 func CreateAlbumsRootPath() string {
 	return albumsRootPath
 }
-func BuildAlbumsRootPath() *data.URLBuilder {
-	return data.NewURL(albumsRootPath)
+func BuildAlbumsRootPath() *URLBuilder {
+	return NewURL(albumsRootPath)
 }
 
 func GetAlbumPath() string {
 	return getPath(albumPath, ":aid")
 }
-func CreateAlbumPath(id int64) string {
-	return fmt.Sprintf(albumPath, id)
+func CreateAlbumPath(albumID AlbumID) string {
+	return fmt.Sprintf(albumPath, albumID)
 }
-func BuildAlbumPath(id int64) *data.URLBuilder {
-	return data.NewURL(CreateAlbumPath(id))
+func BuildAlbumPath(albumID AlbumID) *URLBuilder {
+	return NewURL(CreateAlbumPath(albumID))
 }
 
 func GetTagsRootPath() string {
@@ -61,25 +59,25 @@ func CreateTagsRootPath() string {
 func GetTagPath() string {
 	return getPath(tagPath, ":tid")
 }
-func CreateTagPath(id uint64) string {
-	return fmt.Sprintf(tagPath, id)
+func CreateTagPath(tagID TagID) string {
+	return fmt.Sprintf(tagPath, tagID)
 }
-func BuildTagPath(tagId uint64) *data.URLBuilder {
-	return data.NewURL(CreateTagPath(tagId))
+func BuildTagPath(tagID TagID) *URLBuilder {
+	return NewURL(CreateTagPath(tagID))
 }
 
 func GetTagImagePath() string {
 	return getPath(tagImagePath, ":tid", ":iid")
 }
-func CreateTagImagePath(tid, iid uint64) string {
-	return fmt.Sprintf(tagImagePath, tid, iid)
+func CreateTagImagePath(tagID TagID, imageID ImageID) string {
+	return fmt.Sprintf(tagImagePath, tagID, imageID)
 }
-func BuildTagImagePath(tid, iid uint64) *data.URLBuilder {
-	return data.NewURL(CreateTagImagePath(tid, iid))
+func BuildTagImagePath(tagID TagID, imageID ImageID) *URLBuilder {
+	return NewURL(CreateTagImagePath(tagID, imageID))
 }
 func GetImagePath() string {
 	return getPath(imagePath, ":id")
 }
-func CreateImagePath(id uint64) string {
+func CreateImagePath(id ImageID) string {
 	return fmt.Sprintf(imagePath, id)
 }

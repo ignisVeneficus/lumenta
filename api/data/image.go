@@ -5,8 +5,9 @@ import (
 	"github.com/ignisVeneficus/lumenta/server/routes"
 )
 
+type ImageID uint64
 type ImageCoord struct {
-	Image     uint64  `json:"img"`
+	Image     ImageID `json:"img"`
 	Latitude  float64 `json:"lat"`
 	Longitude float64 `json:"lon"`
 	Color     string  `json:"color"`
@@ -17,12 +18,12 @@ type ImageCoord struct {
 
 func CreateImageCoord(img dbo.ImageCoord, creator func(uint64) string) ImageCoord {
 	return ImageCoord{
-		Image:     img.ID,
+		Image:     ImageID(img.ID),
 		Latitude:  *img.Latitude,
 		Longitude: *img.Longitude,
 		Color:     "primary",
-		URL:       creator(img.ID),
-		ImageURL:  routes.CreateDerivativePath(img.ID, "s400"),
+		URL:       creator(uint64(img.ID)),
+		ImageURL:  routes.CreateDerivativePath(routes.ImageID(img.ID), "s400"),
 		Label:     img.Title,
 	}
 }

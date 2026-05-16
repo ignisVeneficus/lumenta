@@ -3,8 +3,6 @@ package routes
 import (
 	"fmt"
 	"html/template"
-
-	"github.com/ignisVeneficus/lumenta/tpl/data"
 )
 
 const (
@@ -21,8 +19,8 @@ func GetApiAdminTagsPath() string {
 func CreateApiAdminTagsPath() string {
 	return ApiPrefix + AdminPrefix + apiAdminTagPath
 }
-func BuildApiAdminTagsPath() *data.URLBuilder {
-	return data.NewURL(ApiPrefix + AdminPrefix + apiAdminTagPath)
+func BuildApiAdminTagsPath() *URLBuilder {
+	return NewURL(ApiPrefix + AdminPrefix + apiAdminTagPath)
 }
 
 func GetApiAdminAlbumsPath() string {
@@ -31,14 +29,14 @@ func GetApiAdminAlbumsPath() string {
 func CreateApiAdminAlbumsPath() string {
 	return ApiPrefix + AdminPrefix + apiAdminAlbumsPath
 }
-func BuildApiAdminAlbumsPath() *data.URLBuilder {
-	return data.NewURL(ApiPrefix + AdminPrefix + apiAdminAlbumsPath)
+func BuildApiAdminAlbumsPath() *URLBuilder {
+	return NewURL(ApiPrefix + AdminPrefix + apiAdminAlbumsPath)
 }
 
 func GetApiAdminAlbumPath() string {
 	return getPath(apiAdminAlbumPath, ":id")
 }
-func CreateApiAdminAlbumPath(albumID uint64) string {
+func CreateApiAdminAlbumPath(albumID AlbumID) string {
 	return ApiPrefix + AdminPrefix + fmt.Sprintf(apiAdminAlbumPath, albumID)
 }
 func CreateApiAdminAlbumPathJS() template.JS {
@@ -54,6 +52,6 @@ func CreateApiAdminImagesPath() string {
 func GetApiAdminImagePath() string {
 	return getPath(apiAdminImagePath, ":id")
 }
-func CreateApiAdminImagePath(imageID uint64) string {
+func CreateApiAdminImagePath(imageID ImageID) string {
 	return ApiPrefix + AdminPrefix + fmt.Sprintf(apiAdminImagePath, imageID)
 }

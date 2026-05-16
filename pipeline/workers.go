@@ -142,12 +142,12 @@ func fSWorker(ctx *PipelineContext) error {
 	logging.Exit(logScope, "ok", nil)
 	return nil
 }
-func convertAlbums(albums []uint64, ctx *PipelineContext) ruleengine.AlbumsStruct {
+func convertAlbums(albums []dbo.AlbumID, ctx *PipelineContext) ruleengine.AlbumsStruct {
 	ret := make(ruleengine.AlbumsStruct)
 	for _, album := range albums {
-		as, ok := ctx.AlbumCtx.AlbumStructs[album]
+		as, ok := ctx.AlbumCtx.AlbumStructs[uint64(album)]
 		if ok {
-			ret[album] = as
+			ret[uint64(album)] = as
 		}
 	}
 	return ret
@@ -646,10 +646,10 @@ func dbImageWriterWorker(ctx *PipelineContext, tagCache *TagCache) error {
 				SaveResultError(ctx, job, c)
 				continue
 			}
-			tagSet := make(map[uint64]struct{})
+			tagSet := make(map[dbo.TagID]struct{})
 			tags := job.Metadata.GetTags()
 			for _, t := range tags {
-				var tagIDs []uint64
+				var tagIDs []dbo.TagID
 				tagIDs, err = tagCache.Resolve(ctx.Database, c, t, "Digikam")
 				if err != nil {
 					logging.ExitErrParams(logScope, err, map[string]any{"is_dirty": job.IsDirty})
@@ -663,7 +663,7 @@ func dbImageWriterWorker(ctx *PipelineContext, tagCache *TagCache) error {
 			if err != nil {
 				continue
 			}
-			tagIDs := make([]uint64, 0, len(tagSet))
+			tagIDs := make([]dbo.TagID, 0, len(tagSet))
 			for id := range tagSet {
 				tagIDs = append(tagIDs, id)
 			}
@@ -741,7 +741,7 @@ func albumInsertionWorker(ctx *PipelineContext) error {
 				_, found := job.Albums[ar.ID]
 				job.RuleResults.AddResult(ruleengine.EvaluationAlbum, ruleResult)
 				if found && !match {
-					err := dao.BreakAlbumImage(ctx.Database, c, ar.ID, *job.DBImage.ID)
+					err := dao.BreakAlbumImage(ctx.Database, c, dbo.AlbumID(ar.ID), *job.DBImage.ID)
 					if err != nil {
 						logging.ErrorContinue(logScope, err, map[string]any{
 							"album_id": ar.ID,
@@ -751,7 +751,7 @@ func albumInsertionWorker(ctx *PipelineContext) error {
 					delete(facts.Albums, ar.ID)
 				}
 				if !found && match {
-					err := dao.BindAlbumImage(ctx.Database, c, ar.ID, *job.DBImage.ID, nil)
+					err := dao.BindAlbumImage(ctx.Database, c, dbo.AlbumID(ar.ID), *job.DBImage.ID, nil)
 					if err != nil {
 						logging.ErrorContinue(logScope, err, map[string]any{
 							"album_id": ar.ID,
@@ -812,7 +812,7 @@ func resultSaverWorker(ctx *PipelineContext) error {
 			"path":  job.RealPath,
 			"dirty": job.IsDirty,
 		})
-		err := dao.UpdateImageSyncId(ctx.Database, c, *job.DBImage.ID, ctx.SyncId)
+		err := dao.UpdateImageSyncID(ctx.Database, c, *job.DBImage.ID, ctx.SyncId)
 		if err != nil {
 			logging.ExitErrParams(logScope, err, map[string]any{"is_dirty": job.IsDirty})
 			SaveResultError(ctx, job, c)

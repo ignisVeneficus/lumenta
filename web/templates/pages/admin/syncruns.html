@@ -27,7 +27,7 @@
             </thead>
             <tbody>
                 {{- range .SyncRuns -}}
-                <tr class="clickable-row" data-href="{{- adminSyncRunPath .ID -}}">
+                <tr class="clickable-row" data-href="{{- adminSyncRunPath .RoutesSyncRunID -}}">
                     <td class="col-icon">
                         {{ template "icon" (i (printf "data.sync_runs.status.%s" .Status) (t (printf "data.sync_run.status.%s.label" .Status)) (printf "sync-%s" .Status))}}
                     </td>

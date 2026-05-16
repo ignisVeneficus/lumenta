@@ -41,15 +41,15 @@ func TagsRootPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 		tagsList := tplData.MapToViewNodes(tags,
 			func(t dbo.TagWCount) tplData.ViewTreeNode {
 				return tplData.ViewTreeNode{
-					ID:       *t.ID,
-					ParentID: t.ParentID,
+					ID:       uint64(*t.ID),
+					ParentID: (*uint64)(t.ParentID),
 					Label:    t.Name,
 					Notes: []string{
 						i18n.T(loc, "page.public.tags.nr_images", map[string]any{
 							"images": t.Count,
 						}),
 					},
-					URL: template.URL(routes.CreateTagPath(*t.ID)),
+					URL: template.URL(routes.CreateTagPath(routes.TagID(*t.ID))),
 				}
 			})
 		flatForrest.Add(tagsList)

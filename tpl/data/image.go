@@ -3,6 +3,7 @@ package data
 import (
 	"github.com/ignisVeneficus/lumenta/data"
 	"github.com/ignisVeneficus/lumenta/db/dbo"
+	"github.com/ignisVeneficus/lumenta/server/routes"
 )
 
 type PageImage struct {
@@ -10,6 +11,10 @@ type PageImage struct {
 	SingleMap *SingleMap
 	Metadata  Metadata
 	Tags      data.Forest[*ViewTreeNode]
+}
+
+func (pi PageImage) RoutesImagedID() routes.ImageID {
+	return routes.ImageID(*pi.Image.ID)
 }
 
 type Metadata struct {

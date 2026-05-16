@@ -7,7 +7,6 @@ import (
 
 	"github.com/ignisVeneficus/logging"
 	"github.com/ignisVeneficus/lumenta/db/dbo"
-	"github.com/ignisVeneficus/lumenta/utils"
 )
 
 const filteredFields = `
@@ -37,6 +36,14 @@ SELECT 1 FROM filtered f WHERE
 f.root=? AND f.path = ? AND f.filename = ? AND f.ext = ?
 `
 
+// parseFiltered scans a single filtered row into a FilteredOut value.
+//
+// Input:
+//   - row: SQL row containing the filteredFields columns.
+//
+// Output:
+//   - dbo.FilteredOut: scanned filtered record.
+//   - error: scan error, if any.
 func parseFiltered(row *sql.Row) (dbo.FilteredOut, error) {
 	var f dbo.FilteredOut
 	err := row.Scan(
@@ -56,12 +63,32 @@ func parseFiltered(row *sql.Row) (dbo.FilteredOut, error) {
 	)
 	return f, err
 }
+
+// GetFilteredByPath reads a filtered record by filesystem identity.
+//
+// Input:
+//   - ctx: request context.
+//   - root, path, filename, ext: filesystem identity fields.
+//
+// Output:
+//   - dbo.FilteredOut: matching filtered record.
+//   - error: query or scan error, including sql.ErrNoRows when not found.
 func (q *Queries) GetFilteredByPath(ctx context.Context, root, path, filename, ext string) (dbo.FilteredOut, error) {
 	row := q.db.QueryRowContext(ctx, getFilteredByPath, root, path, filename, ext)
 	return parseFiltered(row)
 }
 
-func (q *Queries) DeleteFilteredNotSeen(ctx context.Context, syncID uint64, limit uint32) (uint64, error) {
+// DeleteFilteredNotSeen deletes filtered records not seen in the given sync run.
+//
+// Input:
+//   - ctx: request context.
+//   - syncID: sync run used as the current seen marker.
+//   - limit: maximum number of rows to delete.
+//
+// Output:
+//   - uint64: number of deleted rows.
+//   - error: exec or row-count error, if any.
+func (q *Queries) DeleteFilteredNotSeen(ctx context.Context, syncID dbo.SyncRunID, limit uint32) (uint64, error) {
 	res, err := q.db.ExecContext(ctx, deleteFilteredNotSeen, syncID, limit)
 	if err != nil {
 		return 0, err
@@ -72,11 +99,29 @@ func (q *Queries) DeleteFilteredNotSeen(ctx context.Context, syncID uint64, limi
 	}
 	return uint64(affected), nil
 }
-func (q *Queries) UpdateFilteredSyncIdByPath(ctx context.Context, root, path, filename, ext string, syncId uint64) error {
-	_, err := q.db.ExecContext(ctx, updateFilteredSyncIdByPath, syncId, root, path, filename, ext)
+
+// UpdateFilteredSyncIDByPath updates the last seen sync marker for a filtered record.
+//
+// Input:
+//   - ctx: request context.
+//   - root, path, filename, ext: filesystem identity fields.
+//   - syncID: sync run to store as last_seen_sync.
+//
+// Output:
+//   - error: exec error, if any.
+func (q *Queries) UpdateFilteredSyncIDByPath(ctx context.Context, root, path, filename, ext string, syncID dbo.SyncRunID) error {
+	_, err := q.db.ExecContext(ctx, updateFilteredSyncIdByPath, syncID, root, path, filename, ext)
 	return err
 }
 
+// CreateFiltered inserts a filtered record.
+//
+// Input:
+//   - ctx: request context.
+//   - f: filtered record to insert.
+//
+// Output:
+//   - error: exec error, if any.
 func (q *Queries) CreateFiltered(ctx context.Context, f dbo.FilteredOut) error {
 	_, err := q.db.ExecContext(
 		ctx,
@@ -95,12 +140,30 @@ func (q *Queries) CreateFiltered(ctx context.Context, f dbo.FilteredOut) error {
 	return err
 }
 
+// CheckFilteredByPath checks whether a filtered record exists by filesystem identity.
+//
+// Input:
+//   - ctx: request context.
+//   - root, path, filename, ext: filesystem identity fields.
+//
+// Output:
+//   - error: nil when a row exists; sql.ErrNoRows when not found; scan error otherwise.
 func (q *Queries) CheckFilteredByPath(ctx context.Context, root, path, filename, ext string) error {
 	row := q.db.QueryRowContext(ctx, checkFiltered, root, path, filename, ext)
 	var dummy int
 	return row.Scan(&dummy)
 }
 
+// GetFilteredByPath reads a filtered record by filesystem identity with logging.
+//
+// Input:
+//   - db: database handle.
+//   - c: request context.
+//   - root, path, filename, ext: filesystem identity fields.
+//
+// Output:
+//   - dbo.FilteredOut: matching filtered record.
+//   - error: wrapped not-found, query, or scan error.
 func GetFilteredByPath(db *sql.DB, c context.Context, root, path, filename, ext string) (dbo.FilteredOut, error) {
 	logScope, ctx := logging.Enter(c, "dao/filtered/get/byPath", root+"/"+path+"/"+filename+"."+ext, map[string]any{
 		"root":     root,
@@ -113,7 +176,18 @@ func GetFilteredByPath(db *sql.DB, c context.Context, root, path, filename, ext 
 	return f, returnWrapNotFound(logScope, err, "filtered")
 }
 
-func DeleteFilteredNotSeen(db *sql.DB, c context.Context, syncID uint64, limit uint32) (uint64, error) {
+// DeleteFilteredNotSeen deletes one batch of filtered records not seen in a sync run.
+//
+// Input:
+//   - db: database handle.
+//   - c: request context.
+//   - syncID: sync run used as the current seen marker.
+//   - limit: maximum number of rows to delete.
+//
+// Output:
+//   - uint64: number of deleted rows.
+//   - error: transaction, delete, or commit error.
+func DeleteFilteredNotSeen(db *sql.DB, c context.Context, syncID dbo.SyncRunID, limit uint32) (uint64, error) {
 	logScope, ctx := logging.Enter(c, "dao/filtered/delete/notSeen", syncID, map[string]any{"sync_id": syncID})
 
 	tx, err := GetTx(db, ctx)
@@ -131,7 +205,18 @@ func DeleteFilteredNotSeen(db *sql.DB, c context.Context, syncID uint64, limit u
 	}
 	return deleted, logging.ReturnParams(logScope, tx.Commit(), map[string]any{"deleted": deleted})
 }
-func DeleteFilteredNotSeenAll(db *sql.DB, c context.Context, syncID uint64, limit uint32) error {
+
+// DeleteFilteredNotSeenAll deletes filtered records not seen in a sync run until none remain.
+//
+// Input:
+//   - db: database handle.
+//   - c: request context.
+//   - syncID: sync run used as the current seen marker.
+//   - limit: batch size for each delete pass.
+//
+// Output:
+//   - error: delete error, if any.
+func DeleteFilteredNotSeenAll(db *sql.DB, c context.Context, syncID dbo.SyncRunID, limit uint32) error {
 	logScope, ctx := logging.Enter(c, "dao/filtered/delete/notSeen/all", syncID, map[string]any{"sync_id": syncID, "limit": limit})
 	deleted, err := DeleteFilteredNotSeen(db, ctx, syncID, limit)
 	if err != nil {
@@ -154,7 +239,17 @@ func DeleteFilteredNotSeenAll(db *sql.DB, c context.Context, syncID uint64, limi
 	return nil
 }
 
-func UpdateFilteredSyncIdByPath(db *sql.DB, c context.Context, root, path, filename, ext string, syncID uint64) error {
+// UpdateFilteredSyncIDByPath updates the last seen sync marker by filesystem identity with logging.
+//
+// Input:
+//   - db: database handle.
+//   - c: request context.
+//   - root, path, filename, ext: filesystem identity fields.
+//   - syncID: sync run to store as last_seen_sync.
+//
+// Output:
+//   - error: transaction, update, or commit error.
+func UpdateFilteredSyncIDByPath(db *sql.DB, c context.Context, root, path, filename, ext string, syncID dbo.SyncRunID) error {
 	logScope, ctx := logging.Enter(c, "dao/filtered/update/syncID/byPath", root+"/"+path+"/"+filename+"."+ext, map[string]any{
 		"root":     root,
 		"path":     path,
@@ -171,14 +266,25 @@ func UpdateFilteredSyncIdByPath(db *sql.DB, c context.Context, root, path, filen
 	defer tx.Rollback()
 	q := NewQueries(tx)
 
-	err = q.UpdateFilteredSyncIdByPath(ctx, root, path, filename, ext, syncID)
+	err = q.UpdateFilteredSyncIDByPath(ctx, root, path, filename, ext, syncID)
 	if err != nil {
 		logging.ExitErr(logScope, err)
 		return err
 	}
 	return logging.Return(logScope, tx.Commit())
 }
-func CreateFiltered(db *sql.DB, c context.Context, f *dbo.FilteredOut) (uint64, error) {
+
+// CreateFiltered inserts a filtered record and writes the new ID back to f.
+//
+// Input:
+//   - db: database handle.
+//   - c: request context.
+//   - f: filtered record to insert; receives the new ID.
+//
+// Output:
+//   - dbo.FilteredID: created filtered record ID.
+//   - error: transaction, insert, ID lookup, or commit error.
+func CreateFiltered(db *sql.DB, c context.Context, f *dbo.FilteredOut) (dbo.FilteredID, error) {
 	logScope, ctx := logging.Enter(c, "dao/filtered/create", f.Root+"/"+f.Path+"/"+f.Filename+"."+f.Ext, map[string]any{
 		"root":     f.Root,
 		"path":     f.Path,
@@ -204,10 +310,21 @@ func CreateFiltered(db *sql.DB, c context.Context, f *dbo.FilteredOut) (uint64, 
 		logging.ExitErr(logScope, err)
 		return 0, err
 	}
-	f.ID = utils.PtrUint64(uint64(id))
+	newID := dbo.FilteredID(id)
+	f.ID = &newID
 
-	return uint64(id), logging.ReturnParams(logScope, tx.Commit(), map[string]any{"new_ID": id})
+	return newID, logging.ReturnParams(logScope, tx.Commit(), map[string]any{"new_ID": id})
 }
+
+// CreateOrUpdateFiltered creates a filtered record or updates its last seen sync marker.
+//
+// Input:
+//   - db: database handle.
+//   - c: request context.
+//   - f: filtered record to create or update; receives a new ID on insert.
+//
+// Output:
+//   - error: transaction, existence check, create, update, ID lookup, or commit error.
 func CreateOrUpdateFiltered(db *sql.DB, c context.Context, f *dbo.FilteredOut) error {
 	logScope, ctx := logging.Enter(c, "dao/filtered/createOrUpdate", f.Root+"/"+f.Path+"/"+f.Filename+"."+f.Ext, map[string]any{
 		"root":     f.Root,
@@ -236,7 +353,7 @@ func CreateOrUpdateFiltered(db *sql.DB, c context.Context, f *dbo.FilteredOut) e
 		found = true
 	}
 	if found {
-		if err := q.UpdateFilteredSyncIdByPath(ctx, f.Root, f.Path, f.Filename, f.Ext, *f.LastSeenSync); err != nil {
+		if err := q.UpdateFilteredSyncIDByPath(ctx, f.Root, f.Path, f.Filename, f.Ext, *f.LastSeenSync); err != nil {
 			logging.ExitErr(logScope, err)
 			return err
 		}
@@ -250,7 +367,9 @@ func CreateOrUpdateFiltered(db *sql.DB, c context.Context, f *dbo.FilteredOut) e
 			logging.ExitErr(logScope, err)
 			return err
 		}
-		f.ID = utils.PtrUint64(uint64(id))
+		newID := dbo.FilteredID(id)
+		f.ID = &newID
+
 	}
 	return logging.Return(logScope, tx.Commit())
 }

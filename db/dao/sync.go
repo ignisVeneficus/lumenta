@@ -66,8 +66,8 @@ func parseSyncRunRows(rows *sql.Rows) ([]dbo.SyncRun, error) {
 	return out, rows.Err()
 }
 
-func (q *Queries) GetSyncRunByID(ctx context.Context, id uint64) (dbo.SyncRun, error) {
-	row := q.db.QueryRowContext(ctx, getSyncRunByID, id)
+func (q *Queries) GetSyncRunByID(ctx context.Context, syncRunID dbo.SyncRunID) (dbo.SyncRun, error) {
+	row := q.db.QueryRowContext(ctx, getSyncRunByID, syncRunID)
 	return parseSyncRunRow(row)
 }
 
@@ -76,13 +76,13 @@ func (q *Queries) CreateRunSync(ctx context.Context, mode dbo.SyncMode, metaHash
 	return err
 }
 
-func (q *Queries) CloseSyncRunSuccess(ctx context.Context, syncID uint64, totalSeen uint64, totalDeleted uint64) error {
-	_, err := q.db.ExecContext(ctx, closeSyncRunSuccess, totalSeen, totalDeleted, syncID)
+func (q *Queries) CloseSyncRunSuccess(ctx context.Context, syncRunID dbo.SyncRunID, totalSeen uint64, totalDeleted uint64) error {
+	_, err := q.db.ExecContext(ctx, closeSyncRunSuccess, totalSeen, totalDeleted, syncRunID)
 	return err
 }
 
-func (q *Queries) CloseSyncRunError(ctx context.Context, syncID uint64, errorMsg string) error {
-	_, err := q.db.ExecContext(ctx, closeSyncRunError, errorMsg, syncID)
+func (q *Queries) CloseSyncRunError(ctx context.Context, syncRunID dbo.SyncRunID, errorMsg string) error {
+	_, err := q.db.ExecContext(ctx, closeSyncRunError, errorMsg, syncRunID)
 	return err
 }
 
@@ -114,15 +114,15 @@ func (q *Queries) CountSyncRun(ctx context.Context) (uint64, error) {
 // =========================================================
 //
 
-func GetSyncRunByID(db *sql.DB, c context.Context, id uint64) (dbo.SyncRun, error) {
-	logScope, ctx := logging.Enter(c, "dao/sync_run/get/byId", id, map[string]any{"id": id})
+func GetSyncRunByID(db *sql.DB, c context.Context, syncRunID dbo.SyncRunID) (dbo.SyncRun, error) {
+	logScope, ctx := logging.Enter(c, "dao/sync_run/get/byId", syncRunID, map[string]any{"id": syncRunID})
 	q := NewQueries(db)
 
-	s, err := q.GetSyncRunByID(ctx, id)
+	s, err := q.GetSyncRunByID(ctx, syncRunID)
 	return s, returnWrapNotFound(logScope, err, "sync_run")
 }
 
-func CreateSyncRun(db *sql.DB, c context.Context, mode dbo.SyncMode, metaHash string) (uint64, error) {
+func CreateSyncRun(db *sql.DB, c context.Context, mode dbo.SyncMode, metaHash string) (dbo.SyncRunID, error) {
 	logScope, ctx := logging.Enter(c, "dao/sync_run/create", nil, map[string]any{"mode": mode, "meta_hash": metaHash})
 	tx, err := GetTx(db, ctx)
 	if err != nil {
@@ -141,10 +141,10 @@ func CreateSyncRun(db *sql.DB, c context.Context, mode dbo.SyncMode, metaHash st
 		logging.ExitErr(logScope, err)
 		return 0, err
 	}
-	return id, logging.Return(logScope, tx.Commit())
+	return dbo.SyncRunID(id), logging.Return(logScope, tx.Commit())
 }
-func CloseSyncRunSuccess(db *sql.DB, c context.Context, syncID uint64, totalSeen uint64, totalDeleted uint64) error {
-	logScope, ctx := logging.Enter(c, "dao/sync_run/update/close/success", syncID, map[string]any{"sync_id": syncID})
+func CloseSyncRunSuccess(db *sql.DB, c context.Context, syncRunID dbo.SyncRunID, totalSeen uint64, totalDeleted uint64) error {
+	logScope, ctx := logging.Enter(c, "dao/sync_run/update/close/success", syncRunID, map[string]any{"sync_id": syncRunID})
 	tx, err := GetTx(db, ctx)
 	if err != nil {
 		logging.ExitErr(logScope, err)
@@ -152,14 +152,14 @@ func CloseSyncRunSuccess(db *sql.DB, c context.Context, syncID uint64, totalSeen
 	}
 	defer tx.Rollback()
 	q := NewQueries(tx)
-	if err := q.CloseSyncRunSuccess(ctx, syncID, totalSeen, totalDeleted); err != nil {
+	if err := q.CloseSyncRunSuccess(ctx, syncRunID, totalSeen, totalDeleted); err != nil {
 		logging.ExitErr(logScope, err)
 		return err
 	}
 	return logging.Return(logScope, tx.Commit())
 }
-func CloseSyncRunError(db *sql.DB, c context.Context, syncID uint64, errorMsg string) error {
-	logScope, ctx := logging.Enter(c, "dao/sync_run/update/close/error", syncID, map[string]any{"sync_id": syncID, "error": errorMsg})
+func CloseSyncRunError(db *sql.DB, c context.Context, syncRunID dbo.SyncRunID, errorMsg string) error {
+	logScope, ctx := logging.Enter(c, "dao/sync_run/update/close/error", syncRunID, map[string]any{"sync_id": syncRunID, "error": errorMsg})
 	tx, err := GetTx(db, ctx)
 	if err != nil {
 		logging.ExitErr(logScope, err)
@@ -167,7 +167,7 @@ func CloseSyncRunError(db *sql.DB, c context.Context, syncID uint64, errorMsg st
 	}
 	defer tx.Rollback()
 	q := NewQueries(tx)
-	if err := q.CloseSyncRunError(ctx, syncID, errorMsg); err != nil {
+	if err := q.CloseSyncRunError(ctx, syncRunID, errorMsg); err != nil {
 		logging.ExitErr(logScope, err)
 		return err
 	}

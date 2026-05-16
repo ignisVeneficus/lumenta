@@ -142,12 +142,12 @@ func returnWrapNotFound(scope logging.LogScope, err error, entity string) error 
 	return err
 }
 
-func buildUint64InClause(ids []uint64) (string, []any) {
+func buildUint64InClause[T ~uint64](ids []T) (string, []any) {
 	placeholders := make([]string, len(ids))
 	args := make([]any, len(ids))
 	for i, id := range ids {
 		placeholders[i] = "?"
-		args[i] = id
+		args[i] = uint64(id)
 	}
 	return strings.Join(placeholders, ","), args
 }

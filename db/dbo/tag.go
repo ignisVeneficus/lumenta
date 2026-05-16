@@ -21,20 +21,22 @@ func (tt TagsTree) MarshalZerologObjectWithLevel(e *zerolog.Event, level zerolog
 	e.Array("tags", array)
 }
 
+type TagID uint64
+
 type Tag struct {
-	ID       *uint64
+	ID       *TagID
 	Name     string
-	ParentID *uint64
+	ParentID *TagID
 	Source   TagSource
 	Children TagsTree
 }
 
 func (t *Tag) GetID() uint64 {
-	return *t.ID
+	return uint64(*t.ID)
 }
 
 func (a *Tag) GetParentID() *uint64 {
-	return a.ParentID
+	return (*uint64)(a.ParentID)
 }
 
 func (t *Tag) GetSorting() string {
@@ -44,8 +46,8 @@ func (t *Tag) GetSorting() string {
 func (a *Tag) MarshalZerologObjectWithLevel(e *zerolog.Event, level zerolog.Level) {
 	if level <= zerolog.DebugLevel {
 		e.Str("name", a.Name)
-		logging.Uint64If(e, "id", a.ID)
-		logging.Uint64If(e, "parent_id", a.ParentID)
+		logging.Uint64If(e, "id", (*uint64)(a.ID))
+		logging.Uint64If(e, "parent_id", (*uint64)(a.ParentID))
 	}
 	if level <= zerolog.TraceLevel {
 		e.Str("source", string(a.Source))
@@ -53,9 +55,9 @@ func (a *Tag) MarshalZerologObjectWithLevel(e *zerolog.Event, level zerolog.Leve
 }
 
 type TagWCount struct {
-	ID       *uint64
+	ID       *TagID
 	Name     string
-	ParentID *uint64
+	ParentID *TagID
 	Source   TagSource
 	Count    uint64
 }
@@ -64,8 +66,8 @@ func (t *TagWCount) MarshalZerologObjectWithLevel(e *zerolog.Event, level zerolo
 	if level <= zerolog.DebugLevel {
 		e.Str("name", t.Name).
 			Uint64("count", t.Count)
-		logging.Uint64If(e, "id", t.ID)
-		logging.Uint64If(e, "parent_id", t.ParentID)
+		logging.Uint64If(e, "id", (*uint64)(t.ID))
+		logging.Uint64If(e, "parent_id", (*uint64)(t.ParentID))
 	}
 	if level <= zerolog.TraceLevel {
 		e.Str("source", string(t.Source))

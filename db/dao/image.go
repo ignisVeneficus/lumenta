@@ -9,7 +9,6 @@ import (
 
 	"github.com/ignisVeneficus/logging"
 	"github.com/ignisVeneficus/lumenta/db/dbo"
-	"github.com/ignisVeneficus/lumenta/utils"
 
 	"database/sql"
 )
@@ -102,7 +101,7 @@ LIMIT ?`
 const deleteImageNotSeen = `DELETE FROM images WHERE (last_seen_sync IS NULL OR last_seen_sync <> ?)
 LIMIT ?`
 
-const updateImageSyncId = `UPDATE images SET last_seen_sync=? WHERE id=?`
+const updateImageSyncID = `UPDATE images SET last_seen_sync=? WHERE id=?`
 
 const queryImagesWLastSyncWUserByPathPaged = `SELECT ` + imageFields + ` , sr.finished_at, u.username FROM images AS i LEFT JOIN sync_runs AS sr ON i.last_seen_sync=sr.id LEFT JOIN users AS u ON u.id=i.acl_user_id WHERE i.root=? AND i.path = ? ORDER BY i.filename, i.ext LIMIT ?,?`
 const countImagesByPath = `SELECT count(*) FROM images AS i WHERE i.root = ? AND i.path = ?`
@@ -171,6 +170,14 @@ ORDER BY ai.position
 LIMIT ?,?
 `
 
+// parseImage scans a single image row into an Image value.
+//
+// Input:
+//   - row: SQL row containing the imageFields columns.
+//
+// Output:
+//   - dbo.Image: scanned image.
+//   - error: scan error, if any.
 func parseImage(row *sql.Row) (dbo.Image, error) {
 	var i dbo.Image
 	err := row.Scan(
@@ -212,17 +219,34 @@ func parseImage(row *sql.Row) (dbo.Image, error) {
 	return i, err
 }
 
-func getImageParamsNextPrev(id uint64, orderDate *time.Time, filename string) []any {
+// getImageParamsNextPrev builds ordering parameters for next/previous image queries.
+//
+// Input:
+//   - imageID: image ID used as a tie-breaker in ordering.
+//   - orderDate: order date used for comparison; nil uses the database default date.
+//   - filename: filename used for comparison.
+//
+// Output:
+//   - []any: SQL parameters for next/previous ordering predicates.
+func getImageParamsNextPrev(imageID dbo.ImageID, orderDate *time.Time, filename string) []any {
 	if orderDate == nil {
 		// default from database
 		oD, _ := time.Parse("2006-01-02 15:04:05", "1000-01-01 00:00:00")
 		orderDate = &oD
 	}
 	return []any{
-		orderDate, orderDate, filename, orderDate, filename, id,
+		orderDate, orderDate, filename, orderDate, filename, imageID,
 	}
 }
 
+// parseImageRows scans image rows into Image values.
+//
+// Input:
+//   - rows: SQL rows containing the imageFields columns.
+//
+// Output:
+//   - []dbo.Image: scanned images.
+//   - error: scan or row iteration error.
 func parseImageRows(rows *sql.Rows) ([]dbo.Image, error) {
 	out := make([]dbo.Image, 0)
 	for rows.Next() {
@@ -271,18 +295,45 @@ func parseImageRows(rows *sql.Rows) ([]dbo.Image, error) {
 	return out, rows.Err()
 }
 
-func (q *Queries) GetImageById(ctx context.Context, id uint64) (dbo.Image, error) {
-	row := q.db.QueryRowContext(ctx, getImageById, id)
+// GetImageById reads an image by ID.
+//
+// Input:
+//   - ctx: request context.
+//   - imageID: image ID to read.
+//
+// Output:
+//   - dbo.Image: matching image.
+//   - error: query, scan, or sql.ErrNoRows error.
+func (q *Queries) GetImageById(ctx context.Context, imageID dbo.ImageID) (dbo.Image, error) {
+	row := q.db.QueryRowContext(ctx, getImageById, imageID)
 	return parseImage(row)
 }
 
-func (q *Queries) GetImageByIdACL(ctx context.Context, id uint64, acl dbo.ACLContext) (dbo.Image, error) {
+// GetImageByIdACL reads an image by ID when visible through ACL.
+//
+// Input:
+//   - ctx: request context.
+//   - imageID: image ID to read.
+//   - acl: ACL context used to build the visibility filter.
+//
+// Output:
+//   - dbo.Image: matching image.
+//   - error: query, scan, or sql.ErrNoRows error.
+func (q *Queries) GetImageByIdACL(ctx context.Context, imageID dbo.ImageID, acl dbo.ACLContext) (dbo.Image, error) {
 	sql, params := CreateAclWhere("i", acl)
-	params = append([]any{id}, params...)
+	params = append([]any{imageID}, params...)
 	row := q.db.QueryRowContext(ctx, fmt.Sprintf(getImageByIdACL, sql), params...)
 	return parseImage(row)
 }
 
+// CreateImage inserts an image.
+//
+// Input:
+//   - ctx: request context.
+//   - i: image data to insert.
+//
+// Output:
+//   - error: exec error, if any.
 func (q *Queries) CreateImage(ctx context.Context, i dbo.Image) error {
 	_, err := q.db.ExecContext(
 		ctx,
@@ -322,10 +373,27 @@ func (q *Queries) CreateImage(ctx context.Context, i dbo.Image) error {
 	return err
 }
 
-func (q *Queries) DeleteImage(ctx context.Context, id uint64) error {
-	_, err := q.db.ExecContext(ctx, deleteImage, id)
+// DeleteImage deletes an image by ID.
+//
+// Input:
+//   - ctx: request context.
+//   - imageID: image ID to delete.
+//
+// Output:
+//   - error: exec error, if any.
+func (q *Queries) DeleteImage(ctx context.Context, imageID dbo.ImageID) error {
+	_, err := q.db.ExecContext(ctx, deleteImage, imageID)
 	return err
 }
+
+// UpdateImage updates an image row.
+//
+// Input:
+//   - ctx: request context.
+//   - i: image data to write; i.ID identifies the row.
+//
+// Output:
+//   - error: sql.ErrNoRows for nil ID, or exec error.
 func (q *Queries) UpdateImage(ctx context.Context, i dbo.Image) error {
 	if i.ID == nil {
 		return sql.ErrNoRows
@@ -369,26 +437,72 @@ func (q *Queries) UpdateImage(ctx context.Context, i dbo.Image) error {
 	return err
 }
 
-func (q *Queries) BindImageTag(ctx context.Context, imageId, tagId uint64) error {
-	_, err := q.db.ExecContext(ctx, bindImageTag, imageId, tagId)
+// BindImageTag creates an image-tag relation.
+//
+// Input:
+//   - ctx: request context.
+//   - imageID: image to bind.
+//   - tagID: tag to bind.
+//
+// Output:
+//   - error: exec error, if any.
+func (q *Queries) BindImageTag(ctx context.Context, imageID dbo.ImageID, tagID dbo.TagID) error {
+	_, err := q.db.ExecContext(ctx, bindImageTag, imageID, tagID)
 	return err
 }
 
-func (q *Queries) BreakImageTag(ctx context.Context, imageId, tagId uint64) error {
-	_, err := q.db.ExecContext(ctx, breakImageTag, imageId, tagId)
-	return err
-}
-func (q *Queries) BreakImageAllTag(ctx context.Context, imageId uint64) error {
-	_, err := q.db.ExecContext(ctx, breakImageAllTag, imageId)
+// BreakImageTag removes an image-tag relation.
+//
+// Input:
+//   - ctx: request context.
+//   - imageID: image in the relation.
+//   - tagID: tag in the relation.
+//
+// Output:
+//   - error: exec error, if any.
+func (q *Queries) BreakImageTag(ctx context.Context, imageID dbo.ImageID, tagID dbo.TagID) error {
+	_, err := q.db.ExecContext(ctx, breakImageTag, imageID, tagID)
 	return err
 }
 
+// BreakImageAllTag removes all tag relations for an image.
+//
+// Input:
+//   - ctx: request context.
+//   - imageID: image whose tags are removed.
+//
+// Output:
+//   - error: exec error, if any.
+func (q *Queries) BreakImageAllTag(ctx context.Context, imageID dbo.ImageID) error {
+	_, err := q.db.ExecContext(ctx, breakImageAllTag, imageID)
+	return err
+}
+
+// GetImageByPath reads an image by filesystem identity.
+//
+// Input:
+//   - ctx: request context.
+//   - root, path, filename, ext: filesystem identity fields.
+//
+// Output:
+//   - dbo.Image: matching image.
+//   - error: query, scan, or sql.ErrNoRows error.
 func (q *Queries) GetImageByPath(ctx context.Context, root, path, filename, ext string) (dbo.Image, error) {
 	row := q.db.QueryRowContext(ctx, getImageByPath, root, path, filename, ext)
 	return parseImage(row)
 }
 
-func (q *Queries) CountImageByAlbums(ctx context.Context, albumIDs []uint64, acl dbo.ACLContext) (uint64, error) {
+// CountImageByAlbums counts distinct visible images in the supplied albums.
+//
+// Input:
+//   - ctx: request context.
+//   - albumIDs: album IDs to search.
+//   - acl: ACL context used to build the visibility filter.
+//
+// Output:
+//   - uint64: distinct visible image count.
+//   - error: query or scan error, if any.
+func (q *Queries) CountImageByAlbums(ctx context.Context, albumIDs []dbo.AlbumID, acl dbo.ACLContext) (uint64, error) {
 	if len(albumIDs) == 0 {
 		return 0, nil
 	}
@@ -406,9 +520,21 @@ func (q *Queries) CountImageByAlbums(ctx context.Context, albumIDs []uint64, acl
 	return cnt, err
 }
 
-func (q *Queries) QueryImageIDsByAlbumsPage(ctx context.Context, albumIDs []uint64, acl dbo.ACLContext, from, qty uint64) ([]uint64, error) {
+// QueryImageIDsByAlbumsPage reads visible image IDs from albums after an image ID cursor.
+//
+// Input:
+//   - ctx: request context.
+//   - albumIDs: album IDs to search.
+//   - acl: ACL context used to build the visibility filter.
+//   - from: image ID cursor.
+//   - qty: maximum number of image IDs.
+//
+// Output:
+//   - []dbo.ImageID: matching image IDs.
+//   - error: query, scan, or row iteration error.
+func (q *Queries) QueryImageIDsByAlbumsPage(ctx context.Context, albumIDs []dbo.AlbumID, acl dbo.ACLContext, from, qty uint64) ([]dbo.ImageID, error) {
 	if len(albumIDs) == 0 || qty == 0 {
-		return []uint64{}, nil
+		return []dbo.ImageID{}, nil
 	}
 	aclWhere, aclParams := CreateAclWhere("i", acl)
 
@@ -427,9 +553,9 @@ func (q *Queries) QueryImageIDsByAlbumsPage(ctx context.Context, albumIDs []uint
 	}
 	defer rows.Close()
 
-	ids := make([]uint64, 0, qty)
+	ids := make([]dbo.ImageID, 0, qty)
 	for rows.Next() {
-		var id uint64
+		var id dbo.ImageID
 		if err := rows.Scan(&id); err != nil {
 			return nil, err
 		}
@@ -438,7 +564,17 @@ func (q *Queries) QueryImageIDsByAlbumsPage(ctx context.Context, albumIDs []uint
 	return ids, rows.Err()
 }
 
-func (q *Queries) DeleteImageNotSeen(ctx context.Context, syncID uint64, limit uint32) (uint64, error) {
+// DeleteImageNotSeen deletes images not seen in the given sync run.
+//
+// Input:
+//   - ctx: request context.
+//   - syncID: sync run used as the current seen marker.
+//   - limit: maximum number of rows to delete.
+//
+// Output:
+//   - uint64: number of deleted rows.
+//   - error: exec or row-count error, if any.
+func (q *Queries) DeleteImageNotSeen(ctx context.Context, syncID dbo.SyncRunID, limit uint32) (uint64, error) {
 	res, err := q.db.ExecContext(ctx, deleteImageNotSeen, syncID, limit)
 	if err != nil {
 		return 0, err
@@ -449,11 +585,32 @@ func (q *Queries) DeleteImageNotSeen(ctx context.Context, syncID uint64, limit u
 	}
 	return uint64(affected), nil
 }
-func (q *Queries) UpdateImageSyncId(ctx context.Context, imageId uint64, syncId uint64) error {
-	_, err := q.db.ExecContext(ctx, updateImageSyncId, syncId, imageId)
+
+// UpdateImageSyncID updates the last seen sync marker for an image.
+//
+// Input:
+//   - ctx: request context.
+//   - imageID: image ID to update.
+//   - syncID: sync run to store as last_seen_sync.
+//
+// Output:
+//   - error: exec error, if any.
+func (q *Queries) UpdateImageSyncID(ctx context.Context, imageID dbo.ImageID, syncID dbo.SyncRunID) error {
+	_, err := q.db.ExecContext(ctx, updateImageSyncID, syncID, imageID)
 	return err
 }
 
+// QueryImageWLastSyncByWUserPathPaged reads images in a path with last sync and user data.
+//
+// Input:
+//   - ctx: request context.
+//   - root, path: filesystem location to query.
+//   - from: first row offset.
+//   - qty: maximum number of rows.
+//
+// Output:
+//   - []dbo.ImageWLastSyncWUser: matching images with joined sync and user fields.
+//   - error: query, scan, or row iteration error.
 func (q *Queries) QueryImageWLastSyncByWUserPathPaged(ctx context.Context, root, path string, from, qty uint64) ([]dbo.ImageWLastSyncWUser, error) {
 	rows, err := q.db.QueryContext(ctx, queryImagesWLastSyncWUserByPathPaged, root, path, from, qty)
 	if err != nil {
@@ -508,6 +665,16 @@ func (q *Queries) QueryImageWLastSyncByWUserPathPaged(ctx context.Context, root,
 	}
 	return out, rows.Err()
 }
+
+// CountImageByPath counts images in a filesystem path.
+//
+// Input:
+//   - ctx: request context.
+//   - root, path: filesystem location to count.
+//
+// Output:
+//   - uint64: matching image count.
+//   - error: query or scan error, if any.
 func (q *Queries) CountImageByPath(ctx context.Context, root, path string) (uint64, error) {
 	row := q.db.QueryRowContext(ctx, countImagesByPath, root, path)
 	var count uint64
@@ -515,19 +682,50 @@ func (q *Queries) CountImageByPath(ctx context.Context, root, path string) (uint
 	return count, err
 }
 
-func (q *Queries) GetImageIdByPathFirstHash(ctx context.Context, root, path string) (uint64, error) {
+// GetImageIdByPathFirstHash reads the first image ID under a path ordered by file hash.
+//
+// Input:
+//   - ctx: request context.
+//   - root, path: filesystem root and path prefix.
+//
+// Output:
+//   - dbo.ImageID: first matching image ID by file hash order.
+//   - error: query, scan, or sql.ErrNoRows error.
+func (q *Queries) GetImageIdByPathFirstHash(ctx context.Context, root, path string) (dbo.ImageID, error) {
 	row := q.db.QueryRowContext(ctx, getImageIdByPathFirstHash, root, path, path)
-	var id uint64
-	err := row.Scan(&id)
-	return id, err
-}
-func (q *Queries) GetImageIdByRootFirstHash(ctx context.Context, root string) (uint64, error) {
-	row := q.db.QueryRowContext(ctx, getImageIdByRootFirstHash, root)
-	var id uint64
+	var id dbo.ImageID
 	err := row.Scan(&id)
 	return id, err
 }
 
+// GetImageIdByRootFirstHash reads the first image ID under a root ordered by file hash.
+//
+// Input:
+//   - ctx: request context.
+//   - root: filesystem root to search.
+//
+// Output:
+//   - dbo.ImageID: first matching image ID by file hash order.
+//   - error: query, scan, or sql.ErrNoRows error.
+func (q *Queries) GetImageIdByRootFirstHash(ctx context.Context, root string) (dbo.ImageID, error) {
+	row := q.db.QueryRowContext(ctx, getImageIdByRootFirstHash, root)
+	var id dbo.ImageID
+	err := row.Scan(&id)
+	return id, err
+}
+
+// QueryImagePathByParentPathPaged reads distinct child paths under a parent path.
+//
+// Input:
+//   - ctx: request context.
+//   - root: filesystem root to search.
+//   - parentPath: parent path whose children are returned.
+//   - from: first row offset.
+//   - qty: maximum number of rows.
+//
+// Output:
+//   - []string: distinct child paths.
+//   - error: query, scan, or row iteration error.
 func (q *Queries) QueryImagePathByParentPathPaged(ctx context.Context, root, parentPath string, from, qty uint64) ([]string, error) {
 	depth := 0
 	if parentPath != "" {
@@ -551,6 +749,17 @@ func (q *Queries) QueryImagePathByParentPathPaged(ctx context.Context, root, par
 	}
 	return out, nil
 }
+
+// CountImagePathByParentPath counts distinct child paths under a parent path.
+//
+// Input:
+//   - ctx: request context.
+//   - root: filesystem root to search.
+//   - parentPath: parent path whose children are counted.
+//
+// Output:
+//   - uint64: distinct child path count.
+//   - error: query or scan error, if any.
 func (q *Queries) CountImagePathByParentPath(ctx context.Context, root, parentPath string) (uint64, error) {
 	depth := 0
 	if parentPath != "" {
@@ -562,21 +771,54 @@ func (q *Queries) CountImagePathByParentPath(ctx context.Context, root, parentPa
 	return count, err
 }
 
+// CountImageByParentPath counts images under a parent path.
+//
+// Input:
+//   - ctx: request context.
+//   - root: filesystem root to search.
+//   - parentPath: parent path or path prefix.
+//
+// Output:
+//   - uint64: matching image count.
+//   - error: query or scan error, if any.
 func (q *Queries) CountImageByParentPath(ctx context.Context, root, parentPath string) (uint64, error) {
 	row := q.db.QueryRowContext(ctx, countImageByParentPath, root, parentPath, parentPath)
 	var count uint64
 	err := row.Scan(&count)
 	return count, err
 }
+
+// CountImageByRoot counts images under a filesystem root.
+//
+// Input:
+//   - ctx: request context.
+//   - root: filesystem root to count.
+//
+// Output:
+//   - uint64: matching image count.
+//   - error: query or scan error, if any.
 func (q *Queries) CountImageByRoot(ctx context.Context, root string) (uint64, error) {
 	row := q.db.QueryRowContext(ctx, countImageByRoot, root)
 	var count uint64
 	err := row.Scan(&count)
 	return count, err
 }
-func (q *Queries) QueryImageByTagACLPaged(ctx context.Context, tagId uint64, acl dbo.ACLContext, from, qty uint64) ([]dbo.Image, error) {
+
+// QueryImageByTagACLPaged reads images bound to a tag and visible through ACL.
+//
+// Input:
+//   - ctx: request context.
+//   - tagID: tag ID to filter by.
+//   - acl: ACL context used to build the visibility filter.
+//   - from: first row offset.
+//   - qty: maximum number of rows.
+//
+// Output:
+//   - []dbo.Image: matching images.
+//   - error: query, scan, or row iteration error.
+func (q *Queries) QueryImageByTagACLPaged(ctx context.Context, tagID dbo.TagID, acl dbo.ACLContext, from, qty uint64) ([]dbo.Image, error) {
 	aclWhere, aclParams := CreateAclWhere("i", acl)
-	params := []any{tagId}
+	params := []any{tagID}
 	params = append(params, aclParams...)
 	params = append(params, from)
 	params = append(params, qty)
@@ -589,9 +831,19 @@ func (q *Queries) QueryImageByTagACLPaged(ctx context.Context, tagId uint64, acl
 	return images, err
 }
 
-func (q *Queries) CountImageByTagACL(ctx context.Context, tagId uint64, acl dbo.ACLContext) (uint64, error) {
+// CountImageByTagACL counts images bound to a tag and visible through ACL.
+//
+// Input:
+//   - ctx: request context.
+//   - tagID: tag ID to filter by.
+//   - acl: ACL context used to build the visibility filter.
+//
+// Output:
+//   - uint64: matching image count.
+//   - error: query or scan error, if any.
+func (q *Queries) CountImageByTagACL(ctx context.Context, tagID dbo.TagID, acl dbo.ACLContext) (uint64, error) {
 	aclWhere, aclParams := CreateAclWhere("i", acl)
-	params := []any{tagId}
+	params := []any{tagID}
 	params = append(params, aclParams...)
 	row := q.db.QueryRowContext(ctx, fmt.Sprintf(countImageByTagACL, aclWhere), params...)
 	var count uint64
@@ -599,16 +851,34 @@ func (q *Queries) CountImageByTagACL(ctx context.Context, tagId uint64, acl dbo.
 	return count, err
 }
 
-func (q *Queries) GetImageIdByTagACLFirstHash(ctx context.Context, tagId uint64, acl dbo.ACLContext) (uint64, error) {
+// GetImageIdByTagACLFirstHash reads the first visible image ID for a tag ordered by file hash.
+//
+// Input:
+//   - ctx: request context.
+//   - tagID: tag ID to filter by.
+//   - acl: ACL context used to build the visibility filter.
+//
+// Output:
+//   - dbo.ImageID: first matching image ID by file hash order.
+//   - error: query, scan, or sql.ErrNoRows error.
+func (q *Queries) GetImageIdByTagACLFirstHash(ctx context.Context, tagID dbo.TagID, acl dbo.ACLContext) (dbo.ImageID, error) {
 	aclWhere, aclParams := CreateAclWhere("i", acl)
-	params := []any{tagId}
+	params := []any{tagID}
 	params = append(params, aclParams...)
 	row := q.db.QueryRowContext(ctx, fmt.Sprintf(getImageIdByTagACLFirstHash, aclWhere), params...)
-	var id uint64
+	var id dbo.ImageID
 	err := row.Scan(&id)
 	return id, err
 }
 
+// CountImageRoots counts distinct image roots.
+//
+// Input:
+//   - ctx: request context.
+//
+// Output:
+//   - uint64: distinct root count.
+//   - error: query or scan error, if any.
 func (q *Queries) CountImageRoots(ctx context.Context) (uint64, error) {
 	row := q.db.QueryRowContext(ctx, countImageRoots)
 	var count uint64
@@ -616,6 +886,14 @@ func (q *Queries) CountImageRoots(ctx context.Context) (uint64, error) {
 	return count, err
 }
 
+// QueryImageRoots reads distinct image roots.
+//
+// Input:
+//   - ctx: request context.
+//
+// Output:
+//   - []string: distinct root names.
+//   - error: query, scan, or row iteration error.
 func (q *Queries) QueryImageRoots(ctx context.Context) ([]string, error) {
 	rows, err := q.db.QueryContext(ctx, queryImageRoots)
 	if err != nil {
@@ -636,12 +914,27 @@ func (q *Queries) QueryImageRoots(ctx context.Context) ([]string, error) {
 	return out, nil
 }
 
-func (q *Queries) QueryImageIDByTagACLNext(ctx context.Context, tagId uint64, imgId uint64, orderDate *time.Time, fileName string, acl dbo.ACLContext, from, qty uint64) ([]dbo.ImageTitle, error) {
+// QueryImageIDByTagACLNext reads next image IDs and titles for a tag under ACL.
+//
+// Input:
+//   - ctx: request context.
+//   - tagID: tag ID to filter by.
+//   - imageID: current image ID used as an ordering cursor.
+//   - orderDate: current image order date; nil uses the database default date.
+//   - fileName: current image filename used as an ordering cursor.
+//   - acl: ACL context used to build the visibility filter.
+//   - from: first row offset.
+//   - qty: maximum number of rows.
+//
+// Output:
+//   - []dbo.ImageTitle: next image IDs with display titles.
+//   - error: query, scan, or row iteration error.
+func (q *Queries) QueryImageIDByTagACLNext(ctx context.Context, tagID dbo.TagID, imageID dbo.ImageID, orderDate *time.Time, fileName string, acl dbo.ACLContext, from, qty uint64) ([]dbo.ImageTitle, error) {
 	aclWhere, aclParams := CreateAclWhere("i", acl)
 
-	params := []any{tagId}
+	params := []any{tagID}
 	params = append(params, aclParams...)
-	params = append(params, getImageParamsNextPrev(imgId, orderDate, fileName)...)
+	params = append(params, getImageParamsNextPrev(imageID, orderDate, fileName)...)
 	params = append(params, from, qty)
 	rows, err := q.db.QueryContext(ctx, fmt.Sprintf(queryImageIDByTagACLNext, aclWhere), params...)
 	if err != nil {
@@ -662,12 +955,27 @@ func (q *Queries) QueryImageIDByTagACLNext(ctx context.Context, tagId uint64, im
 	return out, nil
 }
 
-func (q *Queries) QueryImageIDByTagACLPrev(ctx context.Context, tagId uint64, imgId uint64, orderDate *time.Time, fileName string, acl dbo.ACLContext, from, qty uint64) ([]dbo.ImageTitle, error) {
+// QueryImageIDByTagACLPrev reads previous image IDs and titles for a tag under ACL.
+//
+// Input:
+//   - ctx: request context.
+//   - tagID: tag ID to filter by.
+//   - imageID: current image ID used as an ordering cursor.
+//   - orderDate: current image order date; nil uses the database default date.
+//   - fileName: current image filename used as an ordering cursor.
+//   - acl: ACL context used to build the visibility filter.
+//   - from: first row offset.
+//   - qty: maximum number of rows.
+//
+// Output:
+//   - []dbo.ImageTitle: previous image IDs with display titles.
+//   - error: query, scan, or row iteration error.
+func (q *Queries) QueryImageIDByTagACLPrev(ctx context.Context, tagID dbo.TagID, imageID dbo.ImageID, orderDate *time.Time, fileName string, acl dbo.ACLContext, from, qty uint64) ([]dbo.ImageTitle, error) {
 	aclWhere, aclParams := CreateAclWhere("i", acl)
 
-	params := []any{tagId}
+	params := []any{tagID}
 	params = append(params, aclParams...)
-	params = append(params, getImageParamsNextPrev(imgId, orderDate, fileName)...)
+	params = append(params, getImageParamsNextPrev(imageID, orderDate, fileName)...)
 	params = append(params, from, qty)
 	rows, err := q.db.QueryContext(ctx, fmt.Sprintf(queryImageIDByTagACLPrev, aclWhere), params...)
 	if err != nil {
@@ -689,10 +997,20 @@ func (q *Queries) QueryImageIDByTagACLPrev(ctx context.Context, tagId uint64, im
 
 }
 
-func (q *Queries) QueryImageCoordByTagACL(ctx context.Context, tagId uint64, acl dbo.ACLContext) ([]dbo.ImageCoord, error) {
+// QueryImageCoordByTagACL reads visible image coordinates for a tag.
+//
+// Input:
+//   - ctx: request context.
+//   - tagID: tag ID to filter by.
+//   - acl: ACL context used to build the visibility filter.
+//
+// Output:
+//   - []dbo.ImageCoord: image IDs, titles, and coordinates.
+//   - error: query, scan, or row iteration error.
+func (q *Queries) QueryImageCoordByTagACL(ctx context.Context, tagID dbo.TagID, acl dbo.ACLContext) ([]dbo.ImageCoord, error) {
 	aclWhere, aclParams := CreateAclWhere("i", acl)
 
-	params := []any{tagId}
+	params := []any{tagID}
 	params = append(params, aclParams...)
 	rows, err := q.db.QueryContext(ctx, fmt.Sprintf(queryImageCoordByTagACL, aclWhere), params...)
 	if err != nil {
@@ -713,6 +1031,17 @@ func (q *Queries) QueryImageCoordByTagACL(ctx context.Context, tagId uint64, acl
 	return out, nil
 }
 
+// QueryImageRandomByHashByACLForward reads visible images at or after a hash value.
+//
+// Input:
+//   - ctx: request context.
+//   - hash: file hash lower bound.
+//   - acl: ACL context used to build the visibility filter.
+//   - qty: maximum number of rows.
+//
+// Output:
+//   - []dbo.Image: matching images.
+//   - error: query, scan, or row iteration error.
 func (q *Queries) QueryImageRandomByHashByACLForward(ctx context.Context, hash string, acl dbo.ACLContext, qty int) ([]dbo.Image, error) {
 	aclWhere, aclParams := CreateAclWhere("i", acl)
 
@@ -727,6 +1056,18 @@ func (q *Queries) QueryImageRandomByHashByACLForward(ctx context.Context, hash s
 	images, err := parseImageRows(rows)
 	return images, err
 }
+
+// QueryImageRandomByHashByACLBackward reads visible images before a hash value.
+//
+// Input:
+//   - ctx: request context.
+//   - hash: file hash upper bound.
+//   - acl: ACL context used to build the visibility filter.
+//   - qty: maximum number of rows.
+//
+// Output:
+//   - []dbo.Image: matching images.
+//   - error: query, scan, or row iteration error.
 func (q *Queries) QueryImageRandomByHashByACLBackward(ctx context.Context, hash string, acl dbo.ACLContext, qty int) ([]dbo.Image, error) {
 	aclWhere, aclParams := CreateAclWhere("i", acl)
 
@@ -742,25 +1083,61 @@ func (q *Queries) QueryImageRandomByHashByACLBackward(ctx context.Context, hash 
 	return images, err
 }
 
-func (q *Queries) CountImageByLastNotSeen(ctx context.Context, lastSyncId uint64) (uint64, error) {
-	row := q.db.QueryRowContext(ctx, countImageByLastNotSeen, lastSyncId)
-	var count uint64
-	err := row.Scan(&count)
-	return count, err
-}
-func (q *Queries) CountImageByLastSeen(ctx context.Context, lastSyncId uint64) (uint64, error) {
-	row := q.db.QueryRowContext(ctx, countImageByLastSeen, lastSyncId)
+// CountImageByLastNotSeen counts images not seen in a sync run.
+//
+// Input:
+//   - ctx: request context.
+//   - lastSyncID: sync run used as the current seen marker.
+//
+// Output:
+//   - uint64: matching image count.
+//   - error: query or scan error, if any.
+func (q *Queries) CountImageByLastNotSeen(ctx context.Context, lastSyncID dbo.SyncRunID) (uint64, error) {
+	row := q.db.QueryRowContext(ctx, countImageByLastNotSeen, lastSyncID)
 	var count uint64
 	err := row.Scan(&count)
 	return count, err
 }
 
+// CountImageByLastSeen counts images seen in a sync run.
+//
+// Input:
+//   - ctx: request context.
+//   - lastSyncID: sync run used as the seen marker.
+//
+// Output:
+//   - uint64: matching image count.
+//   - error: query or scan error, if any.
+func (q *Queries) CountImageByLastSeen(ctx context.Context, lastSyncID dbo.SyncRunID) (uint64, error) {
+	row := q.db.QueryRowContext(ctx, countImageByLastSeen, lastSyncID)
+	var count uint64
+	err := row.Scan(&count)
+	return count, err
+}
+
+// CountImage counts all images.
+//
+// Input:
+//   - ctx: request context.
+//
+// Output:
+//   - uint64: image count.
+//   - error: query or scan error, if any.
 func (q *Queries) CountImage(ctx context.Context) (uint64, error) {
 	row := q.db.QueryRowContext(ctx, countImage)
 	var count uint64
 	err := row.Scan(&count)
 	return count, err
 }
+
+// CountImageACLLevels counts images grouped by ACL level.
+//
+// Input:
+//   - ctx: request context.
+//
+// Output:
+//   - dbo.ImageACLCount: counts per ACL level.
+//   - error: query, scan, or row iteration error.
 func (q *Queries) CountImageACLLevels(ctx context.Context) (dbo.ImageACLCount, error) {
 	rows, err := q.db.QueryContext(ctx, countImageACLLevels)
 	if err != nil {
@@ -784,7 +1161,19 @@ func (q *Queries) CountImageACLLevels(ctx context.Context) (dbo.ImageACLCount, e
 	return out, nil
 }
 
-func (q *Queries) QueryImageByAlbumACLPaged(ctx context.Context, albumId uint64, acl dbo.ACLContext, from, qty uint64) ([]dbo.Image, error) {
+// QueryImageByAlbumACLPaged reads images in an album and visible through ACL.
+//
+// Input:
+//   - ctx: request context.
+//   - albumId: album ID to filter by.
+//   - acl: ACL context used to build the visibility filter.
+//   - from: first row offset.
+//   - qty: maximum number of rows.
+//
+// Output:
+//   - []dbo.Image: matching images.
+//   - error: query, scan, or row iteration error.
+func (q *Queries) QueryImageByAlbumACLPaged(ctx context.Context, albumId dbo.AlbumID, acl dbo.ACLContext, from, qty uint64) ([]dbo.Image, error) {
 	aclWhere, aclParams := CreateAclWhere("i", acl)
 	params := []any{}
 	params = append(params, aclParams...)
@@ -800,7 +1189,17 @@ func (q *Queries) QueryImageByAlbumACLPaged(ctx context.Context, albumId uint64,
 	return images, err
 }
 
-func (q *Queries) CountImageByAlbumACL(ctx context.Context, albumId uint64, acl dbo.ACLContext) (uint64, error) {
+// CountImageByAlbumACL counts images in an album and visible through ACL.
+//
+// Input:
+//   - ctx: request context.
+//   - albumId: album ID to filter by.
+//   - acl: ACL context used to build the visibility filter.
+//
+// Output:
+//   - uint64: matching image count.
+//   - error: query or scan error, if any.
+func (q *Queries) CountImageByAlbumACL(ctx context.Context, albumId dbo.AlbumID, acl dbo.ACLContext) (uint64, error) {
 	aclWhere, aclParams := CreateAclWhere("i", acl)
 	params := []any{}
 	params = append(params, aclParams...)
@@ -817,10 +1216,20 @@ func (q *Queries) CountImageByAlbumACL(ctx context.Context, albumId uint64, acl 
 // =========================================================
 //
 
-func BindImageTag(db *sql.DB, c context.Context, imageId, tagId uint64) error {
-	logScope, ctx := logging.Enter(c, "dao/image/update/bind", tagId, map[string]any{
-		"image_id": imageId,
-		"tag_id":   tagId,
+// BindImageTag creates an image-tag relation in a transaction.
+//
+// Input:
+//   - db: database handle.
+//   - c: request context.
+//   - imageID: image to bind.
+//   - tagID: tag to bind.
+//
+// Output:
+//   - error: transaction, bind, or commit error.
+func BindImageTag(db *sql.DB, c context.Context, imageID dbo.ImageID, tagID dbo.TagID) error {
+	logScope, ctx := logging.Enter(c, "dao/image/update/bind", tagID, map[string]any{
+		"image_id": imageID,
+		"tag_id":   tagID,
 	})
 	tx, err := GetTx(db, ctx)
 	if err != nil {
@@ -829,14 +1238,24 @@ func BindImageTag(db *sql.DB, c context.Context, imageId, tagId uint64) error {
 	defer tx.Rollback()
 
 	q := NewQueries(tx)
-	if err := q.BindImageTag(ctx, imageId, tagId); err != nil {
+	if err := q.BindImageTag(ctx, imageID, tagID); err != nil {
 		logging.ExitErr(logScope, err)
 		return err
 	}
 	return logging.Return(logScope, tx.Commit())
 }
 
-func CreateImage(db *sql.DB, c context.Context, i *dbo.Image) (uint64, error) {
+// CreateImage inserts an image and writes the new ID back to i.
+//
+// Input:
+//   - db: database handle.
+//   - c: request context.
+//   - i: image to insert; receives the new ID.
+//
+// Output:
+//   - dbo.ImageID: created image ID.
+//   - error: transaction, insert, ID lookup, tag bind, or commit error.
+func CreateImage(db *sql.DB, c context.Context, i *dbo.Image) (dbo.ImageID, error) {
 	logScope, ctx := logging.Enter(c, "dao/image/create", i.Root+"/"+i.Path+"/"+i.Filename+"."+i.Ext, map[string]any{
 		"image": i,
 	})
@@ -859,10 +1278,21 @@ func CreateImage(db *sql.DB, c context.Context, i *dbo.Image) (uint64, error) {
 		logging.ExitErr(logScope, err)
 		return 0, err
 	}
-	i.ID = utils.PtrUint64(uint64(id))
+	newID := dbo.ImageID(id)
+	i.ID = &newID
 
-	return uint64(id), logging.ReturnParams(logScope, tx.Commit(), map[string]any{"new_id": id})
+	return newID, logging.ReturnParams(logScope, tx.Commit(), map[string]any{"new_id": id})
 }
+
+// UpdateImage updates an image and rewrites its tag relations.
+//
+// Input:
+//   - db: database handle.
+//   - c: request context.
+//   - i: image data to update; i.ID identifies the row.
+//
+// Output:
+//   - error: transaction, update, tag rewrite, or commit error.
 func UpdateImage(db *sql.DB, c context.Context, i dbo.Image) error {
 	logScope, ctx := logging.Enter(c, "dao/image/update", i.ID, map[string]any{"image": i})
 	if i.ID == nil {
@@ -886,7 +1316,18 @@ func UpdateImage(db *sql.DB, c context.Context, i dbo.Image) error {
 
 	return logging.Return(logScope, tx.Commit())
 }
-func CreateOrUpdateImage(db *sql.DB, c context.Context, i *dbo.Image) (uint64, error) {
+
+// CreateOrUpdateImage inserts or updates an image and rewrites its tag relations.
+//
+// Input:
+//   - db: database handle.
+//   - c: request context.
+//   - i: image to create or update; receives a new ID on insert.
+//
+// Output:
+//   - dbo.ImageID: image ID after create or update.
+//   - error: transaction, insert, update, ID lookup, tag rewrite, or commit error.
+func CreateOrUpdateImage(db *sql.DB, c context.Context, i *dbo.Image) (dbo.ImageID, error) {
 	logScope, ctx := logging.Enter(c, "dao/image/createOrUpdate", i.Root+"/"+i.Path+"/"+i.Filename+"."+i.Ext, map[string]any{
 		"image": i,
 	})
@@ -909,7 +1350,8 @@ func CreateOrUpdateImage(db *sql.DB, c context.Context, i *dbo.Image) (uint64, e
 			logging.ExitErr(logScope, err)
 			return 0, err
 		}
-		i.ID = utils.PtrUint64(uint64(id))
+		newID := dbo.ImageID(id)
+		i.ID = &newID
 	} else {
 		if err := q.UpdateImage(ctx, *i); err != nil {
 			logging.ExitErr(logScope, err)
@@ -926,9 +1368,18 @@ func CreateOrUpdateImage(db *sql.DB, c context.Context, i *dbo.Image) (uint64, e
 	return *i.ID, logging.Return(logScope, tx.Commit())
 }
 
-func DeleteImage(db *sql.DB, c context.Context, id uint64) error {
-	logScope, ctx := logging.Enter(c, "dao/image/delete", id, map[string]any{
-		"image_id": id,
+// DeleteImage deletes an image in a transaction.
+//
+// Input:
+//   - db: database handle.
+//   - c: request context.
+//   - imageID: image ID to delete.
+//
+// Output:
+//   - error: transaction, delete, or commit error.
+func DeleteImage(db *sql.DB, c context.Context, imageID dbo.ImageID) error {
+	logScope, ctx := logging.Enter(c, "dao/image/delete", imageID, map[string]any{
+		"image_id": imageID,
 	})
 
 	tx, err := GetTx(db, ctx)
@@ -939,23 +1390,46 @@ func DeleteImage(db *sql.DB, c context.Context, id uint64) error {
 	defer tx.Rollback()
 
 	q := NewQueries(tx)
-	if err := q.DeleteImage(ctx, id); err != nil {
+	if err := q.DeleteImage(ctx, imageID); err != nil {
 		logging.ExitErr(logScope, err)
 		return err
 	}
 
 	return logging.Return(logScope, tx.Commit())
 }
-func GetImageById(db *sql.DB, c context.Context, id uint64) (dbo.Image, error) {
-	logScope, ctx := logging.Enter(c, "dao/image/get/byId", id, map[string]any{
-		"image_id": id,
+
+// GetImageById reads an image by ID with logging.
+//
+// Input:
+//   - db: database handle.
+//   - c: request context.
+//   - imageID: image ID to read.
+//
+// Output:
+//   - dbo.Image: matching image.
+//   - error: wrapped not-found, query, or scan error.
+func GetImageById(db *sql.DB, c context.Context, imageID dbo.ImageID) (dbo.Image, error) {
+	logScope, ctx := logging.Enter(c, "dao/image/get/byId", imageID, map[string]any{
+		"image_id": imageID,
 	})
 
 	q := NewQueries(db)
-	i, err := q.GetImageById(ctx, id)
+	i, err := q.GetImageById(ctx, imageID)
 	return i, returnWrapNotFound(logScope, err, "image")
 }
-func GetImageByIdACL(db *sql.DB, c context.Context, id uint64, acl dbo.ACLContext) (dbo.Image, error) {
+
+// GetImageByIdACL reads an image by ID when visible through ACL with logging.
+//
+// Input:
+//   - db: database handle.
+//   - c: request context.
+//   - id: image ID to read.
+//   - acl: ACL context used to build the visibility filter.
+//
+// Output:
+//   - dbo.Image: matching image.
+//   - error: wrapped not-found, query, or scan error.
+func GetImageByIdACL(db *sql.DB, c context.Context, id dbo.ImageID, acl dbo.ACLContext) (dbo.Image, error) {
 	logScope, ctx := logging.Enter(c, "dao/image/get/byId/ACL", id, map[string]any{
 		"image_id":    id,
 		"acl_context": acl,
@@ -965,7 +1439,17 @@ func GetImageByIdACL(db *sql.DB, c context.Context, id uint64, acl dbo.ACLContex
 	return i, returnWrapNotFound(logScope, err, "image")
 }
 
-func GetImageByIdWTags(db *sql.DB, c context.Context, id uint64) (dbo.Image, error) {
+// GetImageByIdWTags reads an image by ID and attaches its tags.
+//
+// Input:
+//   - db: database handle.
+//   - c: request context.
+//   - id: image ID to read.
+//
+// Output:
+//   - dbo.Image: matching image with tags.
+//   - error: wrapped not-found, image query, or tag query error.
+func GetImageByIdWTags(db *sql.DB, c context.Context, id dbo.ImageID) (dbo.Image, error) {
 	logScope, ctx := logging.Enter(c, "dao/image/get/tags/byId", id, nil)
 	q := NewQueries(db)
 	i, err := q.GetImageById(ctx, id)
@@ -983,7 +1467,19 @@ func GetImageByIdWTags(db *sql.DB, c context.Context, id uint64) (dbo.Image, err
 	logging.Exit(logScope, "Ok", nil)
 	return i, nil
 }
-func GetImageByIdACLWTags(db *sql.DB, c context.Context, id uint64, acl dbo.ACLContext) (dbo.Image, error) {
+
+// GetImageByIdACLWTags reads a visible image by ID and attaches its tags.
+//
+// Input:
+//   - db: database handle.
+//   - c: request context.
+//   - id: image ID to read.
+//   - acl: ACL context used to build the visibility filter.
+//
+// Output:
+//   - dbo.Image: matching image with tags.
+//   - error: wrapped not-found, image query, or tag query error.
+func GetImageByIdACLWTags(db *sql.DB, c context.Context, id dbo.ImageID, acl dbo.ACLContext) (dbo.Image, error) {
 	logScope, ctx := logging.Enter(c, "dao/image/get/tags/byId/ACL", id, map[string]any{
 		"image_id": id,
 		"acl":      acl,
@@ -1006,6 +1502,16 @@ func GetImageByIdACLWTags(db *sql.DB, c context.Context, id uint64, acl dbo.ACLC
 	return i, nil
 }
 
+// GetImageByPath reads an image by filesystem identity with logging.
+//
+// Input:
+//   - db: database handle.
+//   - c: request context.
+//   - root, path, filename, ext: filesystem identity fields.
+//
+// Output:
+//   - dbo.Image: matching image.
+//   - error: wrapped not-found, query, or scan error.
 func GetImageByPath(db *sql.DB, c context.Context, root, path, filename, ext string) (dbo.Image, error) {
 	logScope, ctx := logging.Enter(c, "dao/image/get/byPath", root+"/"+path+"/"+filename+"."+ext, map[string]any{
 		"root":     root,
@@ -1018,7 +1524,18 @@ func GetImageByPath(db *sql.DB, c context.Context, root, path, filename, ext str
 	return i, returnWrapNotFound(logScope, err, "image")
 }
 
-func CountImageByAlbums(db *sql.DB, c context.Context, albumIDs []uint64, acl dbo.ACLContext) (uint64, error) {
+// CountImageByAlbums counts distinct visible images in the supplied albums with logging.
+//
+// Input:
+//   - db: database handle.
+//   - c: request context.
+//   - albumIDs: album IDs to search.
+//   - acl: ACL context used to build the visibility filter.
+//
+// Output:
+//   - uint64: distinct visible image count.
+//   - error: query or scan error, if any.
+func CountImageByAlbums(db *sql.DB, c context.Context, albumIDs []dbo.AlbumID, acl dbo.ACLContext) (uint64, error) {
 	logScope, ctx := logging.Enter(c, "dao/image/count/byAlbums/ACL", nil, map[string]any{
 		"acl":    acl,
 		"albums": albumIDs,
@@ -1028,7 +1545,20 @@ func CountImageByAlbums(db *sql.DB, c context.Context, albumIDs []uint64, acl db
 	return cnt, logging.Return(logScope, err)
 }
 
-func QueryImageIDsByAlbumsPage(db *sql.DB, c context.Context, albumIDs []uint64, acl dbo.ACLContext, from, qty uint64) ([]uint64, error) {
+// QueryImageIDsByAlbumsPage reads visible image IDs from albums after an image ID cursor.
+//
+// Input:
+//   - db: database handle.
+//   - c: request context.
+//   - albumIDs: album IDs to search.
+//   - acl: ACL context used to build the visibility filter.
+//   - from: image ID cursor.
+//   - qty: maximum number of image IDs.
+//
+// Output:
+//   - []dbo.ImageID: matching image IDs.
+//   - error: query, scan, or row iteration error.
+func QueryImageIDsByAlbumsPage(db *sql.DB, c context.Context, albumIDs []dbo.AlbumID, acl dbo.ACLContext, from, qty uint64) ([]dbo.ImageID, error) {
 	logScope, ctx := logging.Enter(c, "dao/image/query/id/byAlbums/Paged", nil, map[string]any{
 		"acl":    acl,
 		"albums": albumIDs,
@@ -1039,7 +1569,18 @@ func QueryImageIDsByAlbumsPage(db *sql.DB, c context.Context, albumIDs []uint64,
 	images, err := q.QueryImageIDsByAlbumsPage(ctx, albumIDs, acl, from, qty)
 	return images, logging.Return(logScope, err)
 }
-func BindImageTags(db *sql.DB, c context.Context, imageID uint64, tagIDs []uint64) error {
+
+// BindImageTags creates multiple image-tag relations in a transaction.
+//
+// Input:
+//   - db: database handle.
+//   - c: request context.
+//   - imageID: image to bind.
+//   - tagIDs: tags to bind.
+//
+// Output:
+//   - error: transaction, bind, or commit error.
+func BindImageTags(db *sql.DB, c context.Context, imageID dbo.ImageID, tagIDs []dbo.TagID) error {
 	logScope, ctx := logging.Enter(c, "dao/image/update/tag/bind/multiple", imageID, map[string]any{
 		"image": imageID,
 		"tags":  tagIDs,
@@ -1067,13 +1608,23 @@ func BindImageTags(db *sql.DB, c context.Context, imageID uint64, tagIDs []uint6
 	return logging.Return(logScope, tx.Commit())
 }
 
-func writeTagTree(q *Queries, c context.Context, rootTag dbo.Tag, imageId uint64) error {
+// writeTagTree ensures a tag tree exists and binds its tags to an image.
+//
+// Input:
+//   - q: query runner.
+//   - c: request context.
+//   - rootTag: root tag of the tree to write.
+//   - imageId: image ID to bind tags to.
+//
+// Output:
+//   - error: tag lookup, tag create, bind, or traversal error.
+func writeTagTree(q *Queries, c context.Context, rootTag dbo.Tag, imageId dbo.ImageID) error {
 	logScope, ctx := logging.Enter(c, "dao/image/update/tag/tagTree", imageId, map[string]any{"root": rootTag})
 	stack := []*dbo.Tag{&rootTag}
 	for len(stack) > 0 {
 		tag := stack[len(stack)-1]
 		stack = stack[:len(stack)-1]
-		var id uint64
+		var id dbo.TagID
 		if tag.ID == nil {
 			t, err := q.GetTagByParentAndName(ctx, tag.ParentID, tag.Name)
 			err = wrapNotFound(err, "tag")
@@ -1108,7 +1659,18 @@ func writeTagTree(q *Queries, c context.Context, rootTag dbo.Tag, imageId uint64
 	return nil
 }
 
-func DeleteImageNotSeen(db *sql.DB, c context.Context, syncID uint64, limit uint32) (uint64, error) {
+// DeleteImageNotSeen deletes one batch of images not seen in a sync run.
+//
+// Input:
+//   - db: database handle.
+//   - c: request context.
+//   - syncID: sync run used as the current seen marker.
+//   - limit: maximum number of rows to delete.
+//
+// Output:
+//   - uint64: number of deleted rows.
+//   - error: transaction, delete, or commit error.
+func DeleteImageNotSeen(db *sql.DB, c context.Context, syncID dbo.SyncRunID, limit uint32) (uint64, error) {
 	logScope, ctx := logging.Enter(c, "dao/image/delete/notSeen", syncID, map[string]any{"sync_id": syncID})
 
 	tx, err := GetTx(db, ctx)
@@ -1126,7 +1688,18 @@ func DeleteImageNotSeen(db *sql.DB, c context.Context, syncID uint64, limit uint
 	}
 	return deleted, logging.ReturnParams(logScope, tx.Commit(), map[string]any{"deleted": deleted})
 }
-func DeleteImageNotSeenAll(db *sql.DB, c context.Context, syncID uint64, limit uint32) error {
+
+// DeleteImageNotSeenAll deletes images not seen in a sync run until none remain.
+//
+// Input:
+//   - db: database handle.
+//   - c: request context.
+//   - syncID: sync run used as the current seen marker.
+//   - limit: batch size for each delete pass.
+//
+// Output:
+//   - error: delete error, if any.
+func DeleteImageNotSeenAll(db *sql.DB, c context.Context, syncID dbo.SyncRunID, limit uint32) error {
 	logScope, ctx := logging.Enter(c, "dao/image/delete/notSeen/all", syncID, map[string]any{"sync_id": syncID})
 	deleted, err := DeleteImageNotSeen(db, ctx, syncID, limit)
 	if err != nil {
@@ -1149,8 +1722,18 @@ func DeleteImageNotSeenAll(db *sql.DB, c context.Context, syncID uint64, limit u
 	return nil
 }
 
-func UpdateImageSyncId(db *sql.DB, c context.Context, imageID uint64, syncID uint64) error {
-	logScope, ctx := logging.Enter(c, "dao/image/update/syncId", imageID, map[string]any{
+// UpdateImageSyncID updates the last seen sync marker for an image in a transaction.
+//
+// Input:
+//   - db: database handle.
+//   - c: request context.
+//   - imageID: image ID to update.
+//   - syncID: sync run to store as last_seen_sync.
+//
+// Output:
+//   - error: transaction, update, or commit error.
+func UpdateImageSyncID(db *sql.DB, c context.Context, imageID dbo.ImageID, syncID dbo.SyncRunID) error {
+	logScope, ctx := logging.Enter(c, "dao/image/update/syncID", imageID, map[string]any{
 		"image_id": imageID,
 		"sync_id":  syncID})
 
@@ -1162,7 +1745,7 @@ func UpdateImageSyncId(db *sql.DB, c context.Context, imageID uint64, syncID uin
 	defer tx.Rollback()
 	q := NewQueries(tx)
 
-	err = q.UpdateImageSyncId(ctx, imageID, syncID)
+	err = q.UpdateImageSyncID(ctx, imageID, syncID)
 	if err != nil {
 		logging.ExitErr(logScope, err)
 		return err
@@ -1170,6 +1753,18 @@ func UpdateImageSyncId(db *sql.DB, c context.Context, imageID uint64, syncID uin
 	return logging.Return(logScope, tx.Commit())
 }
 
+// QueryImageWLastSyncWUserByPathPaged reads images in a path with last sync and user data.
+//
+// Input:
+//   - db: database handle.
+//   - c: request context.
+//   - root, path: filesystem location to query.
+//   - from: first row offset.
+//   - qty: maximum number of rows.
+//
+// Output:
+//   - []dbo.ImageWLastSyncWUser: matching images with joined sync and user fields.
+//   - error: query, scan, or row iteration error.
 func QueryImageWLastSyncWUserByPathPaged(db *sql.DB, c context.Context, root, path string, from, qty uint64) ([]dbo.ImageWLastSyncWUser, error) {
 	logScope, ctx := logging.Enter(c, "dao/image/query/wLastSync/wUser/byPath/Paged", root+"/"+path+"/", map[string]any{
 		"root": root,
@@ -1192,6 +1787,17 @@ func QueryImageWLastSyncWUserByPathPaged(db *sql.DB, c context.Context, root, pa
 
 	return images, nil
 }
+
+// CountImagesByPath counts images in a filesystem path with logging.
+//
+// Input:
+//   - db: database handle.
+//   - c: request context.
+//   - root, path: filesystem location to count.
+//
+// Output:
+//   - uint64: matching image count.
+//   - error: query or scan error, if any.
 func CountImagesByPath(db *sql.DB, c context.Context, root, path string) (uint64, error) {
 	logScope, ctx := logging.Enter(c, "dao/image/count/byPath", root+"/"+path, map[string]any{
 		"path": path,
@@ -1206,7 +1812,17 @@ func CountImagesByPath(db *sql.DB, c context.Context, root, path string) (uint64
 	return qty, nil
 }
 
-func GetImageIdByPathFirstHash(db *sql.DB, c context.Context, root, path string) (uint64, error) {
+// GetImageIdByPathFirstHash reads the first image ID under a path ordered by file hash.
+//
+// Input:
+//   - db: database handle.
+//   - c: request context.
+//   - root, path: filesystem root and path prefix.
+//
+// Output:
+//   - dbo.ImageID: first matching image ID by file hash order.
+//   - error: wrapped not-found, query, or scan error.
+func GetImageIdByPathFirstHash(db *sql.DB, c context.Context, root, path string) (dbo.ImageID, error) {
 	logScope, ctx := logging.Enter(c, "dao/image/get/id/byPath/firstHash", root+"/"+path, map[string]any{
 		"root": root,
 		"path": path,
@@ -1216,7 +1832,17 @@ func GetImageIdByPathFirstHash(db *sql.DB, c context.Context, root, path string)
 	return i, returnWrapNotFound(logScope, err, "image")
 }
 
-func GetImageIdByRootFirstHash(db *sql.DB, c context.Context, root string) (uint64, error) {
+// GetImageIdByRootFirstHash reads the first image ID under a root ordered by file hash.
+//
+// Input:
+//   - db: database handle.
+//   - c: request context.
+//   - root: filesystem root to search.
+//
+// Output:
+//   - dbo.ImageID: first matching image ID by file hash order.
+//   - error: wrapped not-found, query, or scan error.
+func GetImageIdByRootFirstHash(db *sql.DB, c context.Context, root string) (dbo.ImageID, error) {
 	logScope, ctx := logging.Enter(c, "dao/image/get/id/byRoot/firstHash", root, map[string]any{
 		"root": root,
 	})
@@ -1225,6 +1851,19 @@ func GetImageIdByRootFirstHash(db *sql.DB, c context.Context, root string) (uint
 	return i, returnWrapNotFound(logScope, err, "image")
 }
 
+// QueryImagePathByParentPathPaged reads distinct child paths under a parent path.
+//
+// Input:
+//   - db: database handle.
+//   - c: request context.
+//   - root: filesystem root to search.
+//   - parentPath: parent path whose children are returned.
+//   - from: first row offset.
+//   - qty: maximum number of rows.
+//
+// Output:
+//   - []string: distinct child paths.
+//   - error: query, scan, or row iteration error.
 func QueryImagePathByParentPathPaged(db *sql.DB, c context.Context, root, parentPath string, from, qty uint64) ([]string, error) {
 	logScope, ctx := logging.Enter(c, "dao/image/query/path/byParentPath/paged", root+"/"+parentPath, map[string]any{
 		"parentPpath": parentPath,
@@ -1242,6 +1881,18 @@ func QueryImagePathByParentPathPaged(db *sql.DB, c context.Context, root, parent
 	})
 	return paths, nil
 }
+
+// CountImagePathByParentPath counts distinct child paths under a parent path.
+//
+// Input:
+//   - db: database handle.
+//   - c: request context.
+//   - root: filesystem root to search.
+//   - parentPath: parent path whose children are counted.
+//
+// Output:
+//   - uint64: distinct child path count.
+//   - error: query or scan error, if any.
 func CountImagePathByParentPath(db *sql.DB, c context.Context, root, parentPath string) (uint64, error) {
 	logScope, ctx := logging.Enter(c, "dao/image/count/path/byParentPath", root+"/"+parentPath, map[string]any{
 		"parentPath": parentPath,
@@ -1255,6 +1906,18 @@ func CountImagePathByParentPath(db *sql.DB, c context.Context, root, parentPath 
 	logging.Exit(logScope, "ok", map[string]any{"return": qty})
 	return qty, nil
 }
+
+// CountImageByParentPath counts images under a parent path.
+//
+// Input:
+//   - db: database handle.
+//   - c: request context.
+//   - root: filesystem root to search.
+//   - parentPath: parent path or path prefix.
+//
+// Output:
+//   - uint64: matching image count.
+//   - error: query or scan error, if any.
 func CountImageByParentPath(db *sql.DB, c context.Context, root, parentPath string) (uint64, error) {
 	logScope, ctx := logging.Enter(c, "dao/image/count/byParentPath", root+"/"+parentPath, map[string]any{
 		"root":       root,
@@ -1269,6 +1932,17 @@ func CountImageByParentPath(db *sql.DB, c context.Context, root, parentPath stri
 	logging.Exit(logScope, "ok", map[string]any{"return": qty})
 	return qty, nil
 }
+
+// CountImageByRoot counts images under a filesystem root.
+//
+// Input:
+//   - db: database handle.
+//   - c: request context.
+//   - root: filesystem root to count.
+//
+// Output:
+//   - uint64: matching image count.
+//   - error: query or scan error, if any.
 func CountImageByRoot(db *sql.DB, c context.Context, root string) (uint64, error) {
 	logScope, ctx := logging.Enter(c, "dao/image/count/byRoot", root, map[string]any{
 		"root": root,
@@ -1283,15 +1957,28 @@ func CountImageByRoot(db *sql.DB, c context.Context, root string) (uint64, error
 	return qty, nil
 }
 
-func QueryImageByTagACLPaged(db *sql.DB, c context.Context, tag uint64, acl dbo.ACLContext, from, qty uint64) ([]dbo.Image, error) {
-	logScope, ctx := logging.Enter(c, "dao/image/query/byTag/ACL/paged", tag, map[string]any{
-		"tag":  tag,
+// QueryImageByTagACLPaged reads tagged visible images and attaches their tags.
+//
+// Input:
+//   - db: database handle.
+//   - c: request context.
+//   - tagID: tag ID to filter by.
+//   - acl: ACL context used to build the visibility filter.
+//   - from: first row offset.
+//   - qty: maximum number of rows.
+//
+// Output:
+//   - []dbo.Image: matching images with tags.
+//   - error: image query, tag query, scan, or row iteration error.
+func QueryImageByTagACLPaged(db *sql.DB, c context.Context, tagID dbo.TagID, acl dbo.ACLContext, from, qty uint64) ([]dbo.Image, error) {
+	logScope, ctx := logging.Enter(c, "dao/image/query/byTag/ACL/paged", tagID, map[string]any{
+		"tag":  tagID,
 		"acl":  acl,
 		"from": from,
 		"qty":  qty,
 	})
 	q := NewQueries(db)
-	images, err := q.QueryImageByTagACLPaged(ctx, tag, acl, from, qty)
+	images, err := q.QueryImageByTagACLPaged(ctx, tagID, acl, from, qty)
 	if err != nil {
 		logging.ExitErr(logScope, err)
 		return nil, err
@@ -1311,13 +1998,25 @@ func QueryImageByTagACLPaged(db *sql.DB, c context.Context, tag uint64, acl dbo.
 	})
 	return images, nil
 }
-func CountImageByTagACL(db *sql.DB, c context.Context, tag uint64, acl dbo.ACLContext) (uint64, error) {
-	logScope, ctx := logging.Enter(c, "dao/image/count/byTag/Acl", tag, map[string]any{
-		"tag": tag,
+
+// CountImageByTagACL counts images bound to a tag and visible through ACL.
+//
+// Input:
+//   - db: database handle.
+//   - c: request context.
+//   - tagID: tag ID to filter by.
+//   - acl: ACL context used to build the visibility filter.
+//
+// Output:
+//   - uint64: matching image count.
+//   - error: query or scan error, if any.
+func CountImageByTagACL(db *sql.DB, c context.Context, tagID dbo.TagID, acl dbo.ACLContext) (uint64, error) {
+	logScope, ctx := logging.Enter(c, "dao/image/count/byTag/Acl", tagID, map[string]any{
+		"tag": tagID,
 		"acl": acl,
 	})
 	q := NewQueries(db)
-	qty, err := q.CountImageByTagACL(ctx, tag, acl)
+	qty, err := q.CountImageByTagACL(ctx, tagID, acl)
 	if err != nil {
 		logging.ExitErr(logScope, err)
 		return 0, err
@@ -1326,16 +2025,36 @@ func CountImageByTagACL(db *sql.DB, c context.Context, tag uint64, acl dbo.ACLCo
 	return qty, nil
 }
 
-func GetImageIdByTagACLFirstHash(db *sql.DB, c context.Context, tag uint64, acl dbo.ACLContext) (uint64, error) {
-	logScope, ctx := logging.Enter(c, "dao/image/get/byTag/ACL/firstHash", tag, map[string]any{
-		"tag": tag,
+// GetImageIdByTagACLFirstHash reads the first visible image ID for a tag ordered by file hash.
+//
+// Input:
+//   - db: database handle.
+//   - c: request context.
+//   - tagID: tag ID to filter by.
+//   - acl: ACL context used to build the visibility filter.
+//
+// Output:
+//   - dbo.ImageID: first matching image ID by file hash order.
+//   - error: wrapped not-found, query, or scan error.
+func GetImageIdByTagACLFirstHash(db *sql.DB, c context.Context, tagID dbo.TagID, acl dbo.ACLContext) (dbo.ImageID, error) {
+	logScope, ctx := logging.Enter(c, "dao/image/get/byTag/ACL/firstHash", tagID, map[string]any{
+		"tag": tagID,
 		"acl": acl,
 	})
 	q := NewQueries(db)
-	i, err := q.GetImageIdByTagACLFirstHash(ctx, tag, acl)
+	i, err := q.GetImageIdByTagACLFirstHash(ctx, tagID, acl)
 	return i, returnWrapNotFound(logScope, err, "image")
 }
 
+// CountImageRoots counts distinct image roots with logging.
+//
+// Input:
+//   - db: database handle.
+//   - c: request context.
+//
+// Output:
+//   - uint64: distinct root count.
+//   - error: query or scan error, if any.
 func CountImageRoots(db *sql.DB, c context.Context) (uint64, error) {
 	logScope, ctx := logging.Enter(c, "dao/image/count/roots", nil, nil)
 	q := NewQueries(db)
@@ -1349,6 +2068,15 @@ func CountImageRoots(db *sql.DB, c context.Context) (uint64, error) {
 
 }
 
+// QueryImageRoots reads distinct image roots with logging.
+//
+// Input:
+//   - db: database handle.
+//   - c: request context.
+//
+// Output:
+//   - []string: distinct root names.
+//   - error: query, scan, or row iteration error.
 func QueryImageRoots(db *sql.DB, c context.Context) ([]string, error) {
 	logScope, ctx := logging.Enter(c, "dao/image/query/roots", nil, nil)
 	q := NewQueries(db)
@@ -1363,16 +2091,32 @@ func QueryImageRoots(db *sql.DB, c context.Context) ([]string, error) {
 	return paths, nil
 }
 
-func QueryImageIDByTagACLNext(db *sql.DB, c context.Context, tagId uint64, imgId uint64, takenDate *time.Time, fileName string, acl dbo.ACLContext, from, qty uint64) ([]dbo.ImageTitle, error) {
-	logScope, ctx := logging.Enter(c, "dao/image/query/idTitle/byTag/ACL/next", tagId, map[string]any{
-		"image_id": imgId,
-		"tag_id":   tagId,
+// QueryImageIDByTagACLNext reads next image IDs and titles for a tag under ACL.
+//
+// Input:
+//   - db: database handle.
+//   - c: request context.
+//   - tagID: tag ID to filter by.
+//   - imgID: current image ID used as an ordering cursor.
+//   - takenDate: current image date used as an ordering cursor.
+//   - fileName: current image filename used as an ordering cursor.
+//   - acl: ACL context used to build the visibility filter.
+//   - from: first row offset.
+//   - qty: maximum number of rows.
+//
+// Output:
+//   - []dbo.ImageTitle: next image IDs with display titles.
+//   - error: query, scan, or row iteration error.
+func QueryImageIDByTagACLNext(db *sql.DB, c context.Context, tagID dbo.TagID, imgID dbo.ImageID, takenDate *time.Time, fileName string, acl dbo.ACLContext, from, qty uint64) ([]dbo.ImageTitle, error) {
+	logScope, ctx := logging.Enter(c, "dao/image/query/idTitle/byTag/ACL/next", tagID, map[string]any{
+		"image_id": imgID,
+		"tag_id":   tagID,
 		"from":     from,
 		"qty":      qty,
 		"acl":      acl,
 	})
 	q := NewQueries(db)
-	imagesTitle, err := q.QueryImageIDByTagACLNext(ctx, tagId, imgId, takenDate, fileName, acl, from, qty)
+	imagesTitle, err := q.QueryImageIDByTagACLNext(ctx, tagID, imgID, takenDate, fileName, acl, from, qty)
 	if err != nil {
 		logging.ExitErr(logScope, err)
 		return nil, err
@@ -1384,16 +2128,32 @@ func QueryImageIDByTagACLNext(db *sql.DB, c context.Context, tagId uint64, imgId
 
 }
 
-func QueryImageIDByTagACLPrev(db *sql.DB, c context.Context, tagId uint64, imgId uint64, takenDate *time.Time, fileName string, acl dbo.ACLContext, from, qty uint64) ([]dbo.ImageTitle, error) {
-	logScope, ctx := logging.Enter(c, "dao/image/query/idTitle/byTag/ACL/prev", tagId, map[string]any{
-		"image_id": imgId,
-		"tag_id":   tagId,
+// QueryImageIDByTagACLPrev reads previous image IDs and titles for a tag under ACL.
+//
+// Input:
+//   - db: database handle.
+//   - c: request context.
+//   - tagID: tag ID to filter by.
+//   - imgID: current image ID used as an ordering cursor.
+//   - takenDate: current image date used as an ordering cursor.
+//   - fileName: current image filename used as an ordering cursor.
+//   - acl: ACL context used to build the visibility filter.
+//   - from: first row offset.
+//   - qty: maximum number of rows.
+//
+// Output:
+//   - []dbo.ImageTitle: previous image IDs with display titles.
+//   - error: query, scan, or row iteration error.
+func QueryImageIDByTagACLPrev(db *sql.DB, c context.Context, tagID dbo.TagID, imgID dbo.ImageID, takenDate *time.Time, fileName string, acl dbo.ACLContext, from, qty uint64) ([]dbo.ImageTitle, error) {
+	logScope, ctx := logging.Enter(c, "dao/image/query/idTitle/byTag/ACL/prev", tagID, map[string]any{
+		"image_id": imgID,
+		"tag_id":   tagID,
 		"from":     from,
 		"qty":      qty,
 		"acl":      acl,
 	})
 	q := NewQueries(db)
-	imagesTitle, err := q.QueryImageIDByTagACLPrev(ctx, tagId, imgId, takenDate, fileName, acl, from, qty)
+	imagesTitle, err := q.QueryImageIDByTagACLPrev(ctx, tagID, imgID, takenDate, fileName, acl, from, qty)
 	if err != nil {
 		logging.ExitErr(logScope, err)
 		return nil, err
@@ -1404,13 +2164,24 @@ func QueryImageIDByTagACLPrev(db *sql.DB, c context.Context, tagId uint64, imgId
 	return imagesTitle, nil
 }
 
-func QueryImageCoordByTagByACL(db *sql.DB, c context.Context, tagId uint64, acl dbo.ACLContext) ([]dbo.ImageCoord, error) {
-	logScope, ctx := logging.Enter(c, "dao/image/query/coord/byTag/ACL", tagId, map[string]any{
-		"tag_id": tagId,
+// QueryImageCoordByTagByACL reads visible image coordinates for a tag.
+//
+// Input:
+//   - db: database handle.
+//   - c: request context.
+//   - tagID: tag ID to filter by.
+//   - acl: ACL context used to build the visibility filter.
+//
+// Output:
+//   - []dbo.ImageCoord: image IDs, titles, and coordinates.
+//   - error: query, scan, or row iteration error.
+func QueryImageCoordByTagByACL(db *sql.DB, c context.Context, tagID dbo.TagID, acl dbo.ACLContext) ([]dbo.ImageCoord, error) {
+	logScope, ctx := logging.Enter(c, "dao/image/query/coord/byTag/ACL", tagID, map[string]any{
+		"tag_id": tagID,
 		"acl":    acl,
 	})
 	q := NewQueries(db)
-	imagesCoords, err := q.QueryImageCoordByTagACL(ctx, tagId, acl)
+	imagesCoords, err := q.QueryImageCoordByTagACL(ctx, tagID, acl)
 	if err != nil {
 		logging.ExitErr(logScope, err)
 		return nil, err
@@ -1420,6 +2191,19 @@ func QueryImageCoordByTagByACL(db *sql.DB, c context.Context, tagId uint64, acl 
 	})
 	return imagesCoords, nil
 }
+
+// QueryImageRandomByACL reads visible images around a hash value.
+//
+// Input:
+//   - db: database handle.
+//   - c: request context.
+//   - hash: file hash pivot.
+//   - acl: ACL context used to build the visibility filter.
+//   - qty: desired number of images.
+//
+// Output:
+//   - []dbo.Image: matching images.
+//   - error: forward or backward query error.
 func QueryImageRandomByACL(db *sql.DB, c context.Context, hash string, acl dbo.ACLContext, qty int) ([]dbo.Image, error) {
 	logScope, ctx := logging.Enter(c, "dao/image/query/random/ACL", nil, map[string]any{
 		"hash": hash,
@@ -1447,7 +2231,18 @@ func QueryImageRandomByACL(db *sql.DB, c context.Context, hash string, acl dbo.A
 	})
 	return images, nil
 }
-func CountImageByLastNotSeen(db *sql.DB, c context.Context, lastSyncID uint64) (uint64, error) {
+
+// CountImageByLastNotSeen counts images not seen in a sync run.
+//
+// Input:
+//   - db: database handle.
+//   - c: request context.
+//   - lastSyncID: sync run used as the current seen marker.
+//
+// Output:
+//   - uint64: matching image count.
+//   - error: query or scan error, if any.
+func CountImageByLastNotSeen(db *sql.DB, c context.Context, lastSyncID dbo.SyncRunID) (uint64, error) {
 	logScope, ctx := logging.Enter(c, "dao/image/count/byLastNotSeen", lastSyncID, map[string]any{
 		"lastSync": lastSyncID,
 	})
@@ -1461,7 +2256,17 @@ func CountImageByLastNotSeen(db *sql.DB, c context.Context, lastSyncID uint64) (
 	return qty, nil
 }
 
-func CountImageByLastSeen(db *sql.DB, c context.Context, lastSyncID uint64) (uint64, error) {
+// CountImageByLastSeen counts images seen in a sync run.
+//
+// Input:
+//   - db: database handle.
+//   - c: request context.
+//   - lastSyncID: sync run used as the seen marker.
+//
+// Output:
+//   - uint64: matching image count.
+//   - error: query or scan error, if any.
+func CountImageByLastSeen(db *sql.DB, c context.Context, lastSyncID dbo.SyncRunID) (uint64, error) {
 	logScope, ctx := logging.Enter(c, "dao/image/count/byLastSeen", lastSyncID, map[string]any{
 		"lastSync": lastSyncID,
 	})
@@ -1475,6 +2280,15 @@ func CountImageByLastSeen(db *sql.DB, c context.Context, lastSyncID uint64) (uin
 	return qty, nil
 }
 
+// CountImage counts all images with logging.
+//
+// Input:
+//   - db: database handle.
+//   - c: request context.
+//
+// Output:
+//   - uint64: image count.
+//   - error: query or scan error, if any.
 func CountImage(db *sql.DB, c context.Context) (uint64, error) {
 	logScope, ctx := logging.Enter(c, "dao/image/count", nil, nil)
 	q := NewQueries(db)
@@ -1486,6 +2300,16 @@ func CountImage(db *sql.DB, c context.Context) (uint64, error) {
 	logging.Exit(logScope, "ok", map[string]any{"return": qty})
 	return qty, nil
 }
+
+// CountImageACLLevels counts images grouped by ACL level with logging.
+//
+// Input:
+//   - db: database handle.
+//   - c: request context.
+//
+// Output:
+//   - dbo.ImageACLCount: counts per ACL level.
+//   - error: query, scan, or row iteration error.
 func CountImageACLLevels(db *sql.DB, c context.Context) (dbo.ImageACLCount, error) {
 	logScope, ctx := logging.Enter(c, "dao/image/count/ACLLevels", nil, nil)
 	q := NewQueries(db)
@@ -1498,7 +2322,20 @@ func CountImageACLLevels(db *sql.DB, c context.Context) (dbo.ImageACLCount, erro
 	return qty, nil
 }
 
-func QueryImageByAlbumACLPaged(db *sql.DB, c context.Context, album uint64, acl dbo.ACLContext, from, qty uint64) ([]dbo.Image, error) {
+// QueryImageByAlbumACLPaged reads visible images in an album and attaches their tags.
+//
+// Input:
+//   - db: database handle.
+//   - c: request context.
+//   - album: album ID to filter by.
+//   - acl: ACL context used to build the visibility filter.
+//   - from: first row offset.
+//   - qty: maximum number of rows.
+//
+// Output:
+//   - []dbo.Image: matching images with tags.
+//   - error: image query, tag query, scan, or row iteration error.
+func QueryImageByAlbumACLPaged(db *sql.DB, c context.Context, album dbo.AlbumID, acl dbo.ACLContext, from, qty uint64) ([]dbo.Image, error) {
 	logScope, ctx := logging.Enter(c, "dao/image/query/byAlbum/ACL/paged", album, map[string]any{
 		"album": album,
 		"acl":   acl,
@@ -1526,7 +2363,19 @@ func QueryImageByAlbumACLPaged(db *sql.DB, c context.Context, album uint64, acl 
 	})
 	return images, nil
 }
-func CountImageByAlbumACL(db *sql.DB, c context.Context, album uint64, acl dbo.ACLContext) (uint64, error) {
+
+// CountImageByAlbumACL counts visible images in an album.
+//
+// Input:
+//   - db: database handle.
+//   - c: request context.
+//   - album: album ID to filter by.
+//   - acl: ACL context used to build the visibility filter.
+//
+// Output:
+//   - uint64: matching image count.
+//   - error: query or scan error, if any.
+func CountImageByAlbumACL(db *sql.DB, c context.Context, album dbo.AlbumID, acl dbo.ACLContext) (uint64, error) {
 	logScope, ctx := logging.Enter(c, "dao/image/count/byAlbum/Acl", album, map[string]any{
 		"album": album,
 		"acl":   acl,

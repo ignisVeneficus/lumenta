@@ -30,10 +30,10 @@ var (
 	imagePerAlbumPage uint64 = 24
 )
 
-func BuildAlbumFolders(c context.Context, database *sql.DB, loc string, i18n *i18n.Service, albumId *uint64, acl dbo.ACLContext, page uint64, url tplData.URLBuilder) (tplData.Folders, error) {
+func BuildAlbumFolders(c context.Context, database *sql.DB, loc string, i18n *i18n.Service, albumId *dbo.AlbumID, acl dbo.ACLContext, page uint64, url routes.URLBuilder) (tplData.Folders, error) {
 	type albumImage struct {
 		dbo.Album
-		ImageId    *uint64
+		ImageId    *routes.ImageID
 		AlbumCount int
 		ImageCount int
 	}
@@ -52,7 +52,7 @@ func BuildAlbumFolders(c context.Context, database *sql.DB, loc string, i18n *i1
 		logging.ExitErr(logScope, err)
 		return tplData.Folders{}, err
 	}
-	paging := tplData.CreatePaging(url, tplData.FolderPageParam, page, qty, albumsPerPage)
+	paging := tplData.CreatePaging(url, routes.FolderPageParam, page, qty, albumsPerPage)
 
 	albumsItems := []albumImage{}
 	for _, a := range albums {
@@ -65,7 +65,7 @@ func BuildAlbumFolders(c context.Context, database *sql.DB, loc string, i18n *i1
 			img, err := dao.GetImageByIdACL(database, ctx, *a.CoverImageID, acl)
 			switch {
 			case err == nil:
-				dir.ImageId = img.ID
+				dir.ImageId = (*routes.ImageID)(img.ID)
 			case !errors.Is(err, dao.ErrDataNotFound):
 				logging.ExitErr(logScope, err)
 				return tplData.Folders{}, err
@@ -90,7 +90,7 @@ func BuildAlbumFolders(c context.Context, database *sql.DB, loc string, i18n *i1
 
 	mapping := func(album albumImage) tplData.Folder {
 		return tplData.Folder{
-			URL:         template.URL(routes.CreateAlbumPath(int64(*album.ID))),
+			URL:         template.URL(routes.CreateAlbumPath(routes.AlbumID(*album.ID))),
 			Name:        album.Name,
 			Description: utils.FromStringPtr(album.Description),
 			Info: i18n.T(loc, "page.public.album.nr_content", map[string]any{
@@ -105,7 +105,7 @@ func BuildAlbumFolders(c context.Context, database *sql.DB, loc string, i18n *i1
 	logging.Exit(logScope, "ok", nil)
 	return folders, nil
 }
-func BuildAlbumImageGrid(c context.Context, database *sql.DB, albumId uint64, acl dbo.ACLContext, images []dbo.Image, page uint64, url tplData.URLBuilder, cfg presentation.PresentationConfig) (tplData.ImageGrid, error) {
+func BuildAlbumImageGrid(c context.Context, database *sql.DB, albumId dbo.AlbumID, acl dbo.ACLContext, images []dbo.Image, page uint64, url routes.URLBuilder, cfg presentation.PresentationConfig) (tplData.ImageGrid, error) {
 	logScope, ctx := logging.Enter(c, "server/page/public/album/buildDirGrid", albumId, map[string]any{
 		"album_id": albumId,
 		"page":     page,
@@ -115,14 +115,14 @@ func BuildAlbumImageGrid(c context.Context, database *sql.DB, albumId uint64, ac
 		logging.ExitErr(logScope, err)
 		return tplData.ImageGrid{}, err
 	}
-	paging := tplData.CreatePaging(url, tplData.ImagePageParam, page, qty, imagePerAlbumPage)
-	makeURL := func(id uint64) string {
-		return routes.CreateAlbumImagePath(albumId, id)
+	paging := tplData.CreatePaging(url, routes.ImagePageParam, page, qty, imagePerAlbumPage)
+	makeURL := func(id routes.ImageID) string {
+		return routes.CreateAlbumImagePath(routes.AlbumID(albumId), id)
 	}
 	logging.Exit(logScope, "ok", nil)
 	return tplData.ImageGrid{
 		Paging: &paging,
-		Images: grid.BuildGrid(images, cfg.Grid, albumId*page, makeURL),
+		Images: grid.BuildGrid(images, cfg.Grid, uint64(albumId)*page, makeURL),
 	}, nil
 }
 
@@ -131,15 +131,15 @@ func AlbumPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 		i18n := i18n.Get()
 		loc := tpl.L(c)
 		albumIdStr := c.Param("aid")
-		tPageStr := c.DefaultQuery(tplData.FolderPageParam, "1")
-		iPageStr := c.DefaultQuery(tplData.ImagePageParam, "1")
+		tPageStr := c.DefaultQuery(routes.FolderPageParam, "1")
+		iPageStr := c.DefaultQuery(routes.ImagePageParam, "1")
 		logScope, ctx := logging.Enter(c.Request.Context(), "server/page/public/album", albumIdStr, map[string]any{
 			"album_id":    albumIdStr,
 			"subTag_page": tPageStr,
 			"image_page":  iPageStr,
 		})
 
-		albumId, err := tpl.ParseID(albumIdStr)
+		albumId, err := tpl.ParseAlbumID(albumIdStr)
 		if err != nil {
 			logging.ExitErr(logScope, fmt.Errorf("invalid album id"))
 			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "invalid album id"})
@@ -160,37 +160,37 @@ func AlbumPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 			return
 		}
 
-		url := routes.BuildAlbumPath(int64(albumId))
+		url := routes.BuildAlbumPath(albumId)
 		url.WithFolderPaging(tPage).WithImagePaging(iPage)
 
 		database := db.GetDatabase()
 		acl := auth.GetAuthContex(c)
-
-		thisAlbum, err := dao.GetAlbumByIDACL(database, ctx, albumId, acl.ACLContext)
+		dbAlbumId := dbo.AlbumID(albumId)
+		thisAlbum, err := dao.GetAlbumByIDACL(database, ctx, dbAlbumId, acl.ACLContext)
 		switch {
 		case errors.Is(err, dao.ErrDataNotFound):
 			logging.ExitErr(logScope, err)
-			pages.Soft404(r, cfg, c, tplData.SurfacePublic, "tag", routes.CreateTagsRootPath(), albumId)
+			pages.Soft404(r, cfg, c, tplData.SurfacePublic, "tag", routes.CreateTagsRootPath(), uint64(albumId))
 			return
 		case err != nil:
 			logging.ExitErr(logScope, err)
 			c.AbortWithStatus(http.StatusInternalServerError)
 			return
 		}
-		folders, err := BuildAlbumFolders(ctx, database, loc, i18n, &albumId, acl.ACLContext, tPage, *url)
+		folders, err := BuildAlbumFolders(ctx, database, loc, i18n, &dbAlbumId, acl.ACLContext, tPage, *url)
 		if err != nil {
 			logging.ExitErr(logScope, err)
 			c.AbortWithStatus(http.StatusInternalServerError)
 			return
 		}
 
-		images, err := dao.QueryImageByAlbumACLPaged(database, ctx, albumId, acl.ACLContext, (iPage-1)*imagePerTagPage, imagePerTagPage)
+		images, err := dao.QueryImageByAlbumACLPaged(database, ctx, dbAlbumId, acl.ACLContext, (iPage-1)*imagePerTagPage, imagePerTagPage)
 		if err != nil {
 			logging.ExitErr(logScope, err)
 			c.AbortWithStatus(http.StatusInternalServerError)
 			return
 		}
-		imageGrid, err := BuildAlbumImageGrid(ctx, database, albumId, acl.ACLContext, images, iPage, *url, cfg.Presentation)
+		imageGrid, err := BuildAlbumImageGrid(ctx, database, dbAlbumId, acl.ACLContext, images, iPage, *url, cfg.Presentation)
 		if err != nil {
 			logging.ExitErr(logScope, err)
 			c.AbortWithStatus(http.StatusInternalServerError)
@@ -207,10 +207,10 @@ func AlbumPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 		flatForrest := tplData.NewFlatForrest()
 		mapper := func(t *dbo.Tag) tplData.ViewTreeNode {
 			return tplData.ViewTreeNode{
-				ID:       *t.ID,
-				ParentID: t.ParentID,
+				ID:       uint64(*t.ID),
+				ParentID: (*uint64)(t.ParentID),
 				Label:    t.Name,
-				URL:      template.URL(routes.CreateTagPath(*t.ID)),
+				URL:      template.URL(routes.CreateTagPath(routes.TagID(*t.ID))),
 			}
 		}
 		for _, img := range images {
@@ -252,8 +252,8 @@ func AlbumsRootPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc 
 	return func(c *gin.Context) {
 		i18n := i18n.Get()
 		loc := tpl.L(c)
-		tPageStr := c.DefaultQuery(tplData.FolderPageParam, "1")
-		iPageStr := c.DefaultQuery(tplData.ImagePageParam, "1")
+		tPageStr := c.DefaultQuery(routes.FolderPageParam, "1")
+		iPageStr := c.DefaultQuery(routes.ImagePageParam, "1")
 		logScope, ctx := logging.Enter(c.Request.Context(), "server/page/public/album/all", nil, map[string]any{
 			"subTag_page": tPageStr,
 			"image_page":  iPageStr,
@@ -289,7 +289,7 @@ func AlbumsRootPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc 
 		breadcrumbs := tplData.Breadcrumbs{
 			tplData.Breadcrumb{
 				Label: i18n.T(loc, "nav.page.public.albums.short", nil),
-				Type:  "album",
+				Type:  "albums",
 			},
 		}
 

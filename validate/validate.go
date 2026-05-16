@@ -30,7 +30,7 @@ func ValidateAlbum(album dbo.Album, albums []*dbo.AlbumGraph) ValidationErrors {
 		validateErrors.AddError(definitions.AlbumFieldACLLevel, "Invalud value")
 	}
 	if album.ParentID != nil && album.ParentID != album.ID {
-		var albumId uint64 = 0
+		var albumId dbo.AlbumID = 0
 		if album.ID != nil {
 			albumId = *album.ID
 		}

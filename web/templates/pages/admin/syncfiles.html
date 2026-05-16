@@ -78,7 +78,7 @@
             </thead>
             <tbody>
                 {{- range .SyncFiles -}}
-                <tr class="clickable-row" data-href="{{- adminSyncFilePath .ID -}}">
+                <tr class="clickable-row" data-href="{{- adminSyncFilePath .RoutesSyncFileID -}}">
                     <td class="col-path">{{ .FullPathText }}</td>
                     <td class="col-status {{ .Status }}">
                         {{ template "icon" (i (printf "data.sync_file.status.%s" .Status)

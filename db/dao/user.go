@@ -26,7 +26,7 @@ func parseUser(row *sql.Row) (dbo.User, string, error) {
 	return u, hash, err
 }
 
-func (q *Queries) GetUserById(ctx context.Context, id uint64) (dbo.User, error) {
+func (q *Queries) GetUserById(ctx context.Context, id dbo.UserID) (dbo.User, error) {
 	row := q.db.QueryRowContext(ctx, getUserById, id)
 	dbo, _, err := parseUser(row)
 	return dbo, err
@@ -45,17 +45,17 @@ func (q *Queries) UpdateUser(ctx context.Context, u dbo.User) error {
 	return err
 }
 
-func (q *Queries) DeleteUser(ctx context.Context, id uint64) error {
+func (q *Queries) DeleteUser(ctx context.Context, id dbo.UserID) error {
 	_, err := q.db.ExecContext(ctx, deleteUser, id)
 	return err
 }
 
-func (q *Queries) UpdateUserPassword(ctx context.Context, userID uint64, passHash string) error {
+func (q *Queries) UpdateUserPassword(ctx context.Context, userID dbo.UserID, passHash string) error {
 	_, err := q.db.ExecContext(ctx, updateUserPassword, passHash, userID)
 	return err
 }
 
-func GetUserById(db *sql.DB, c context.Context, id uint64) (dbo.User, error) {
+func GetUserById(db *sql.DB, c context.Context, id dbo.UserID) (dbo.User, error) {
 	logScope, ctx := logging.Enter(c, "dao/user/get/byId", id, map[string]any{"user_id": id})
 	q := NewQueries(db)
 	u, err := q.GetUserById(ctx, id)
@@ -95,7 +95,7 @@ func CreateUser(db *sql.DB, c context.Context, u dbo.User, passHash string) erro
 	return logging.Return(logScope, tx.Commit())
 }
 
-func DeleteUser(db *sql.DB, c context.Context, id uint64) error {
+func DeleteUser(db *sql.DB, c context.Context, id dbo.UserID) error {
 	logScope, ctx := logging.Enter(c, "dao/user/delete", id, map[string]any{"user_id": id})
 	tx, err := GetTx(db, ctx)
 	if err != nil {

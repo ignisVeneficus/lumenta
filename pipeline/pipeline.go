@@ -87,7 +87,7 @@ func RunGlobalSync(c context.Context, cfg config.Config, cleanUp bool) error {
 			return // not started
 		}
 		if rt != nil {
-			rt.Stop(pipelineCtx.SyncId)
+			rt.Stop(uint64(pipelineCtx.SyncId))
 		}
 		if err != nil {
 			logging.ExitErr(logScope, err)
@@ -114,7 +114,7 @@ func RunGlobalSync(c context.Context, cfg config.Config, cleanUp bool) error {
 
 	rt = Global()
 
-	if !rt.Start(syncId) {
+	if !rt.Start(uint64(syncId)) {
 		err = fmt.Errorf("sync already running")
 		logging.ExitErr(logScope, err)
 		return err
@@ -235,16 +235,22 @@ func collectAlbums(database *sql.DB, c context.Context) (*AlbumContext, error) {
 	albumStuct := make(ruleengine.AlbumsStruct, len(albums))
 	albumIDs := make(map[uint64]*AlbumRule, len(albums))
 	for i, a := range albums {
+		id := (*uint64)(a.ID)
+		parentID := (*uint64)(a.ParentID)
+		pathId := make([]uint64, len(a.AncestorIDs))
+		for j, pid := range a.AncestorIDs {
+			pathId[j] = uint64(pid)
+		}
 		albumrule := &AlbumRule{
-			ID:       *a.ID,
-			PathIDs:  a.AncestorIDs,
+			ID:       *id,
+			PathIDs:  pathId,
 			Depth:    len(a.AncestorIDs),
 			Name:     a.Name,
 			Rank:     a.Rank,
-			ParentID: a.ParentID,
+			ParentID: parentID,
 		}
 		rules[i] = albumrule
-		albumIDs[*a.ID] = albumrule
+		albumIDs[*id] = albumrule
 
 		var rawRule ruleengine.RuleGroup
 		err := json.Unmarshal(a.RuleJSON, &rawRule)

@@ -3,10 +3,12 @@ package data
 import (
 	"html/template"
 	"math"
+
+	"github.com/ignisVeneficus/lumenta/server/routes"
 )
 
 type Paging struct {
-	Url     URLBuilder
+	Url     routes.URLBuilder
 	Name    string
 	MaxPage uint64
 	ActPage uint64
@@ -49,7 +51,7 @@ func (p Paging) Last() template.URL {
 	return template.URL(url.String())
 }
 
-func CreatePaging(url URLBuilder, name string, page, qty, perPage uint64) Paging {
+func CreatePaging(url routes.URLBuilder, name string, page, qty, perPage uint64) Paging {
 	return Paging{
 		Url:     url,
 		Name:    name,

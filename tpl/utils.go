@@ -33,10 +33,10 @@ func CreateImage(c context.Context, cfg config.Config, image dbo.Image) tplData.
 	flatForrest := tplData.NewFlatForrest()
 	tagsList := tplData.MapToViewNodes(image.Tags, func(t *dbo.Tag) tplData.ViewTreeNode {
 		return tplData.ViewTreeNode{
-			ID:       *t.ID,
-			ParentID: t.ParentID,
+			ID:       uint64(*t.ID),
+			ParentID: (*uint64)(t.ParentID),
 			Label:    t.Name,
-			URL:      template.URL(routes.CreateTagPath(*t.ID)),
+			URL:      template.URL(routes.CreateTagPath(routes.TagID(*t.ID))),
 		}
 	})
 	flatForrest.Add(tagsList)
@@ -177,7 +177,7 @@ func createTagsBreadcrumbs(loc string, i18n *i18n.Service, tags []dbo.Tag, last 
 	for i := 0; i < end; i++ {
 		brc := tplData.Breadcrumb{
 			Label: tags[i].Name,
-			Link:  template.URL(routes.CreateTagPath(*tags[i].ID)),
+			Link:  template.URL(routes.CreateTagPath(routes.TagID(*tags[i].ID))),
 			Type:  "tag",
 			Title: fmt.Sprintf("View: %s", tags[i].Name),
 		}
@@ -212,7 +212,7 @@ func BuildAlbumBreadcumb(database *sql.DB, c context.Context, loc string, i18n *
 		case err == nil:
 			br := tplData.Breadcrumb{
 				Label: a.Name,
-				Link:  template.URL(routes.CreateAlbumPath(int64(id))),
+				Link:  template.URL(routes.CreateAlbumPath(routes.AlbumID(id))),
 				Type:  "album",
 				Title: utils.FromStringPtr(a.Description),
 			}
@@ -226,7 +226,7 @@ func BuildAlbumBreadcumb(database *sql.DB, c context.Context, loc string, i18n *
 		Type:  "album",
 	}
 	if !last {
-		br.Link = template.URL(routes.CreateAlbumPath(int64(*album.ID)))
+		br.Link = template.URL(routes.CreateAlbumPath(routes.AlbumID(*album.ID)))
 		br.Title = utils.FromStringPtr(album.Description)
 	}
 	ret = append(ret, br)
@@ -249,6 +249,27 @@ func ParseID(s string) (uint64, error) {
 	}
 	return strconv.ParseUint(s, 10, 64)
 }
+
+func ParseAlbumID(s string) (routes.AlbumID, error) {
+	id, err := ParseID(s)
+	return routes.AlbumID(id), err
+}
+func ParseImageID(s string) (routes.ImageID, error) {
+	id, err := ParseID(s)
+	return routes.ImageID(id), err
+}
+func ParseTagID(s string) (routes.TagID, error) {
+	id, err := ParseID(s)
+	return routes.TagID(id), err
+}
+func ParseSyncRunID(s string) (routes.SyncRunID, error) {
+	id, err := ParseID(s)
+	return routes.SyncRunID(id), err
+}
+func ParseSyncFileID(s string) (routes.SyncFileID, error) {
+	id, err := ParseID(s)
+	return routes.SyncFileID(id), err
+}
 func ParsePaging(s string) (uint64, error) {
 	if s == "" {
 		return 1, nil
@@ -268,6 +289,13 @@ func UintToString(val *uint64) string {
 		return ""
 	}
 	return strconv.FormatUint(*val, 10)
+}
+
+func AlbumIDToString(val *dbo.AlbumID) string {
+	if val == nil {
+		return ""
+	}
+	return strconv.FormatUint(uint64(*val), 10)
 }
 
 func CreateSpacePath(fullpath string) string {

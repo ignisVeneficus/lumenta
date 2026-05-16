@@ -2,8 +2,6 @@ package routes
 
 import (
 	"fmt"
-
-	"github.com/ignisVeneficus/lumenta/tpl/data"
 )
 
 const (
@@ -39,15 +37,15 @@ func GetAdminFsPath() string {
 func CreateAdminFsPath(path string) string {
 	return AdminPrefix + fmt.Sprintf(adminFsPath, path)
 }
-func BuildAdminFsPath(path string) *data.URLBuilder {
-	return data.NewURL(CreateAdminFsPath(path))
+func BuildAdminFsPath(path string) *URLBuilder {
+	return NewURL(CreateAdminFsPath(path))
 }
 
 func GetAdminImgPath() string {
 	return getPath(adminImgPath, ":id")
 }
-func CreateAdminImgPath(imgID uint64) string {
-	return AdminPrefix + fmt.Sprintf(adminImgPath, imgID)
+func CreateAdminImgPath(imageID ImageID) string {
+	return AdminPrefix + fmt.Sprintf(adminImgPath, imageID)
 }
 
 func GetAdminAlbumsPath() string {
@@ -67,11 +65,11 @@ func CreateAdminAlbumNewPath() string {
 func GetAdminAlbumPath() string {
 	return getPath(adminAlbumIdPath, ":id")
 }
-func CreateAdminAlbumPath(albumID uint64) string {
+func CreateAdminAlbumPath(albumID AlbumID) string {
 	return AdminPrefix + fmt.Sprintf(adminAlbumIdPath, albumID)
 }
-func BuildAdminAlbumPath(albumID uint64) *data.URLBuilder {
-	return data.NewURL(CreateAdminAlbumPath(albumID))
+func BuildAdminAlbumPath(albumID AlbumID) *URLBuilder {
+	return NewURL(CreateAdminAlbumPath(albumID))
 }
 
 func GetAdminSyncRunsPath() string {
@@ -80,18 +78,18 @@ func GetAdminSyncRunsPath() string {
 func CreateAdminSyncRunListPath() string {
 	return AdminPrefix + adminSyncRunListPath
 }
-func BuildAdminSyncRunListPath() *data.URLBuilder {
-	return data.NewURL(CreateAdminSyncRunListPath())
+func BuildAdminSyncRunListPath() *URLBuilder {
+	return NewURL(CreateAdminSyncRunListPath())
 }
 
 func GetAdminSyncRunFilesPath() string {
 	return getPath(adminSyncRunFilesPath, ":id")
 }
-func CreateAdminSyncRunFilesPath(id uint64) string {
-	return AdminPrefix + fmt.Sprintf(adminSyncRunFilesPath, id)
+func CreateAdminSyncRunFilesPath(syncRunID SyncRunID) string {
+	return AdminPrefix + fmt.Sprintf(adminSyncRunFilesPath, syncRunID)
 }
-func BuildAdminSyncRunFilesPath(id uint64) *data.URLBuilder {
-	return data.NewURL(CreateAdminSyncRunFilesPath(id))
+func BuildAdminSyncRunFilesPath(syncRunID SyncRunID) *URLBuilder {
+	return NewURL(CreateAdminSyncRunFilesPath(syncRunID))
 }
 
 func GetAdminSyncFilesPath() string {
@@ -100,8 +98,8 @@ func GetAdminSyncFilesPath() string {
 func CreateAdminSyncFilesPath() string {
 	return AdminPrefix + adminSyncFilesPath
 }
-func BuildAdminSyncFilesPath() *data.URLBuilder {
-	return data.NewURL(CreateAdminSyncFilesPath())
+func BuildAdminSyncFilesPath() *URLBuilder {
+	return NewURL(CreateAdminSyncFilesPath())
 }
 
 func GetAdminSyncFilesByPathPath() string {
@@ -110,16 +108,16 @@ func GetAdminSyncFilesByPathPath() string {
 func CreateAdminSyncFilesByPathPath(fullpath string) string {
 	return AdminPrefix + fmt.Sprintf(adminSyncFilesByPathPath, fullpath)
 }
-func BuildAdminSyncFilesByPathPath(fullpath string) *data.URLBuilder {
-	return data.NewURL(CreateAdminSyncFilesByPathPath(fullpath))
+func BuildAdminSyncFilesByPathPath(fullpath string) *URLBuilder {
+	return NewURL(CreateAdminSyncFilesByPathPath(fullpath))
 }
 
 func GetAdminSyncFilePath() string {
 	return getPath(adminSyncFilePath, ":id")
 }
-func CreateAdminSyncFilePath(id uint64) string {
-	return AdminPrefix + fmt.Sprintf(adminSyncFilePath, id)
+func CreateAdminSyncFilePath(syncFileID SyncFileID) string {
+	return AdminPrefix + fmt.Sprintf(adminSyncFilePath, syncFileID)
 }
-func BuildAdminSyncFilePath(id uint64) *data.URLBuilder {
-	return data.NewURL(CreateAdminSyncFilePath(id))
+func BuildAdminSyncFilePath(syncFileID SyncFileID) *URLBuilder {
+	return NewURL(CreateAdminSyncFilePath(syncFileID))
 }

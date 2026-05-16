@@ -8,14 +8,13 @@ import (
 	"github.com/rs/zerolog"
 )
 
-//
 // =========================================================
 // IMAGES
 // =========================================================
-//
+type ImageID uint64
 
 type Image struct {
-	ID *uint64
+	ID *ImageID
 
 	Root     string
 	Path     string
@@ -56,12 +55,12 @@ type Image struct {
 	ExifJSON json.RawMessage
 
 	ACLLevel  DBACLLevel
-	ACLUserID uint64
+	ACLUserID UserID
 
 	CreatedAt time.Time
 	UpdatedAt time.Time
 
-	LastSeenSync *uint64
+	LastSeenSync *SyncRunID
 
 	Tags TagsTree
 }
@@ -82,11 +81,11 @@ func (i *Image) MarshalZerologObjectWithLevel(e *zerolog.Event, level zerolog.Le
 			Str("filename", i.Filename).
 			Str("ext", i.Ext).
 			Uint64("acl_level", uint64(i.ACLLevel)).
-			Uint64("acl_user_id", i.ACLUserID).
+			Uint64("acl_user_id", uint64(i.ACLUserID)).
 			Str("root", i.Root)
-		logging.Uint64If(e, "id", i.ID)
+		logging.Uint64If(e, "id", (*uint64)(i.ID))
 		logging.StrIf(e, "title", i.Title)
-		logging.Uint64If(e, "last sync", i.LastSeenSync)
+		logging.Uint64If(e, "last sync", (*uint64)(i.LastSeenSync))
 
 	}
 	if level == zerolog.TraceLevel {
@@ -107,12 +106,12 @@ func (i *Image) MarshalZerologObjectWithLevel(e *zerolog.Event, level zerolog.Le
 }
 
 type ImageTitle struct {
-	ID    uint64
+	ID    ImageID
 	Title string
 }
 
 type ImageCoord struct {
-	ID        uint64
+	ID        ImageID
 	Title     string
 	Latitude  *float64
 	Longitude *float64

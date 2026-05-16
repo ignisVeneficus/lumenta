@@ -11,7 +11,7 @@ import (
 
 func CreateTagCache() TagCache {
 	return TagCache{
-		m: make(map[string]uint64),
+		m: make(map[string]dbo.TagID),
 	}
 }
 
@@ -22,9 +22,9 @@ func LoadTagCache(cache *TagCache, database *sql.DB, ctx context.Context) error 
 		logging.ExitErr(logScope, err)
 		return err
 	}
-	tagMap := make(map[uint64]*dbo.Tag, len(tags))
-	pathMap := make(map[uint64]string, len(tags))
-	stack := make([]uint64, len(tags))
+	tagMap := make(map[dbo.TagID]*dbo.Tag, len(tags))
+	pathMap := make(map[dbo.TagID]string, len(tags))
+	stack := make([]dbo.TagID, len(tags))
 	for i, tag := range tags {
 		tagMap[*tag.ID] = &tags[i]
 		stack[i] = *tag.ID

@@ -11,6 +11,7 @@ import (
 	"github.com/ignisVeneficus/lumenta/config"
 	"github.com/ignisVeneficus/lumenta/db"
 	"github.com/ignisVeneficus/lumenta/db/dao"
+	"github.com/ignisVeneficus/lumenta/db/dbo"
 	"github.com/ignisVeneficus/lumenta/internal/i18n"
 	"github.com/ignisVeneficus/lumenta/internal/locale"
 	"github.com/ignisVeneficus/lumenta/ruleengine"
@@ -31,7 +32,7 @@ func SyncFilePage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 			"syncFile_id": syncFileIDStr,
 		})
 
-		syncFileId, err := tpl.ParseID(syncFileIDStr)
+		syncFileId, err := tpl.ParseSyncFileID(syncFileIDStr)
 		if err != nil {
 			logging.ExitErr(logScope, fmt.Errorf("invalid page"))
 			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "invalid page"})
@@ -39,10 +40,10 @@ func SyncFilePage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 		}
 
 		database := db.GetDatabase()
-		syncFile, err := dao.GetSyncFileById(database, ctx, syncFileId)
+		syncFile, err := dao.GetSyncFileById(database, ctx, dbo.SyncFileID(syncFileId))
 		if err != nil {
 			logging.ExitErr(logScope, err)
-			pages.Soft404(r, cfg, c, tplData.SurfacePublic, "sync_file", routes.CreateAdminSyncFilesByPathPath(""), syncFileId)
+			pages.Soft404(r, cfg, c, tplData.SurfacePublic, "sync_file", routes.CreateAdminSyncFilesByPathPath(""), uint64(syncFileId))
 			return
 		}
 		var ruleresult ruleengine.RuleResults

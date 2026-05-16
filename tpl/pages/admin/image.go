@@ -34,7 +34,7 @@ func createHistoryDate(database *sql.DB, ctx context.Context, root, path, filena
 	if err != nil {
 		return syncData, err
 	}
-	var lastId uint64 = 0
+	var lastId dbo.SyncFileID = 0
 	if len(lastSyncs) == 0 {
 		return syncData, err
 	}
@@ -65,7 +65,7 @@ func ImagePage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 			"image": imageIDStr,
 		})
 
-		imageID, err := tpl.ParseID(imageIDStr)
+		imageID, err := tpl.ParseImageID(imageIDStr)
 		if err != nil {
 			logging.ExitErr(logScope, fmt.Errorf("invalid image Id"))
 			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "invalid image Id"})
@@ -73,12 +73,13 @@ func ImagePage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 		}
 
 		database := db.GetDatabase()
+		dbImageID := dbo.ImageID(imageID)
 		// Image
-		image, err := dao.GetImageByIdWTags(database, ctx, imageID)
+		image, err := dao.GetImageByIdWTags(database, ctx, dbImageID)
 		switch {
 		case errors.Is(err, dao.ErrDataNotFound):
 			logging.ExitErr(logScope, err)
-			pages.Soft404(r, cfg, c, tplData.SurfaceAdmin, "image", routes.CreateAdminRootPath(), imageID)
+			pages.Soft404(r, cfg, c, tplData.SurfaceAdmin, "image", routes.CreateAdminRootPath(), uint64(imageID))
 			return
 		case err != nil:
 			logging.ExitErr(logScope, err)
@@ -94,7 +95,7 @@ func ImagePage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 		}
 
 		// Album related query
-		albums, err := dao.QueryAlbumsIdByCover(database, ctx, imageID)
+		albums, err := dao.QueryAlbumsIdByCover(database, ctx, dbImageID)
 		if err != nil {
 			logging.ExitErr(logScope, err)
 			c.AbortWithStatus(http.StatusInternalServerError)
@@ -104,7 +105,7 @@ func ImagePage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 		// form for change
 		form := adminData.ImageForm{
 			ACLLevel:  strconv.FormatUint(uint64(image.ACLLevel), 10),
-			ACLUserID: strconv.FormatUint(image.ACLUserID, 10),
+			ACLUserID: strconv.FormatUint(uint64(image.ACLUserID), 10),
 		}
 		// tags
 		forest := tplData.ForrestFromTags(image.Tags, func(id uint64) string {
@@ -132,7 +133,11 @@ func ImagePage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 				Long: *image.Longitude,
 			}
 		}
-		imageCtx.Image.Covers = albums
+		albumIDs := make([]routes.AlbumID, 0)
+		for _, ai := range albums {
+			albumIDs = append(albumIDs, routes.AlbumID(ai))
+		}
+		imageCtx.Image.Covers = albumIDs
 
 		if err := r.RenderPage(c.Writer, "admin/image", imageCtx, loc, i18n); err != nil {
 			c.AbortWithStatus(http.StatusInternalServerError)

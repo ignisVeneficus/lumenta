@@ -2,8 +2,6 @@ package routes
 
 import (
 	"fmt"
-
-	"github.com/ignisVeneficus/lumenta/tpl/data"
 )
 
 const (
@@ -16,11 +14,11 @@ const (
 func GetApiTagPath() string {
 	return getPath(apiTagPath, ":tid")
 }
-func CreateApiTagPath(id uint64) string {
-	return fmt.Sprintf(ApiPrefix+apiTagPath, id)
+func CreateApiTagPath(tagID TagID) string {
+	return fmt.Sprintf(ApiPrefix+apiTagPath, tagID)
 }
-func BuildApiTagPath(tagId uint64) *data.URLBuilder {
-	return data.NewURL(CreateApiTagPath(tagId))
+func BuildApiTagPath(tagID TagID) *URLBuilder {
+	return NewURL(CreateApiTagPath(tagID))
 }
 
 func GetApiAlbumsRootPath() string {
@@ -29,16 +27,16 @@ func GetApiAlbumsRootPath() string {
 func CreateApiAlbumsRootPath() string {
 	return fmt.Sprintf(ApiPrefix + apiAlbumsRootPath)
 }
-func BuildApiAlbumsRootPath() *data.URLBuilder {
-	return data.NewURL(CreateApiAlbumsRootPath())
+func BuildApiAlbumsRootPath() *URLBuilder {
+	return NewURL(CreateApiAlbumsRootPath())
 }
 
 func GetApiAlbumPath() string {
 	return getPath(apiAlbumPath, ":tid")
 }
-func CreateApiAlbumPath(id uint64) string {
-	return fmt.Sprintf(ApiPrefix+apiAlbumPath, id)
+func CreateApiAlbumPath(albumID AlbumID) string {
+	return fmt.Sprintf(ApiPrefix+apiAlbumPath, albumID)
 }
-func BuildApiAlbumPath(tagId uint64) *data.URLBuilder {
-	return data.NewURL(CreateApiAlbumPath(tagId))
+func BuildApiAlbumPath(albumID AlbumID) *URLBuilder {
+	return NewURL(CreateApiAlbumPath(albumID))
 }

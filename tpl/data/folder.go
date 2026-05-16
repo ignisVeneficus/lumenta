@@ -2,11 +2,13 @@ package data
 
 import (
 	"html/template"
+
+	"github.com/ignisVeneficus/lumenta/server/routes"
 )
 
 type Folder struct {
 	URL         template.URL
-	Image       *uint64
+	Image       *routes.ImageID
 	Name        string
 	Description string
 	Info        string

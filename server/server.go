@@ -30,7 +30,7 @@ func Server(cfg config.Config, i18n *i18n.Service, ctx context.Context) {
 
 	templatreResolver, err := tpl.NewTemplateResolver(ctx, "", i18n)
 	if err != nil {
-		logging.Panic(logScope, "template resolver", nil, err, "")
+		logging.ExitErr(logScope, err)
 		panic(err)
 	}
 

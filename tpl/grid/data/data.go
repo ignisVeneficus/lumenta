@@ -2,6 +2,7 @@ package grid
 
 import (
 	"github.com/ignisVeneficus/lumenta/data"
+	"github.com/ignisVeneficus/lumenta/server/routes"
 )
 
 type Aspect string
@@ -111,7 +112,7 @@ func (s Span) ToRect() *Rect {
 }
 
 type GridImage struct {
-	ImgId       uint64
+	ImgId       routes.ImageID
 	Title       string
 	Focus       data.Focus
 	AspectClass Aspect

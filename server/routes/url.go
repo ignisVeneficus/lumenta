@@ -1,4 +1,4 @@
-package data
+package routes
 
 import (
 	"net/url"

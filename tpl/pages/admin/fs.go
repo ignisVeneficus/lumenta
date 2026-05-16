@@ -29,7 +29,7 @@ var (
 	imagePerPage uint64 = 48
 )
 
-func BuildRootDirGrid(c context.Context, database *sql.DB, page uint64, url tplData.URLBuilder) (adminData.FsDirs, error) {
+func BuildRootDirGrid(c context.Context, database *sql.DB, page uint64, url routes.URLBuilder) (adminData.FsDirs, error) {
 	logScope, ctx := logging.Enter(c, "admin.fsPage.buildRootDirGrid", nil, map[string]any{
 		"page": page,
 	})
@@ -43,7 +43,7 @@ func BuildRootDirGrid(c context.Context, database *sql.DB, page uint64, url tplD
 		logging.ExitErr(logScope, err)
 		return adminData.FsDirs{}, err
 	}
-	paging := tplData.CreatePaging(url, tplData.FolderPageParam, page, qty, dirPerPage)
+	paging := tplData.CreatePaging(url, routes.FolderPageParam, page, qty, dirPerPage)
 
 	dirItems := []adminData.FsDir{}
 	for _, d := range dirs {
@@ -55,7 +55,7 @@ func BuildRootDirGrid(c context.Context, database *sql.DB, page uint64, url tplD
 		img, err := dao.GetImageIdByRootFirstHash(database, ctx, d)
 		switch {
 		case err == nil:
-			dir.Image = img
+			dir.Image = routes.ImageID(img)
 		case !errors.Is(err, dao.ErrDataNotFound):
 			logging.ExitErr(logScope, err)
 			return adminData.FsDirs{}, err
@@ -76,7 +76,7 @@ func BuildRootDirGrid(c context.Context, database *sql.DB, page uint64, url tplD
 	return ret, nil
 }
 
-func BuildDirGrid(c context.Context, database *sql.DB, root, pagePath string, page uint64, url tplData.URLBuilder) (adminData.FsDirs, error) {
+func BuildDirGrid(c context.Context, database *sql.DB, root, pagePath string, page uint64, url routes.URLBuilder) (adminData.FsDirs, error) {
 	logScope, ctx := logging.Enter(c, "admin.fsPage.buildDirGrid", root+"/"+pagePath, map[string]any{
 		"root": root,
 		"path": pagePath,
@@ -92,7 +92,7 @@ func BuildDirGrid(c context.Context, database *sql.DB, root, pagePath string, pa
 		logging.ExitErr(logScope, err)
 		return adminData.FsDirs{}, err
 	}
-	paging := tplData.CreatePaging(url, tplData.FolderPageParam, page, qty, dirPerPage)
+	paging := tplData.CreatePaging(url, routes.FolderPageParam, page, qty, dirPerPage)
 
 	dirItems := []adminData.FsDir{}
 	for _, d := range dirs {
@@ -105,7 +105,7 @@ func BuildDirGrid(c context.Context, database *sql.DB, root, pagePath string, pa
 		img, err := dao.GetImageIdByPathFirstHash(database, ctx, root, d)
 		switch {
 		case err == nil:
-			dir.Image = img
+			dir.Image = routes.ImageID(img)
 		case !errors.Is(err, dao.ErrDataNotFound):
 			logging.ExitErr(logScope, err)
 			return adminData.FsDirs{}, err
@@ -125,7 +125,7 @@ func BuildDirGrid(c context.Context, database *sql.DB, root, pagePath string, pa
 	logging.Exit(logScope, "ok", nil)
 	return ret, nil
 }
-func BuildImageGrid(c context.Context, database *sql.DB, root, path string, page uint64, url tplData.URLBuilder) (adminData.FsImages, error) {
+func BuildImageGrid(c context.Context, database *sql.DB, root, path string, page uint64, url routes.URLBuilder) (adminData.FsImages, error) {
 	logScope, ctx := logging.Enter(c, "admin.fsPage.buildImageGrid", root+"/"+path, map[string]any{
 		"root": root,
 		"path": path,
@@ -146,7 +146,7 @@ func BuildImageGrid(c context.Context, database *sql.DB, root, path string, page
 		return adminData.FsImages{}, err
 	}
 
-	paging := tplData.CreatePaging(url, tplData.ImagePageParam, page, qty, imagePerPage)
+	paging := tplData.CreatePaging(url, routes.ImagePageParam, page, qty, imagePerPage)
 
 	imageItems := []adminData.FsImage{}
 	for _, i := range images {
@@ -164,9 +164,9 @@ func BuildImageGrid(c context.Context, database *sql.DB, root, path string, page
 			acl = "Admin"
 		}
 		img := adminData.FsImage{
-			Image:    *i.ID,
+			Image:    routes.ImageID(*i.ID),
 			Name:     i.Filename + "." + i.Ext,
-			URL:      template.URL(routes.CreateAdminImgPath(*i.ID)),
+			URL:      template.URL(routes.CreateAdminImgPath(routes.ImageID(*i.ID))),
 			LastSync: i.LastSyncDate.Format("2006.01.02 15:04:05"),
 			ACL:      acl,
 		}
@@ -230,8 +230,8 @@ func FSPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 		loc := tpl.L(c)
 		path := c.Param("fsPath")
 		path = strings.TrimPrefix(path, "/")
-		dPageStr := c.DefaultQuery(tplData.FolderPageParam, "1")
-		iPageStr := c.DefaultQuery(tplData.ImagePageParam, "1")
+		dPageStr := c.DefaultQuery(routes.FolderPageParam, "1")
+		iPageStr := c.DefaultQuery(routes.ImagePageParam, "1")
 		logScope, ctx := logging.Enter(c.Request.Context(), "server/page/admin/fs", path, map[string]any{
 			"path":           path,
 			"directory_page": dPageStr,

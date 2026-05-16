@@ -7,14 +7,13 @@ import (
 
 	"github.com/ignisVeneficus/logging"
 	"github.com/ignisVeneficus/lumenta/db/dbo"
-	"github.com/ignisVeneficus/lumenta/utils"
 
 	"database/sql"
 )
 
 const albumFields = `a.id, a.parent_id, a.name, a.description, a.rank, a.ancestor_ids, a.rule_json, a.cover_image_id, a.acl_level, a.acl_user_id, a.updated_at`
 
-const getAlbumById = `SELECT ` + albumFields + ` FROM albums a WHERE a.id=?`
+const getAlbumByID = `SELECT ` + albumFields + ` FROM albums a WHERE a.id=?`
 const createAlbum = `INSERT INTO albums (parent_id, name, description, rank, rule_json, acl_level, acl_user_id, ancestor_ids) VALUES (?,?,?,?,?,?,?, JSON_ARRAY())`
 const updateAlbum = `UPDATE albums SET parent_id=?, name=?, description=?, rank=?, rule_json=?, acl_level=?, acl_user_id=?, cover_image_id=?  WHERE id=?`
 const deleteAlbum = `DELETE FROM albums WHERE id=?`
@@ -133,7 +132,7 @@ AND %s
 WHERE JSON_CONTAINS(a.ancestor_ids, ?)
 AND %s `
 
-const getAlbumByIdACL = `
+const getAlbumByIDACL = `
 SELECT ` + albumFields + ` FROM albums a WHERE 
 a.id=?
 AND %s `
@@ -167,6 +166,14 @@ SET
 WHERE JSON_LENGTH(parent.ancestor_ids) = ?;
 `
 
+// parseAlbum scans a single album row into an Album value.
+//
+// Input:
+//   - row: SQL row containing the albumFields columns.
+//
+// Output:
+//   - dbo.Album: scanned album with decoded ancestor IDs.
+//   - error: scan or JSON decode error, if any.
 func parseAlbum(row *sql.Row) (dbo.Album, error) {
 	var a dbo.Album
 	var ancestors []byte
@@ -179,6 +186,14 @@ func parseAlbum(row *sql.Row) (dbo.Album, error) {
 	return a, err
 }
 
+// parseAlbums scans album rows into Album values.
+//
+// Input:
+//   - rows: SQL rows containing the albumFields columns.
+//
+// Output:
+//   - []dbo.Album: scanned albums with decoded ancestor IDs.
+//   - error: scan, JSON decode, or row iteration error.
 func parseAlbums(rows *sql.Rows) ([]dbo.Album, error) {
 	out := make([]dbo.Album, 0)
 	for rows.Next() {
@@ -197,26 +212,67 @@ func parseAlbums(rows *sql.Rows) ([]dbo.Album, error) {
 	return out, rows.Err()
 }
 
-func (q *Queries) GetAlbumById(ctx context.Context, id uint64) (dbo.Album, error) {
-	row := q.db.QueryRowContext(ctx, getAlbumById, id)
+// GetAlbumByID reads an album by ID.
+//
+// Input:
+//   - ctx: request context.
+//   - albumID: album ID to read.
+//
+// Output:
+//   - dbo.Album: matching album.
+//   - error: query, scan, decode, or sql.ErrNoRows error.
+func (q *Queries) GetAlbumByID(ctx context.Context, albumID dbo.AlbumID) (dbo.Album, error) {
+	row := q.db.QueryRowContext(ctx, getAlbumByID, albumID)
 	return parseAlbum(row)
 }
 
+// CreateAlbum inserts an album.
+//
+// Input:
+//   - ctx: request context.
+//   - a: album data to insert.
+//
+// Output:
+//   - error: exec error, if any.
 func (q *Queries) CreateAlbum(ctx context.Context, a dbo.Album) error {
 	_, err := q.db.ExecContext(ctx, createAlbum, a.ParentID, a.Name, a.Description, a.Rank, a.RuleJSON, a.ACLLevel, a.ACLUserID)
 	return err
 }
 
+// UpdateAlbum updates an album row.
+//
+// Input:
+//   - ctx: request context.
+//   - a: album data to write; a.ID identifies the row.
+//
+// Output:
+//   - error: exec error, if any.
 func (q *Queries) UpdateAlbum(ctx context.Context, a dbo.Album) error {
 	_, err := q.db.ExecContext(ctx, updateAlbum, a.ParentID, a.Name, a.Description, a.Rank, a.RuleJSON, a.ACLLevel, a.ACLUserID, a.CoverImageID, a.ID)
 	return err
 }
 
-func (q *Queries) DeleteAlbum(ctx context.Context, id uint64) error {
-	_, err := q.db.ExecContext(ctx, deleteAlbum, id)
+// DeleteAlbum deletes an album by ID.
+//
+// Input:
+//   - ctx: request context.
+//   - albumID: album ID to delete.
+//
+// Output:
+//   - error: exec error, if any.
+func (q *Queries) DeleteAlbum(ctx context.Context, albumID dbo.AlbumID) error {
+	_, err := q.db.ExecContext(ctx, deleteAlbum, albumID)
 	return err
 }
 
+// QueryAlbum reads all albums.
+//
+// Input:
+//   - ctx: request context.
+//
+// Output:
+//   - []dbo.Album: albums returned by the query.
+//   - error: query, scan, decode, or row iteration error.
 func (q *Queries) QueryAlbum(ctx context.Context) ([]dbo.Album, error) {
 	rows, err := q.db.QueryContext(ctx, queryAlbum)
 	if err != nil {
@@ -226,18 +282,48 @@ func (q *Queries) QueryAlbum(ctx context.Context) ([]dbo.Album, error) {
 	return parseAlbums(rows)
 }
 
-func (q *Queries) BindAlbumImage(ctx context.Context, albumId, imageId uint64, pos *uint32) error {
-	_, err := q.db.ExecContext(ctx, bindAlbumImage, albumId, imageId, pos)
+// BindAlbumImage creates an album-image relation.
+//
+// Input:
+//   - ctx: request context.
+//   - albumID: album to bind.
+//   - imageID: image to bind.
+//   - pos: relation position
+//
+// Output:
+//   - error: exec error, if any.
+func (q *Queries) BindAlbumImage(ctx context.Context, albumID dbo.AlbumID, imageID dbo.ImageID, pos *uint32) error {
+	_, err := q.db.ExecContext(ctx, bindAlbumImage, albumID, imageID, pos)
 	return err
 }
 
-func (q *Queries) BreakAlbumImage(ctx context.Context, albumId, imageId uint64) error {
-	_, err := q.db.ExecContext(ctx, breakAlbumImage, albumId, imageId)
+// BreakAlbumImage removes an album-image relation.
+//
+// Input:
+//   - ctx: request context.
+//   - albumID: album in the relation.
+//   - imageID: image in the relation.
+//
+// Output:
+//   - error: exec error, if any.
+func (q *Queries) BreakAlbumImage(ctx context.Context, albumID dbo.AlbumID, imageID dbo.ImageID) error {
+	_, err := q.db.ExecContext(ctx, breakAlbumImage, albumID, imageID)
 	return err
 }
 
-// parentID may be nil (root level)
-func (q *Queries) QueryAlbumByParentACLPaged(ctx context.Context, parentID *uint64, acl dbo.ACLContext, from, qty uint64) ([]dbo.Album, error) {
+// QueryAlbumByParentACLPaged reads child albums filtered by parent and ACL.
+//
+// Input:
+//   - ctx: request context.
+//   - parentID: parent album ID; nil means root level.
+//   - acl: ACL context used to build the visibility filter.
+//   - from: first row offset.
+//   - qty: maximum number of rows.
+//
+// Output:
+//   - []dbo.Album: matching albums.
+//   - error: query, scan, decode, or row iteration error.
+func (q *Queries) QueryAlbumByParentACLPaged(ctx context.Context, parentID *dbo.AlbumID, acl dbo.ACLContext, from, qty uint64) ([]dbo.Album, error) {
 	sql, args := CreateAclWhere("a", acl)
 	sqlStr := queryAlbumByParentACLRootPaged
 	if parentID != nil {
@@ -256,7 +342,17 @@ func (q *Queries) QueryAlbumByParentACLPaged(ctx context.Context, parentID *uint
 	return parseAlbums(rows)
 }
 
-func (q *Queries) CountAlbumByParentACL(ctx context.Context, parentID *uint64, acl dbo.ACLContext) (uint64, error) {
+// CountAlbumByParentACL counts child albums filtered by parent and ACL.
+//
+// Input:
+//   - ctx: request context.
+//   - parentID: parent album ID; nil means root level.
+//   - acl: ACL context used to build the visibility filter.
+//
+// Output:
+//   - uint64: matching album count.
+//   - error: query or scan error, if any.
+func (q *Queries) CountAlbumByParentACL(ctx context.Context, parentID *dbo.AlbumID, acl dbo.ACLContext) (uint64, error) {
 	sql, args := CreateAclWhere("a", acl)
 	sqlStr := countAlbumByParentACLRoot
 	if parentID != nil {
@@ -272,29 +368,77 @@ func (q *Queries) CountAlbumByParentACL(ctx context.Context, parentID *uint64, a
 
 }
 
-func (q *Queries) UpdateAlbumRank(ctx context.Context, albumID uint64, rank int) error {
+// UpdateAlbumRank updates an album sibling rank.
+//
+// Input:
+//   - ctx: request context.
+//   - albumID: album ID to update.
+//   - rank: new rank value.
+//
+// Output:
+//   - error: exec error, if any.
+func (q *Queries) UpdateAlbumRank(ctx context.Context, albumID dbo.AlbumID, rank int) error {
 	_, err := q.db.ExecContext(ctx, updateAlbumRank, rank, albumID)
 	return err
 }
 
-func (q *Queries) GetAlbumMaxRankByParent(ctx context.Context, parentID *uint64) (int, error) {
+// GetAlbumMaxRankByParent reads the maximum rank under a parent album.
+//
+// Input:
+//   - ctx: request context.
+//   - parentID: parent album ID
+//
+// Output:
+//   - int: maximum rank, or -1 when the SQL aggregate has no rows.
+//   - error: query or scan error, if any.
+func (q *Queries) GetAlbumMaxRankByParent(ctx context.Context, parentID *dbo.AlbumID) (int, error) {
 	row := q.db.QueryRowContext(ctx, getAlbumMaxRankByParent, parentID)
 	var max int
 	err := row.Scan(&max)
 	return max, err
 }
 
-func (q *Queries) UpdateAlbumParentAndRank(ctx context.Context, albumID uint64, parentID *uint64, rank int) error {
+// UpdateAlbumParentAndRank updates an album parent and rank.
+//
+// Input:
+//   - ctx: request context.
+//   - albumID: album ID to update.
+//   - parentID: new parent album ID; nil means root level.
+//   - rank: new rank value.
+//
+// Output:
+//   - error: exec error, if any.
+func (q *Queries) UpdateAlbumParentAndRank(ctx context.Context, albumID dbo.AlbumID, parentID *dbo.AlbumID, rank int) error {
 	_, err := q.db.ExecContext(ctx, updateAlbumParentAndRank, parentID, rank, albumID)
 	return err
 }
 
-func (q *Queries) UpdateAlbumQuick(ctx context.Context, id uint64, name string, description *string) error {
-	_, err := q.db.ExecContext(ctx, updateAlbumQuick, name, description, id)
+// UpdateAlbumQuick updates an album name and description.
+//
+// Input:
+//   - ctx: request context.
+//   - albumID: album ID to update.
+//   - name: new album name.
+//   - description: new album description.
+//
+// Output:
+//   - error: exec error, if any.
+func (q *Queries) UpdateAlbumQuick(ctx context.Context, albumID dbo.AlbumID, name string, description *string) error {
+	_, err := q.db.ExecContext(ctx, updateAlbumQuick, name, description, albumID)
 	return err
 }
 
-func (q *Queries) QueryAlbumDescendantIDsByACL(ctx context.Context, rootAlbumID uint64, acl dbo.ACLContext) ([]uint64, error) {
+// QueryAlbumDescendantIDsByACL reads descendant album IDs visible through ACL.
+//
+// Input:
+//   - ctx: request context.
+//   - rootAlbumID: root album ID whose ancestor list is matched.
+//   - acl: ACL context used to build the visibility filter.
+//
+// Output:
+//   - []dbo.AlbumID: matching album IDs, including root album.
+//   - error: query, scan, or row iteration error.
+func (q *Queries) QueryAlbumDescendantIDsByACL(ctx context.Context, rootAlbumID dbo.AlbumID, acl dbo.ACLContext) ([]dbo.AlbumID, error) {
 
 	params := []any{fmt.Sprintf("[%d]", rootAlbumID)}
 	sql, aclParams := CreateAclWhere("a", acl)
@@ -309,9 +453,9 @@ func (q *Queries) QueryAlbumDescendantIDsByACL(ctx context.Context, rootAlbumID 
 	}
 	defer rows.Close()
 
-	ids := make([]uint64, 0)
+	ids := make([]dbo.AlbumID, 0)
 	for rows.Next() {
-		var id uint64
+		var id dbo.AlbumID
 		if err := rows.Scan(&id); err != nil {
 			return nil, err
 		}
@@ -320,6 +464,14 @@ func (q *Queries) QueryAlbumDescendantIDsByACL(ctx context.Context, rootAlbumID 
 	return ids, rows.Err()
 }
 
+// QueryAlbumGraph reads album graph nodes.
+//
+// Input:
+//   - ctx: request context.
+//
+// Output:
+//   - []dbo.AlbumGraph: album graph nodes with ID, parent ID, and name.
+//   - error: query, scan, or row iteration error.
 func (q *Queries) QueryAlbumGraph(ctx context.Context) ([]dbo.AlbumGraph, error) {
 
 	rows, err := q.db.QueryContext(ctx, queryAlbumGraph)
@@ -339,21 +491,38 @@ func (q *Queries) QueryAlbumGraph(ctx context.Context) ([]dbo.AlbumGraph, error)
 	return albums, rows.Err()
 }
 
-func (q *Queries) UpdateAlbumParent(ctx context.Context, albumID uint64) error {
+// UpdateAlbumParent recalculates ancestor IDs for one album.
+//
+// Input:
+//   - ctx: request context.
+//   - albumID: album ID to recalculate.
+//
+// Output:
+//   - error: exec error, if any.
+func (q *Queries) UpdateAlbumParent(ctx context.Context, albumID dbo.AlbumID) error {
 	_, err := q.db.ExecContext(ctx, updateAlbumParent, albumID)
 	return err
 }
 
-func (q *Queries) QueryAlbumsChildren(ctx context.Context, albumID uint64) ([]uint64, error) {
+// QueryAlbumsChildren reads direct child album IDs.
+//
+// Input:
+//   - ctx: request context.
+//   - albumID: parent album ID.
+//
+// Output:
+//   - []dbo.AlbumID: direct child album IDs.
+//   - error: query, scan, or row iteration error.
+func (q *Queries) QueryAlbumsChildren(ctx context.Context, albumID dbo.AlbumID) ([]dbo.AlbumID, error) {
 	rows, err := q.db.QueryContext(ctx, queryAlbumChildren, albumID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	ids := make([]uint64, 0)
+	ids := make([]dbo.AlbumID, 0)
 	for rows.Next() {
-		var id uint64
+		var id dbo.AlbumID
 		if err := rows.Scan(&id); err != nil {
 			return nil, err
 		}
@@ -362,16 +531,25 @@ func (q *Queries) QueryAlbumsChildren(ctx context.Context, albumID uint64) ([]ui
 	return ids, rows.Err()
 }
 
-func (q *Queries) QueryAlbumsIDbyCover(ctx context.Context, cover uint64) ([]uint64, error) {
+// QueryAlbumsIDbyCover reads album IDs that use an image as cover.
+//
+// Input:
+//   - ctx: request context.
+//   - cover: cover image ID.
+//
+// Output:
+//   - []dbo.AlbumID: album IDs using the cover image.
+//   - error: query, scan, or row iteration error.
+func (q *Queries) QueryAlbumsIDbyCover(ctx context.Context, cover dbo.ImageID) ([]dbo.AlbumID, error) {
 	rows, err := q.db.QueryContext(ctx, queryAlbumsIdByCover, cover)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	ids := make([]uint64, 0)
+	ids := make([]dbo.AlbumID, 0)
 	for rows.Next() {
-		var id uint64
+		var id dbo.AlbumID
 		if err := rows.Scan(&id); err != nil {
 			return nil, err
 		}
@@ -381,6 +559,14 @@ func (q *Queries) QueryAlbumsIDbyCover(ctx context.Context, cover uint64) ([]uin
 
 }
 
+// CountAlbum counts all albums.
+//
+// Input:
+//   - ctx: request context.
+//
+// Output:
+//   - uint64: album count.
+//   - error: query or scan error, if any.
 func (q *Queries) CountAlbum(ctx context.Context) (uint64, error) {
 	row := q.db.QueryRowContext(ctx, countAlbum)
 	var count uint64
@@ -388,16 +574,25 @@ func (q *Queries) CountAlbum(ctx context.Context) (uint64, error) {
 	return count, err
 }
 
-func (q *Queries) QueryAlbumIDByImageID(ctx context.Context, imageID uint64) ([]uint64, error) {
+// QueryAlbumIDByImageID reads album IDs containing an image.
+//
+// Input:
+//   - ctx: request context.
+//   - imageID: image ID to look up.
+//
+// Output:
+//   - []dbo.AlbumID: album IDs containing the image.
+//   - error: query, scan, or row iteration error.
+func (q *Queries) QueryAlbumIDByImageID(ctx context.Context, imageID dbo.ImageID) ([]dbo.AlbumID, error) {
 	rows, err := q.db.QueryContext(ctx, queryAlbumIDByImageID, imageID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	ids := make([]uint64, 0)
+	ids := make([]dbo.AlbumID, 0)
 	for rows.Next() {
-		var id uint64
+		var id dbo.AlbumID
 		if err := rows.Scan(&id); err != nil {
 			return nil, err
 		}
@@ -406,7 +601,17 @@ func (q *Queries) QueryAlbumIDByImageID(ctx context.Context, imageID uint64) ([]
 	return ids, rows.Err()
 }
 
-func (q *Queries) QueryAlbumByImageIDACL(ctx context.Context, imageID uint64, acl dbo.ACLContext) ([]dbo.Album, error) {
+// QueryAlbumByImageIDACL reads albums containing an image and visible through ACL.
+//
+// Input:
+//   - ctx: request context.
+//   - imageID: image ID to look up.
+//   - acl: ACL context used to build the visibility filter.
+//
+// Output:
+//   - []dbo.Album: matching albums.
+//   - error: query, scan, decode, or row iteration error.
+func (q *Queries) QueryAlbumByImageIDACL(ctx context.Context, imageID dbo.ImageID, acl dbo.ACLContext) ([]dbo.Album, error) {
 	aclWhere, aclParams := CreateAclWhere("a", acl)
 
 	params := []any{imageID}
@@ -420,14 +625,31 @@ func (q *Queries) QueryAlbumByImageIDACL(ctx context.Context, imageID uint64, ac
 	return parseAlbums(rows)
 }
 
+// ReorderAllImage recalculates album-image positions.
+//
+// Input:
+//   - ctx: request context.
+//
+// Output:
+//   - error: exec error, if any.
 func (q *Queries) ReorderAllImage(ctx context.Context) error {
 	_, err := q.db.ExecContext(ctx, reorderAllImages)
 	return err
 }
 
-func (q *Queries) CountAlbumDescendantIDsByACL(ctx context.Context, albumId uint64, acl dbo.ACLContext) (uint64, error) {
+// CountAlbumDescendantIDsByACL counts descendant albums visible through ACL.
+//
+// Input:
+//   - ctx: request context.
+//   - albumID: root album ID whose ancestor list is matched.
+//   - acl: ACL context used to build the visibility filter.
+//
+// Output:
+//   - uint64: matching album count.
+//   - error: query or scan error, if any.
+func (q *Queries) CountAlbumDescendantIDsByACL(ctx context.Context, albumID dbo.AlbumID, acl dbo.ACLContext) (uint64, error) {
 	aclWhere, aclParams := CreateAclWhere("a", acl)
-	params := []any{fmt.Sprintf("[%d]", albumId)}
+	params := []any{fmt.Sprintf("[%d]", albumID)}
 	params = append(params, aclParams...)
 	sql := fmt.Sprintf(countAlbumDescendantIDsByACL, aclWhere)
 	row := q.db.QueryRowContext(ctx, sql, params...)
@@ -436,7 +658,17 @@ func (q *Queries) CountAlbumDescendantIDsByACL(ctx context.Context, albumId uint
 	return count, err
 }
 
-func (q *Queries) CountAlbumImagesDescendantIDsByACL(ctx context.Context, albumID uint64, acl dbo.ACLContext) (uint64, error) {
+// CountAlbumImagesDescendantIDsByACL counts distinct images in descendant albums visible through ACL.
+//
+// Input:
+//   - ctx: request context.
+//   - albumID: root album ID whose ancestor list is matched.
+//   - acl: ACL context used for album and image visibility filters.
+//
+// Output:
+//   - uint64: distinct visible image count.
+//   - error: query or scan error, if any.
+func (q *Queries) CountAlbumImagesDescendantIDsByACL(ctx context.Context, albumID dbo.AlbumID, acl dbo.ACLContext) (uint64, error) {
 	aclAWhere, aclAParams := CreateAclWhere("a", acl)
 	aclIWhere, aclIParams := CreateAclWhere("i", acl)
 	params := []any{}
@@ -450,11 +682,21 @@ func (q *Queries) CountAlbumImagesDescendantIDsByACL(ctx context.Context, albumI
 	return count, err
 }
 
-func (q *Queries) GetAlbumByIdACL(ctx context.Context, albumID uint64, acl dbo.ACLContext) (dbo.Album, error) {
+// GetAlbumByIDACL reads an album by ID when visible through ACL.
+//
+// Input:
+//   - ctx: request context.
+//   - albumID: album ID to read.
+//   - acl: ACL context used to build the visibility filter.
+//
+// Output:
+//   - dbo.Album: matching album.
+//   - error: query, scan, decode, or sql.ErrNoRows error.
+func (q *Queries) GetAlbumByIDACL(ctx context.Context, albumID dbo.AlbumID, acl dbo.ACLContext) (dbo.Album, error) {
 	aclWhere, aclParams := CreateAclWhere("a", acl)
 	params := []any{albumID}
 	params = append(params, aclParams...)
-	sql := fmt.Sprintf(getAlbumByIdACL, aclWhere)
+	sql := fmt.Sprintf(getAlbumByIDACL, aclWhere)
 	row := q.db.QueryRowContext(ctx, sql, params...)
 	return parseAlbum(row)
 }
@@ -465,8 +707,19 @@ func (q *Queries) GetAlbumByIdACL(ctx context.Context, albumID uint64, acl dbo.A
 // =========================================================
 //
 
-func BindAlbumImage(db *sql.DB, c context.Context, albumId, imageId uint64, pos *uint32) error {
-	logScope, ctx := logging.Enter(c, "dao/album/bindImage", imageId, map[string]any{"album_id": albumId, "image_id": imageId})
+// BindAlbumImage creates an album-image relation in a transaction.
+//
+// Input:
+//   - db: database handle.
+//   - c: request context.
+//   - albumID: album to bind.
+//   - imageID: image to bind.
+//   - pos: relation position
+//
+// Output:
+//   - error: transaction, bind, or commit error.
+func BindAlbumImage(db *sql.DB, c context.Context, albumID dbo.AlbumID, imageID dbo.ImageID, pos *uint32) error {
+	logScope, ctx := logging.Enter(c, "dao/album/bindImage", imageID, map[string]any{"album_id": albumID, "image_id": imageID})
 	tx, err := GetTx(db, ctx)
 	if err != nil {
 		logging.ExitErr(logScope, err)
@@ -475,15 +728,25 @@ func BindAlbumImage(db *sql.DB, c context.Context, albumId, imageId uint64, pos 
 	defer tx.Rollback()
 
 	q := NewQueries(tx)
-	if err := q.BindAlbumImage(ctx, albumId, imageId, pos); err != nil {
+	if err := q.BindAlbumImage(ctx, albumID, imageID, pos); err != nil {
 		logging.ExitErr(logScope, err)
 		return err
 	}
 	return logging.Return(logScope, tx.Commit())
 }
 
-func BreakAlbumImage(db *sql.DB, c context.Context, albumId uint64, imageId uint64) error {
-	logScope, ctx := logging.Enter(c, "dao/album/breakImage", imageId, map[string]any{"album_id": albumId, "image_id": imageId})
+// BreakAlbumImage removes an album-image relation in a transaction.
+//
+// Input:
+//   - db: database handle.
+//   - c: request context.
+//   - albumID: album in the relation.
+//   - imageID: image in the relation.
+//
+// Output:
+//   - error: transaction, delete, or commit error.
+func BreakAlbumImage(db *sql.DB, c context.Context, albumID dbo.AlbumID, imageID dbo.ImageID) error {
+	logScope, ctx := logging.Enter(c, "dao/album/breakImage", imageID, map[string]any{"album_id": albumID, "image_id": imageID})
 	tx, err := GetTx(db, ctx)
 	if err != nil {
 		logging.ExitErr(logScope, err)
@@ -491,23 +754,42 @@ func BreakAlbumImage(db *sql.DB, c context.Context, albumId uint64, imageId uint
 	}
 	defer tx.Rollback()
 	q := NewQueries(tx)
-	if err := q.BreakAlbumImage(ctx, albumId, imageId); err != nil {
+	if err := q.BreakAlbumImage(ctx, albumID, imageID); err != nil {
 		logging.ExitErr(logScope, err)
 		return err
 	}
 	return logging.Return(logScope, tx.Commit())
 }
 
-func GetAlbumById(db *sql.DB, c context.Context, albumID uint64) (dbo.Album, error) {
-	logScope, ctx := logging.Enter(c, "dao/album/get/ById", albumID, map[string]any{"album_id": albumID})
+// GetAlbumByID reads an album by ID with logging.
+//
+// Input:
+//   - db: database handle.
+//   - c: request context.
+//   - albumID: album ID to read.
+//
+// Output:
+//   - dbo.Album: matching album.
+//   - error: wrapped not-found, query, scan, or decode error.
+func GetAlbumByID(db *sql.DB, c context.Context, albumID dbo.AlbumID) (dbo.Album, error) {
+	logScope, ctx := logging.Enter(c, "dao/album/get/ByID", albumID, map[string]any{"album_id": albumID})
 	q := NewQueries(db)
-	a, err := q.GetAlbumById(ctx, albumID)
+	a, err := q.GetAlbumByID(ctx, albumID)
 	return a, returnWrapNotFound(logScope, err, "album")
 }
 
-func updateAlbumParentRecursive(q *Queries, c context.Context, albumID uint64) error {
+// updateAlbumParentRecursive recalculates ancestor IDs for an album subtree.
+//
+// Input:
+//   - q: query runner.
+//   - c: request context.
+//   - albumID: root album ID to start from.
+//
+// Output:
+//   - error: update or child-query error, if any.
+func updateAlbumParentRecursive(q *Queries, c context.Context, albumID dbo.AlbumID) error {
 	logScope, ctx := logging.Enter(c, "dao/album/update/parent/recursive", albumID, map[string]any{"album_id": albumID})
-	queue := []uint64{albumID}
+	queue := []dbo.AlbumID{albumID}
 
 	for len(queue) > 0 {
 		id := queue[0]
@@ -529,7 +811,17 @@ func updateAlbumParentRecursive(q *Queries, c context.Context, albumID uint64) e
 	return nil
 }
 
-func CreateAlbum(db *sql.DB, c context.Context, a *dbo.Album) (uint64, error) {
+// CreateAlbum inserts an album, stores its ID on a, and recalculates ancestor IDs.
+//
+// Input:
+//   - db: database handle.
+//   - c: request context.
+//   - a: album to insert; receives the new ID.
+//
+// Output:
+//   - dbo.AlbumID: created album ID.
+//   - error: transaction, insert, ID lookup, ancestor update, or commit error.
+func CreateAlbum(db *sql.DB, c context.Context, a *dbo.Album) (dbo.AlbumID, error) {
 	logScope, ctx := logging.Enter(c, "dao/album/create", a.Name, map[string]any{"name": a.Name,
 		"album": a})
 
@@ -552,9 +844,10 @@ func CreateAlbum(db *sql.DB, c context.Context, a *dbo.Album) (uint64, error) {
 		logging.ExitErr(logScope, err)
 		return 0, err
 	}
-	a.ID = utils.PtrUint64(id)
+	newID := dbo.AlbumID(id)
+	a.ID = &newID
 	logging.Debug(logScope, "after inser", map[string]any{"id": id})
-	err = updateAlbumParentRecursive(q, ctx, id)
+	err = updateAlbumParentRecursive(q, ctx, newID)
 	if err != nil {
 		logging.ExitErr(logScope, err)
 		return 0, err
@@ -566,9 +859,18 @@ func CreateAlbum(db *sql.DB, c context.Context, a *dbo.Album) (uint64, error) {
 	} else {
 		logging.Exit(logScope, "ok", map[string]any{"new_id": id})
 	}
-	return uint64(id), err
+	return newID, err
 }
 
+// UpdateAlbum updates an album and recalculates ancestor IDs for its subtree.
+//
+// Input:
+//   - db: database handle.
+//   - c: request context.
+//   - a: album data to update; a.ID identifies the row.
+//
+// Output:
+//   - error: sql.ErrNoRows for nil ID, transaction, update, ancestor update, or commit error.
 func UpdateAlbum(db *sql.DB, c context.Context, a dbo.Album) error {
 	logScope, ctx := logging.Enter(c, "dao/album/update", a.ID, map[string]any{"album": a})
 	if a.ID == nil {
@@ -599,8 +901,17 @@ func UpdateAlbum(db *sql.DB, c context.Context, a dbo.Album) error {
 	return logging.Return(logScope, tx.Commit())
 }
 
-func DeleteAlbum(db *sql.DB, c context.Context, id uint64) error {
-	logScope, ctx := logging.Enter(c, "dao/album/delete", id, map[string]any{"id": id})
+// DeleteAlbum deletes an album in a transaction.
+//
+// Input:
+//   - db: database handle.
+//   - c: request context.
+//   - albumID: album ID to delete.
+//
+// Output:
+//   - error: transaction, delete, or commit error.
+func DeleteAlbum(db *sql.DB, c context.Context, albumID dbo.AlbumID) error {
+	logScope, ctx := logging.Enter(c, "dao/album/delete", albumID, map[string]any{"id": albumID})
 
 	tx, err := GetTx(db, ctx)
 	if err != nil {
@@ -610,7 +921,7 @@ func DeleteAlbum(db *sql.DB, c context.Context, id uint64) error {
 	defer tx.Rollback()
 
 	q := NewQueries(tx)
-	if err := q.DeleteAlbum(ctx, id); err != nil {
+	if err := q.DeleteAlbum(ctx, albumID); err != nil {
 		logging.ExitErr(logScope, err)
 		return err
 	}
@@ -618,6 +929,15 @@ func DeleteAlbum(db *sql.DB, c context.Context, id uint64) error {
 	return logging.Return(logScope, tx.Commit())
 }
 
+// QueryAlbum reads all albums with logging.
+//
+// Input:
+//   - db: database handle.
+//   - c: request context.
+//
+// Output:
+//   - []dbo.Album: albums returned by the query.
+//   - error: query, scan, decode, or row iteration error.
 func QueryAlbum(db *sql.DB, c context.Context) ([]dbo.Album, error) {
 	logScope, ctx := logging.Enter(c, "dao/album/query", nil, nil)
 	q := NewQueries(db)
@@ -630,7 +950,20 @@ func QueryAlbum(db *sql.DB, c context.Context) ([]dbo.Album, error) {
 	return albums, nil
 }
 
-func QueryAlbumByParentACLPaged(db *sql.DB, c context.Context, parentID *uint64, acl dbo.ACLContext, from, qty uint64) ([]dbo.Album, error) {
+// QueryAlbumByParentACLPaged reads child albums filtered by parent and ACL with paging.
+//
+// Input:
+//   - db: database handle.
+//   - c: request context.
+//   - parentID: parent album ID; nil means root level.
+//   - acl: ACL context used to build the visibility filter.
+//   - from: first row offset.
+//   - qty: maximum number of rows.
+//
+// Output:
+//   - []dbo.Album: matching albums.
+//   - error: query, scan, decode, or row iteration error.
+func QueryAlbumByParentACLPaged(db *sql.DB, c context.Context, parentID *dbo.AlbumID, acl dbo.ACLContext, from, qty uint64) ([]dbo.Album, error) {
 	logScope, ctx := logging.Enter(c, "dao/album/query/byParent/ACL/Paged", parentID, map[string]any{
 		"partent": parentID,
 		"ACL":     acl,
@@ -647,7 +980,18 @@ func QueryAlbumByParentACLPaged(db *sql.DB, c context.Context, parentID *uint64,
 	return albums, nil
 }
 
-func CountAlbumByParentACL(db *sql.DB, c context.Context, parentID *uint64, acl dbo.ACLContext) (uint64, error) {
+// CountAlbumByParentACL counts child albums filtered by parent and ACL.
+//
+// Input:
+//   - db: database handle.
+//   - c: request context.
+//   - parentID: parent album ID; nil means root level.
+//   - acl: ACL context used to build the visibility filter.
+//
+// Output:
+//   - uint64: matching album count.
+//   - error: query or scan error, if any.
+func CountAlbumByParentACL(db *sql.DB, c context.Context, parentID *dbo.AlbumID, acl dbo.ACLContext) (uint64, error) {
 	logScope, ctx := logging.Enter(c, "dao/album/count/byParent/ACL", parentID, map[string]any{
 		"partent": parentID,
 		"ACL":     acl,
@@ -662,7 +1006,16 @@ func CountAlbumByParentACL(db *sql.DB, c context.Context, parentID *uint64, acl 
 	return count, nil
 }
 
-func ReorderAlbumsSibling(db *sql.DB, c context.Context, albumIDs []uint64) error {
+// ReorderAlbumsSibling rewrites sibling album ranks from the supplied ID order.
+//
+// Input:
+//   - db: database handle.
+//   - c: request context.
+//   - albumIDs: album IDs in desired rank order.
+//
+// Output:
+//   - error: transaction, rank update, or commit error.
+func ReorderAlbumsSibling(db *sql.DB, c context.Context, albumIDs []dbo.AlbumID) error {
 	logScope, ctx := logging.Enter(c, "dao/album/update/reorder", nil, map[string]any{
 		"ids": albumIDs})
 	if len(albumIDs) == 0 {
@@ -690,7 +1043,17 @@ func ReorderAlbumsSibling(db *sql.DB, c context.Context, albumIDs []uint64) erro
 	return logging.Return(logScope, tx.Commit())
 }
 
-func MoveAlbum(db *sql.DB, c context.Context, albumID uint64, newParentID *uint64) error {
+// MoveAlbum moves an album under a new parent and appends it after existing siblings.
+//
+// Input:
+//   - db: database handle.
+//   - c: request context.
+//   - albumID: album ID to move.
+//   - newParentID: new parent album ID; nil means root level.
+//
+// Output:
+//   - error: transaction, rank lookup, update, or commit error.
+func MoveAlbum(db *sql.DB, c context.Context, albumID dbo.AlbumID, newParentID *dbo.AlbumID) error {
 	logScope, ctx := logging.Enter(c, "dao/album/update/move", albumID, map[string]any{
 		"album_id":   albumID,
 		"new_parent": newParentID,
@@ -720,9 +1083,21 @@ func MoveAlbum(db *sql.DB, c context.Context, albumID uint64, newParentID *uint6
 
 	return logging.Return(logScope, tx.Commit())
 }
-func UpdateAlbumQuick(db *sql.DB, c context.Context, id uint64, name string, description *string) error {
-	logScope, ctx := logging.Enter(c, "dao/album/update/quick", id, map[string]any{
-		"album_id": id,
+
+// UpdateAlbumQuick updates an album name and description in a transaction.
+//
+// Input:
+//   - db: database handle.
+//   - c: request context.
+//   - albumID: album ID to update.
+//   - name: new album name.
+//   - description: new album description.
+//
+// Output:
+//   - error: transaction, update, or commit error.
+func UpdateAlbumQuick(db *sql.DB, c context.Context, albumID dbo.AlbumID, name string, description *string) error {
+	logScope, ctx := logging.Enter(c, "dao/album/update/quick", albumID, map[string]any{
+		"album_id": albumID,
 	})
 	tx, err := GetTx(db, ctx)
 	if err != nil {
@@ -732,14 +1107,25 @@ func UpdateAlbumQuick(db *sql.DB, c context.Context, id uint64, name string, des
 	defer tx.Rollback()
 
 	q := NewQueries(tx)
-	if err := q.UpdateAlbumQuick(ctx, id, name, description); err != nil {
+	if err := q.UpdateAlbumQuick(ctx, albumID, name, description); err != nil {
 		logging.ExitErr(logScope, err)
 	}
 
 	return logging.Return(logScope, tx.Commit())
 }
 
-func CollectAlbumSubtreeIDs(db *sql.DB, c context.Context, rootAlbumID uint64, acl dbo.ACLContext) ([]uint64, error) {
+// CollectAlbumSubtreeIDs reads album IDs in a subtree visible through ACL.
+//
+// Input:
+//   - db: database handle.
+//   - c: request context.
+//   - rootAlbumID: root album ID whose ancestor list is matched.
+//   - acl: ACL context used to build the visibility filter.
+//
+// Output:
+//   - []dbo.AlbumID: matching album IDs
+//   - error: query, scan, or row iteration error.
+func CollectAlbumSubtreeIDs(db *sql.DB, c context.Context, rootAlbumID dbo.AlbumID, acl dbo.ACLContext) ([]dbo.AlbumID, error) {
 	logScope, ctx := logging.Enter(c, "dao/album/query/id/subtree/ACL", rootAlbumID, map[string]any{
 		"album_id": rootAlbumID,
 		"acl":      acl,
@@ -757,7 +1143,19 @@ func CollectAlbumSubtreeIDs(db *sql.DB, c context.Context, rootAlbumID uint64, a
 	return albums, err
 }
 
-func CountAlbumSubtree(db *sql.DB, c context.Context, rootAlbumID uint64, acl dbo.ACLContext) (int, int, error) {
+// CountAlbumSubtree counts child albums and images in a visible album subtree.
+//
+// Input:
+//   - db: database handle.
+//   - c: request context.
+//   - rootAlbumID: root album ID whose ancestor list is matched.
+//   - acl: ACL context used to build visibility filters.
+//
+// Output:
+//   - int: child album count.
+//   - int: image count.
+//   - error: album ID query or image count error.
+func CountAlbumSubtree(db *sql.DB, c context.Context, rootAlbumID dbo.AlbumID, acl dbo.ACLContext) (int, int, error) {
 	logScope, ctx := logging.Enter(c, "dao/album/count/subtree/ACL", rootAlbumID, map[string]any{
 		"album_id": rootAlbumID,
 		"acl":      acl,
@@ -795,6 +1193,16 @@ func CountAlbumSubtree(db *sql.DB, c context.Context, rootAlbumID uint64, acl db
 	return childAlbumCount, int(imageCount), nil
 
 }
+
+// QueryAlbumGraph reads album graph nodes with logging.
+//
+// Input:
+//   - db: database handle.
+//   - c: request context.
+//
+// Output:
+//   - []dbo.AlbumGraph: album graph nodes with ID, parent ID, and name.
+//   - error: query, scan, or row iteration error.
 func QueryAlbumGraph(db *sql.DB, c context.Context) ([]dbo.AlbumGraph, error) {
 	logScope, ctx := logging.Enter(c, "dao/album/query/AlbumGraph", nil, nil)
 	q := NewQueries(db)
@@ -806,7 +1214,18 @@ func QueryAlbumGraph(db *sql.DB, c context.Context) ([]dbo.AlbumGraph, error) {
 	logging.Exit(logScope, "ok", map[string]any{"found": len(albums)})
 	return albums, nil
 }
-func QueryAlbumsIdByCover(db *sql.DB, c context.Context, cover uint64) ([]uint64, error) {
+
+// QueryAlbumsIdByCover reads album IDs that use an image as cover.
+//
+// Input:
+//   - db: database handle.
+//   - c: request context.
+//   - cover: cover image ID.
+//
+// Output:
+//   - []dbo.AlbumID: album IDs using the cover image.
+//   - error: query, scan, or row iteration error.
+func QueryAlbumsIdByCover(db *sql.DB, c context.Context, cover dbo.ImageID) ([]dbo.AlbumID, error) {
 	logScope, ctx := logging.Enter(c, "dao/album/query/id/byCover", cover, map[string]any{
 		"cover": cover,
 	})
@@ -820,6 +1239,15 @@ func QueryAlbumsIdByCover(db *sql.DB, c context.Context, cover uint64) ([]uint64
 	return albums, nil
 }
 
+// CountAlbum counts all albums with logging.
+//
+// Input:
+//   - db: database handle.
+//   - c: request context.
+//
+// Output:
+//   - uint64: album count.
+//   - error: query or scan error, if any.
 func CountAlbum(db *sql.DB, c context.Context) (uint64, error) {
 	logScope, ctx := logging.Enter(c, "dao/album/count", nil, nil)
 	q := NewQueries(db)
@@ -831,7 +1259,18 @@ func CountAlbum(db *sql.DB, c context.Context) (uint64, error) {
 	logging.Exit(logScope, "ok", map[string]any{"return": qty})
 	return qty, nil
 }
-func QueryAlbumIDByImageID(db *sql.DB, c context.Context, imageID uint64) ([]uint64, error) {
+
+// QueryAlbumIDByImageID reads album IDs containing an image.
+//
+// Input:
+//   - db: database handle.
+//   - c: request context.
+//   - imageID: image ID to look up.
+//
+// Output:
+//   - []dbo.AlbumID: album IDs containing the image.
+//   - error: query, scan, or row iteration error.
+func QueryAlbumIDByImageID(db *sql.DB, c context.Context, imageID dbo.ImageID) ([]dbo.AlbumID, error) {
 	logScope, ctx := logging.Enter(c, "dao/album/query/id/byImage", imageID, map[string]any{
 		"image_id": imageID,
 	})
@@ -844,7 +1283,19 @@ func QueryAlbumIDByImageID(db *sql.DB, c context.Context, imageID uint64) ([]uin
 	logging.Exit(logScope, "ok", map[string]any{"found": len(albums)})
 	return albums, nil
 }
-func QueryAlbumsIDImageIDACL(db *sql.DB, c context.Context, imageID uint64, acl dbo.ACLContext) ([]dbo.Album, error) {
+
+// QueryAlbumsIDImageIDACL reads albums containing an image and visible through ACL.
+//
+// Input:
+//   - db: database handle.
+//   - c: request context.
+//   - imageID: image ID to look up.
+//   - acl: ACL context used to build the visibility filter.
+//
+// Output:
+//   - []dbo.Album: matching albums.
+//   - error: query, scan, decode, or row iteration error.
+func QueryAlbumsIDImageIDACL(db *sql.DB, c context.Context, imageID dbo.ImageID, acl dbo.ACLContext) ([]dbo.Album, error) {
 	logScope, ctx := logging.Enter(c, "dao/album/query/byImage/byACL", imageID, map[string]any{
 		"image_id": imageID,
 		"ac":       acl,
@@ -859,6 +1310,14 @@ func QueryAlbumsIDImageIDACL(db *sql.DB, c context.Context, imageID uint64, acl 
 	return albums, nil
 }
 
+// ReorderAllImages recalculates album-image positions.
+//
+// Input:
+//   - db: database handle.
+//   - c: request context.
+//
+// Output:
+//   - error: exec error, if any.
 func ReorderAllImages(db *sql.DB, c context.Context) error {
 	logScope, ctx := logging.Enter(c, "dao/album/update/image/reorder", nil, nil)
 	q := NewQueries(db)
@@ -866,13 +1325,24 @@ func ReorderAllImages(db *sql.DB, c context.Context) error {
 	return logging.Return(logScope, err)
 }
 
-func CountAlbumDescendantIDsByACL(db *sql.DB, c context.Context, albumId uint64, acl dbo.ACLContext) (uint64, error) {
+// CountAlbumDescendantIDsByACL counts descendant albums visible through ACL.
+//
+// Input:
+//   - db: database handle.
+//   - c: request context.
+//   - albumID: root album ID whose ancestor list is matched.
+//   - acl: ACL context used to build the visibility filter.
+//
+// Output:
+//   - uint64: matching album count.
+//   - error: query or scan error, if any.
+func CountAlbumDescendantIDsByACL(db *sql.DB, c context.Context, albumID dbo.AlbumID, acl dbo.ACLContext) (uint64, error) {
 	logScope, ctx := logging.Enter(c, "dao/album/count/albums/descendant/acl", nil, map[string]any{
 		"acl":      acl,
-		"album_id": albumId,
+		"album_id": albumID,
 	})
 	q := NewQueries(db)
-	qty, err := q.CountAlbumDescendantIDsByACL(ctx, albumId, acl)
+	qty, err := q.CountAlbumDescendantIDsByACL(ctx, albumID, acl)
 	if err != nil {
 		logging.ExitErr(logScope, err)
 		return 0, err
@@ -881,13 +1351,24 @@ func CountAlbumDescendantIDsByACL(db *sql.DB, c context.Context, albumId uint64,
 	return qty, nil
 }
 
-func CountAlbumImagesDescendantIDsByACL(db *sql.DB, c context.Context, albumId uint64, acl dbo.ACLContext) (uint64, error) {
+// CountAlbumImagesDescendantIDsByACL counts distinct images in descendant albums visible through ACL.
+//
+// Input:
+//   - db: database handle.
+//   - c: request context.
+//   - albumID: root album ID whose ancestor list is matched.
+//   - acl: ACL context used for album and image visibility filters.
+//
+// Output:
+//   - uint64: distinct visible image count.
+//   - error: query or scan error, if any.
+func CountAlbumImagesDescendantIDsByACL(db *sql.DB, c context.Context, albumID dbo.AlbumID, acl dbo.ACLContext) (uint64, error) {
 	logScope, ctx := logging.Enter(c, "dao/album/count/images/descendant/acl", nil, map[string]any{
 		"acl":      acl,
-		"album_id": albumId,
+		"album_id": albumID,
 	})
 	q := NewQueries(db)
-	qty, err := q.CountAlbumImagesDescendantIDsByACL(ctx, albumId, acl)
+	qty, err := q.CountAlbumImagesDescendantIDsByACL(ctx, albumID, acl)
 	if err != nil {
 		logging.ExitErr(logScope, err)
 		return 0, err
@@ -895,12 +1376,24 @@ func CountAlbumImagesDescendantIDsByACL(db *sql.DB, c context.Context, albumId u
 	logging.Exit(logScope, "ok", map[string]any{"return": qty})
 	return qty, nil
 }
-func GetAlbumByIDACL(db *sql.DB, c context.Context, albumId uint64, acl dbo.ACLContext) (dbo.Album, error) {
+
+// GetAlbumByIDACL reads an album by ID when visible through ACL with logging.
+//
+// Input:
+//   - db: database handle.
+//   - c: request context.
+//   - albumID: album ID to read.
+//   - acl: ACL context used to build the visibility filter.
+//
+// Output:
+//   - dbo.Album: matching album.
+//   - error: wrapped not-found, query, scan, or decode error.
+func GetAlbumByIDACL(db *sql.DB, c context.Context, albumID dbo.AlbumID, acl dbo.ACLContext) (dbo.Album, error) {
 	logScope, ctx := logging.Enter(c, "dao/album/get/byID/acl", nil, map[string]any{
 		"acl":      acl,
-		"album_id": albumId,
+		"album_id": albumID,
 	})
 	q := NewQueries(db)
-	album, err := q.GetAlbumByIdACL(ctx, albumId, acl)
+	album, err := q.GetAlbumByIDACL(ctx, albumID, acl)
 	return album, returnWrapNotFound(logScope, err, "album")
 }

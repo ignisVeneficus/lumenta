@@ -9,11 +9,13 @@ import (
 	"github.com/rs/zerolog"
 )
 
-type AncestorIDs []uint64
+type AlbumID uint64
+
+type AncestorIDs []AlbumID
 
 type Album struct {
-	ID          *uint64
-	ParentID    *uint64
+	ID          *AlbumID
+	ParentID    *AlbumID
 	Name        string
 	Description *string
 
@@ -21,10 +23,10 @@ type Album struct {
 
 	AncestorIDs  AncestorIDs
 	RuleJSON     json.RawMessage
-	CoverImageID *uint64
+	CoverImageID *ImageID
 
 	ACLLevel  DBACLLevel
-	ACLUserID uint64
+	ACLUserID UserID
 
 	UpdatedAt time.Time
 
@@ -35,15 +37,15 @@ func (a *Album) MarshalZerologObjectWithLevel(e *zerolog.Event, level zerolog.Le
 	if level <= zerolog.DebugLevel {
 		e.Str(string(definitions.AlbumFieldName), a.Name).
 			Uint64(string(definitions.AlbumFieldACLLevel), uint64(a.ACLLevel)).
-			Uint64(string(definitions.AlbumFieldACLUserID), a.ACLUserID)
-		logging.Uint64If(e, string(definitions.AlbumFieldParentID), a.ParentID)
-		logging.Uint64If(e, string(definitions.AlbumFieldID), a.ID)
+			Uint64(string(definitions.AlbumFieldACLUserID), uint64(a.ACLUserID))
+		logging.Uint64If(e, string(definitions.AlbumFieldParentID), (*uint64)(a.ParentID))
+		logging.Uint64If(e, string(definitions.AlbumFieldID), (*uint64)(a.ID))
 	}
 	if level == zerolog.TraceLevel {
 		e.RawJSON(string(definitions.AlbumFieldRuleJSON), a.RuleJSON).
 			Time(string(definitions.AlbumFieldUpdatedAt), a.UpdatedAt)
 		logging.StrIf(e, string(definitions.AlbumFieldDescription), a.Description)
-		logging.Uint64If(e, string(definitions.AlbumFieldCoverImageID), a.CoverImageID)
+		logging.Uint64If(e, string(definitions.AlbumFieldCoverImageID), (*uint64)(a.CoverImageID))
 
 	}
 }
@@ -80,41 +82,41 @@ func ReplaceAncestorPrefix(oldAncestors, newAncestors, current AncestorIDs) Ance
 		return current
 	}
 	return append(
-		append([]uint64{}, newAncestors...),
+		append([]AlbumID{}, newAncestors...),
 		current[len(oldAncestors):]...,
 	)
 }
-func BuildAncestorIDs(parent *Album, selfID uint64) AncestorIDs {
+func BuildAncestorIDs(parent *Album, selfID AlbumID) AncestorIDs {
 	if parent == nil {
-		return []uint64{selfID}
+		return []AlbumID{selfID}
 	}
 
-	out := make([]uint64, 0, len(parent.AncestorIDs)+1)
+	out := make([]AlbumID, 0, len(parent.AncestorIDs)+1)
 	out = append(out, parent.AncestorIDs...)
 	out = append(out, selfID)
 	return out
 }
 
 type AlbumGraph struct {
-	ID       uint64
+	ID       AlbumID
 	Name     string
-	ParentID *uint64
+	ParentID *AlbumID
 }
 
 func (a *AlbumGraph) MarshalZerologObjectWithLevel(e *zerolog.Event, level zerolog.Level) {
 	if level <= zerolog.DebugLevel {
 		e.Str("name", a.Name).
-			Uint64("id", a.ID)
-		logging.Uint64If(e, string(definitions.AlbumFieldParentID), a.ParentID)
+			Uint64("id", uint64(a.ID))
+		logging.Uint64If(e, string(definitions.AlbumFieldParentID), (*uint64)(a.ParentID))
 	}
 }
 
 func (a *AlbumGraph) GetID() uint64 {
-	return a.ID
+	return uint64(a.ID)
 }
 
 func (a *AlbumGraph) GetParentID() *uint64 {
-	return a.ParentID
+	return (*uint64)(a.ParentID)
 }
 func (a *AlbumGraph) GetName() string {
 	return a.Name

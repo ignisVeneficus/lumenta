@@ -8,14 +8,12 @@ import (
 	"github.com/rs/zerolog"
 )
 
-//
 // =========================================================
 // FILTERED OUT IMAGES
 // =========================================================
-//
-
+type FilteredID uint64
 type FilteredOut struct {
-	ID *uint64
+	ID *FilteredID
 
 	Root     string
 	Path     string
@@ -32,7 +30,7 @@ type FilteredOut struct {
 	CreatedAt time.Time
 	UpdatedAt time.Time
 
-	LastSeenSync *uint64
+	LastSeenSync *SyncRunID
 }
 
 func (i *FilteredOut) MarshalZerologObjectWithLevel(e *zerolog.Event, level zerolog.Level) {
@@ -41,8 +39,8 @@ func (i *FilteredOut) MarshalZerologObjectWithLevel(e *zerolog.Event, level zero
 			Str("filename", i.Filename).
 			Str("ext", i.Ext).
 			Str("root", i.Root)
-		logging.Uint64If(e, "id", i.ID)
-		logging.Uint64If(e, "last sync", i.LastSeenSync)
+		logging.Uint64If(e, "id", (*uint64)(i.ID))
+		logging.Uint64If(e, "last sync", (*uint64)(i.LastSeenSync))
 
 	}
 	if level == zerolog.TraceLevel {

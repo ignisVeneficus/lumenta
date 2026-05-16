@@ -11,6 +11,7 @@ import (
 	"github.com/ignisVeneficus/lumenta/config"
 	"github.com/ignisVeneficus/lumenta/db"
 	"github.com/ignisVeneficus/lumenta/db/dao"
+	"github.com/ignisVeneficus/lumenta/db/dbo"
 	"github.com/ignisVeneficus/lumenta/internal/i18n"
 	"github.com/ignisVeneficus/lumenta/server/routes"
 	"github.com/ignisVeneficus/lumenta/tpl"
@@ -27,7 +28,7 @@ func ImagePage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 			"image_id": imageIdStr,
 		})
 
-		imageId, err := tpl.ParseID(imageIdStr)
+		imageId, err := tpl.ParseImageID(imageIdStr)
 		if err != nil {
 			logging.ExitErr(logScope, fmt.Errorf("invalid image id"))
 			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "invalid image id"})
@@ -37,11 +38,11 @@ func ImagePage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 		database := db.GetDatabase()
 		acl := auth.GetAuthContex(c)
 
-		image, err := dao.GetImageByIdACLWTags(database, ctx, imageId, acl.ACLContext)
+		image, err := dao.GetImageByIdACLWTags(database, ctx, dbo.ImageID(imageId), acl.ACLContext)
 		switch {
 		case errors.Is(err, dao.ErrDataNotFound):
 			logging.ExitErr(logScope, err)
-			pages.Soft404(r, cfg, c, data.SurfacePublic, "image", routes.CreateTagsRootPath(), imageId)
+			pages.Soft404(r, cfg, c, data.SurfacePublic, "image", routes.CreateTagsRootPath(), uint64(imageId))
 			return
 		case err != nil:
 			logging.ExitErr(logScope, err)

@@ -165,14 +165,14 @@ func (q *Queries) CreateSyncFile(ctx context.Context, f dbo.SyncFile) error {
 	)
 	return err
 }
-func (q *Queries) GetSyncFileById(ctx context.Context, id uint64) (dbo.SyncFile, error) {
-	row := q.db.QueryRowContext(ctx, getSyncFileById, id)
+func (q *Queries) GetSyncFileById(ctx context.Context, syncFileID dbo.SyncFileID) (dbo.SyncFile, error) {
+	row := q.db.QueryRowContext(ctx, getSyncFileById, syncFileID)
 	return parseSyncFile(row)
 }
 
-func (q *Queries) QuerySyncFileBySyncIDPaged(ctx context.Context, syncID uint64, status []string, from, qty uint64) ([]dbo.SyncFile, error) {
+func (q *Queries) QuerySyncFileBySyncIDPaged(ctx context.Context, syncRunID dbo.SyncRunID, status []string, from, qty uint64) ([]dbo.SyncFile, error) {
 	query := querySyncFileBySyncIDPagedStart
-	args := []any{syncID}
+	args := []any{syncRunID}
 	if len(status) > 0 {
 		query += fmt.Sprintf(querySyncFileByStatusMiddle, Placeholder(len(status)))
 		for _, s := range status {
@@ -191,9 +191,9 @@ func (q *Queries) QuerySyncFileBySyncIDPaged(ctx context.Context, syncID uint64,
 	return parseSyncFiles(rows)
 }
 
-func (q *Queries) CountSyncFileBySyncID(ctx context.Context, syncId uint64, status []string) (uint64, error) {
+func (q *Queries) CountSyncFileBySyncID(ctx context.Context, syncRunID dbo.SyncRunID, status []string) (uint64, error) {
 	query := countSyncFileBySyncIDStart
-	args := []any{syncId}
+	args := []any{syncRunID}
 	if len(status) > 0 {
 		query += fmt.Sprintf(querySyncFileByStatusMiddle, Placeholder(len(status)))
 		for _, s := range status {
@@ -305,24 +305,24 @@ func CreateSyncFile(db *sql.DB, c context.Context, f dbo.SyncFile) error {
 
 	return logging.Return(logScope, tx.Commit())
 }
-func GetSyncFileById(db *sql.DB, c context.Context, id uint64) (dbo.SyncFile, error) {
-	logScope, ctx := logging.Enter(c, "dao/sync_file/get/byId", id, map[string]any{
-		"id": id,
+func GetSyncFileById(db *sql.DB, c context.Context, syncFileID dbo.SyncFileID) (dbo.SyncFile, error) {
+	logScope, ctx := logging.Enter(c, "dao/sync_file/get/byId", syncFileID, map[string]any{
+		"id": syncFileID,
 	})
 	q := NewQueries(db)
-	i, err := q.GetSyncFileById(ctx, id)
+	i, err := q.GetSyncFileById(ctx, syncFileID)
 	return i, returnWrapNotFound(logScope, err, "sync_file")
 }
 
-func QuerySyncFileBySyncIDPaged(db *sql.DB, c context.Context, syncID uint64, stats []string, from, qty uint64) ([]dbo.SyncFile, error) {
-	logScope, ctx := logging.Enter(c, "dao/sync_file/query/bySyncId/paged", syncID, map[string]any{
-		"syncId": syncID,
+func QuerySyncFileBySyncIDPaged(db *sql.DB, c context.Context, syncRunID dbo.SyncRunID, stats []string, from, qty uint64) ([]dbo.SyncFile, error) {
+	logScope, ctx := logging.Enter(c, "dao/sync_file/query/bySyncId/paged", syncRunID, map[string]any{
+		"syncId": syncRunID,
 		"from":   from,
 		"qty":    qty,
 	})
 
 	q := NewQueries(db)
-	files, err := q.QuerySyncFileBySyncIDPaged(ctx, syncID, stats, from, qty)
+	files, err := q.QuerySyncFileBySyncIDPaged(ctx, syncRunID, stats, from, qty)
 	if err != nil {
 		logging.ExitErr(logScope, err)
 		return nil, err
@@ -335,12 +335,12 @@ func QuerySyncFileBySyncIDPaged(db *sql.DB, c context.Context, syncID uint64, st
 	return files, nil
 }
 
-func CountSyncFileBySyncID(db *sql.DB, c context.Context, syncID uint64, status []string) (uint64, error) {
-	logScope, ctx := logging.Enter(c, "dao/sync_file/count/bySyncId", syncID, map[string]any{
-		"syncId": syncID,
+func CountSyncFileBySyncID(db *sql.DB, c context.Context, syncRunID dbo.SyncRunID, status []string) (uint64, error) {
+	logScope, ctx := logging.Enter(c, "dao/sync_file/count/bySyncId", syncRunID, map[string]any{
+		"syncId": syncRunID,
 	})
 	q := NewQueries(db)
-	qty, err := q.CountSyncFileBySyncID(ctx, syncID, status)
+	qty, err := q.CountSyncFileBySyncID(ctx, syncRunID, status)
 	if err != nil {
 		logging.ExitErr(logScope, err)
 		return 0, err

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"html/template"
 
+	"github.com/ignisVeneficus/lumenta/server/routes"
 	"github.com/ignisVeneficus/lumenta/tpl/data"
 )
 
@@ -43,7 +44,7 @@ func (d FsDirs) Cards() []FsDir {
 
 type FsDir struct {
 	Name   string
-	Image  uint64
+	Image  routes.ImageID
 	ImgQty uint64
 	URL    template.URL
 }
@@ -66,7 +67,7 @@ func (i FsImages) Cards() []FsImage {
 
 type FsImage struct {
 	Name     string
-	Image    uint64
+	Image    routes.ImageID
 	URL      template.URL
 	ACL      string
 	LastSync string

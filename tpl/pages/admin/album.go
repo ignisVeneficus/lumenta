@@ -51,16 +51,16 @@ func newAlbumPageContext(album dbo.Album) adminData.AlbumContext {
 	return adminData.AlbumContext{
 		AlbumForm: adminData.AlbumForm{
 			DBOID:       album.ID,
-			ID:          tpl.UintToString(album.ID),
+			ID:          tpl.AlbumIDToString(album.ID),
 			Name:        album.Name,
 			Description: utils.FromStringPtr(album.Description),
-			ParentID:    tpl.UintToString(album.ParentID),
+			ParentID:    tpl.AlbumIDToString(album.ParentID),
 			RuleJSON:    string(template.JS(string(album.RuleJSON))),
 			ACLLevel:    strconv.FormatUint(uint64(album.ACLLevel), 10),
-			ACLUserID:   strconv.FormatUint(album.ACLUserID, 10),
+			ACLUserID:   strconv.FormatUint(uint64(album.ACLUserID), 10),
 			Rank:        tpl.UintToString(&album.Rank),
 		},
-		CoverImage: album.CoverImageID,
+		CoverImage: (*routes.ImageID)(album.CoverImageID),
 		State:      state,
 	}
 }
@@ -74,7 +74,7 @@ func toDBAlbum(album dbo.Album, form adminData.AlbumForm) (dbo.Album, validate.V
 	if err != nil {
 		validateErrors.AddError(definitions.AlbumFieldParentID, "Not an integer number")
 	} else {
-		album.ParentID = parent
+		album.ParentID = (*dbo.AlbumID)(parent)
 	}
 
 	if form.Description == "" {
@@ -97,12 +97,12 @@ func toDBAlbum(album dbo.Album, form adminData.AlbumForm) (dbo.Album, validate.V
 			validateErrors.AddError(definitions.AlbumFieldACLUserID, "Not an integer number")
 		}
 	}
-	album.ACLUserID = userId
+	album.ACLUserID = dbo.UserID(userId)
 
 	return album, validateErrors
 }
 
-func handleAlbumForm(c *gin.Context, album dbo.Album, save func(dbo.Album) (uint64, error), graph []*dbo.AlbumGraph) (*adminData.AlbumContext, error) {
+func handleAlbumForm(c *gin.Context, album dbo.Album, save func(dbo.Album) (dbo.AlbumID, error), graph []*dbo.AlbumGraph) (*adminData.AlbumContext, error) {
 	form := newAlbumPageContext(album)
 
 	if c.Request.Method == http.MethodPost {
@@ -160,7 +160,7 @@ func NewAlbumPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 		albumCtx, err := handleAlbumForm(
 			c,
 			album,
-			func(a dbo.Album) (uint64, error) {
+			func(a dbo.Album) (dbo.AlbumID, error) {
 				return dao.CreateAlbum(database, ctx, &a)
 			},
 			dbo.AlbumGraphToPointer(graph),
@@ -173,7 +173,7 @@ func NewAlbumPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 
 		if albumCtx.State == adminData.StateSaved {
 			logging.Exit(logScope, "redirect", nil)
-			url := routes.BuildAdminAlbumPath(*albumCtx.DBOID)
+			url := routes.BuildAdminAlbumPath(routes.AlbumID(*albumCtx.DBOID))
 			url.WithParam(routes.QueryFlash, string(adminData.FlashCreated))
 
 			c.Redirect(http.StatusSeeOther, url.String())
@@ -205,7 +205,7 @@ func EditAlbumPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 			"album": albumIDStr,
 			"flash": flash,
 		})
-		albumID, err := tpl.ParseID(albumIDStr)
+		albumID, err := tpl.ParseAlbumID(albumIDStr)
 		if err != nil {
 			logging.ExitErr(logScope, fmt.Errorf("invalid album Id"))
 			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "invalid album Id"})
@@ -213,10 +213,10 @@ func EditAlbumPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 		}
 
 		database := db.GetDatabase()
-		album, err := dao.GetAlbumById(database, c, albumID)
+		album, err := dao.GetAlbumByID(database, c, dbo.AlbumID(albumID))
 		if err != nil {
 			logging.ExitErr(logScope, err)
-			pages.Soft404(r, cfg, c, tplData.SurfacePublic, "tag", routes.CreateAdminAlbumsPath(), albumID)
+			pages.Soft404(r, cfg, c, tplData.SurfacePublic, "tag", routes.CreateAdminAlbumsPath(), uint64(albumID))
 			return
 		}
 		graph, err := dao.QueryAlbumGraph(database, ctx)
@@ -229,8 +229,8 @@ func EditAlbumPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 		albumCtx, err := handleAlbumForm(
 			c,
 			album,
-			func(a dbo.Album) (uint64, error) {
-				return albumID, dao.UpdateAlbum(database, ctx, a)
+			func(a dbo.Album) (dbo.AlbumID, error) {
+				return dbo.AlbumID(albumID), dao.UpdateAlbum(database, ctx, a)
 			},
 			dbo.AlbumGraphToPointer(graph),
 		)
@@ -241,7 +241,7 @@ func EditAlbumPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 		}
 		if albumCtx.State == adminData.StateSaved {
 			logging.Exit(logScope, "redirect", nil)
-			url := routes.BuildAdminAlbumPath(*albumCtx.DBOID)
+			url := routes.BuildAdminAlbumPath(routes.AlbumID(*albumCtx.DBOID))
 			url.WithParam(routes.QueryFlash, string(adminData.FlashSaved))
 
 			c.Redirect(http.StatusSeeOther, url.String())

@@ -14,15 +14,15 @@ import (
 )
 
 type AlbumForm struct {
-	DBOID       *uint64 `form:"-"`
-	ID          string  `form:"id"`
-	Name        string  `form:"name"`
-	Description string  `form:"description"`
-	ParentID    string  `form:"parent_id"`
-	RuleJSON    string  `form:"json_rules"`
-	ACLLevel    string  `form:"acl_level"`
-	ACLUserID   string  `form:"acl_user"`
-	Rank        string  `form:"rank"`
+	DBOID       *dbo.AlbumID `form:"-"`
+	ID          string       `form:"id"`
+	Name        string       `form:"name"`
+	Description string       `form:"description"`
+	ParentID    string       `form:"parent_id"`
+	RuleJSON    string       `form:"json_rules"`
+	ACLLevel    string       `form:"acl_level"`
+	ACLUserID   string       `form:"acl_user"`
+	Rank        string       `form:"rank"`
 
 	Errors validate.ValidationErrors `form:"-"`
 }
@@ -31,7 +31,7 @@ func (a *AlbumForm) MarshalZerologObjectWithLevel(e *zerolog.Event, level zerolo
 	if level <= zerolog.DebugLevel {
 		e.Str(string(definitions.AlbumFieldName), a.Name).
 			Str(string(definitions.AlbumFieldID), a.ID)
-		logging.Uint64If(e, "DBOID", a.DBOID)
+		logging.Uint64If(e, "DBOID", (*uint64)(a.DBOID))
 	}
 	if level <= zerolog.TraceLevel {
 		e.Str(string(definitions.AlbumFieldDescription), a.Description).
@@ -51,7 +51,7 @@ func (a *AlbumForm) MarshalZerologObjectWithLevel(e *zerolog.Event, level zerolo
 
 type AlbumContext struct {
 	AlbumForm
-	CoverImage *uint64
+	CoverImage *routes.ImageID
 	AlbumCount uint64
 	ImageCount uint64
 	State      FormState
@@ -65,8 +65,8 @@ type AlbumPageContext struct {
 
 type AlbumViewTree struct {
 	Name     string
-	ID       uint64
-	ParentID *uint64
+	ID       routes.AlbumID
+	ParentID *routes.AlbumID
 	Children []*AlbumViewTree
 	EditUrl  template.URL
 	ViewUrl  template.URL
@@ -75,15 +75,16 @@ type AlbumViewTree struct {
 }
 
 func CreateAlbumView(album dbo.Album) *AlbumViewTree {
+	albumID := routes.AlbumID(*album.ID)
 	return &AlbumViewTree{
 		Name:     album.Name,
-		ID:       *album.ID,
-		ParentID: album.ParentID,
+		ID:       albumID,
+		ParentID: (*routes.AlbumID)(album.ParentID),
 		Children: make([]*AlbumViewTree, 0),
 		Rank:     album.Rank,
 		ACLLevel: album.ACLLevel,
-		EditUrl:  template.URL(routes.CreateAdminAlbumPath(*album.ID)),
-		ViewUrl:  template.URL(routes.CreateAlbumPath(int64(*album.ID))),
+		EditUrl:  template.URL(routes.CreateAdminAlbumPath(albumID)),
+		ViewUrl:  template.URL(routes.CreateAlbumPath(albumID)),
 	}
 }
 
@@ -91,10 +92,10 @@ func (aw *AlbumViewTree) GetSorting() uint64 {
 	return aw.Rank
 }
 func (aw *AlbumViewTree) GetID() uint64 {
-	return aw.ID
+	return uint64(aw.ID)
 }
 func (aw *AlbumViewTree) GetParentID() *uint64 {
-	return aw.ParentID
+	return (*uint64)(aw.ParentID)
 }
 func (aw *AlbumViewTree) ClearChildren() {
 	aw.Children = aw.Children[0:]

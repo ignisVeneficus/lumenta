@@ -10,6 +10,7 @@ import (
 	focusdata "github.com/ignisVeneficus/lumenta/data"
 	rootData "github.com/ignisVeneficus/lumenta/data"
 	"github.com/ignisVeneficus/lumenta/db/dbo"
+	"github.com/ignisVeneficus/lumenta/server/routes"
 	"github.com/ignisVeneficus/lumenta/tpl/data"
 	grid "github.com/ignisVeneficus/lumenta/tpl/grid/data"
 )
@@ -34,7 +35,7 @@ type PageImage struct {
 	Sync          ImageSync
 	SingleMap     *data.SingleMap
 	Form          ImageForm
-	Covers        []uint64
+	Covers        []routes.AlbumID
 	Tags          rootData.Forest[*data.ViewTreeNode]
 }
 
@@ -44,7 +45,7 @@ func (pi PageImage) CoversArray() template.JS {
 	}
 	result := make([]string, len(pi.Covers))
 	for i, v := range pi.Covers {
-		result[i] = strconv.FormatUint(v, 10)
+		result[i] = strconv.FormatUint(uint64(v), 10)
 	}
 	b, _ := json.Marshal(result)
 	return template.JS(b)
@@ -85,4 +86,7 @@ func (pi PageImage) NormalisedSubject() string {
 		return *pi.Caption
 	}
 	return EMDash
+}
+func (pi PageImage) RoutesImagedID() routes.ImageID {
+	return routes.ImageID(*pi.ID)
 }

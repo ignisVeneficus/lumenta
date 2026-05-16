@@ -4,23 +4,24 @@ import (
 	"github.com/ignisVeneficus/lumenta/db/dbo"
 )
 
+type TagID uint64
 type Tag struct {
-	ID       uint64  `json:"id"`
-	Name     string  `json:"name"`
-	FullName string  `json:"fullName"`
-	ParentID *uint64 `json:"parent_id,omitempty"`
-	Children []*Tag  `json:"children,omitempty"`
+	ID       TagID  `json:"id"`
+	Name     string `json:"name"`
+	FullName string `json:"fullName"`
+	ParentID *TagID `json:"parent_id,omitempty"`
+	Children []*Tag `json:"children,omitempty"`
 }
 
 func CreateTag(dboTag dbo.Tag) *Tag {
 	ID := uint64(0)
 	if dboTag.ID != nil {
-		ID = *dboTag.ID
+		ID = uint64(*dboTag.ID)
 	}
 	return &Tag{
-		ID:       ID,
+		ID:       TagID(ID),
 		Name:     dboTag.Name,
-		ParentID: dboTag.ParentID,
+		ParentID: (*TagID)(dboTag.ParentID),
 	}
 }
 func CreateTags(tags dbo.TagsTree) []*Tag {
@@ -38,11 +39,11 @@ func (t *Tag) IsRoot() bool {
 }
 
 func (t *Tag) GetID() uint64 {
-	return t.ID
+	return uint64(t.ID)
 }
 
 func (t *Tag) GetParentID() *uint64 {
-	return t.ParentID
+	return (*uint64)(t.ParentID)
 }
 
 func (t *Tag) ClearChildren() {

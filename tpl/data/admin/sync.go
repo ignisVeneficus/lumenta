@@ -5,6 +5,7 @@ import (
 
 	"github.com/ignisVeneficus/lumenta/db/dbo"
 	"github.com/ignisVeneficus/lumenta/ruleengine"
+	"github.com/ignisVeneficus/lumenta/server/routes"
 	"github.com/ignisVeneficus/lumenta/tpl"
 	"github.com/ignisVeneficus/lumenta/tpl/data"
 )
@@ -17,6 +18,10 @@ type SyncRunsPageContext struct {
 
 type SyncRunData struct {
 	dbo.SyncRun
+}
+
+func (sd *SyncRunData) RoutesSyncRunID() routes.SyncRunID {
+	return routes.SyncRunID(*sd.ID)
 }
 
 func (sd *SyncRunData) Duration() *time.Duration {
@@ -55,6 +60,13 @@ type SyncFilesPageContext struct {
 type SyncFileData struct {
 	dbo.SyncFile
 	RuleResult ruleengine.RuleResults
+}
+
+func (sd *SyncFileData) RoutesSyncRunID() routes.SyncRunID {
+	return routes.SyncRunID(sd.SyncID)
+}
+func (sd *SyncFileData) RoutesSyncFileID() routes.SyncFileID {
+	return routes.SyncFileID(*sd.ID)
 }
 
 func (sf SyncFileData) ResultOrder() []ruleengine.RuleEvaluation {

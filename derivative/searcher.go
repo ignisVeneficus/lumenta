@@ -12,13 +12,14 @@ import (
 	"github.com/ignisVeneficus/lumenta/data"
 	"github.com/ignisVeneficus/lumenta/db"
 	"github.com/ignisVeneficus/lumenta/db/dao"
+	"github.com/ignisVeneficus/lumenta/db/dbo"
 	"github.com/ignisVeneficus/lumenta/utils"
 )
 
-func GetDerivativesPathWithACL(c context.Context, acl authData.ACLContext, imageId uint64, cfg derivativeConfig.DerivativeConfig, roots fsConfig.FilesystemConfig) (string, error) {
-	logScope, ctx := logging.Enter(c, "middleware/derivatives", imageId, map[string]any{"image_id": imageId, "derivative": cfg.Name})
+func GetDerivativesPathWithACL(c context.Context, acl authData.ACLContext, imageID uint64, cfg derivativeConfig.DerivativeConfig, roots fsConfig.FilesystemConfig) (string, error) {
+	logScope, ctx := logging.Enter(c, "middleware/derivatives", imageID, map[string]any{"image_id": imageID, "derivative": cfg.Name})
 	db := db.GetDatabase()
-	image, err := dao.GetImageByIdACL(db, c, imageId, acl.ACLContext)
+	image, err := dao.GetImageByIdACL(db, c, dbo.ImageID(imageID), acl.ACLContext)
 	if err != nil {
 		logging.ExitErr(logScope, err)
 		return "", err
@@ -47,7 +48,7 @@ func GetDerivativesPathWithACL(c context.Context, acl authData.ACLContext, image
 	}
 	job := Job{
 		Key:        Key(outPath),
-		Image:      *image.ID,
+		Image:      uint64(*image.ID),
 		SourcePath: inPath,
 		Tasks: []Task{
 			Task{

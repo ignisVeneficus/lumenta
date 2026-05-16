@@ -10,7 +10,7 @@
 {{ define "page-js" }}
     window.ROUTES = {
       album: "{{ apiAdminAlbumPathJS }}",
-      image: "{{ apiAdminImagePath .Image.ID }}",
+      image: "{{ apiAdminImagePath .Image.RoutesImagedID }}",
     };
     window.IMAGE_ID = {{ .Image.ID }};
 {{ end }}
@@ -31,7 +31,7 @@
                 <div class="image-preview " style="--ratio: {{.Image.ClampedAspect}};">
                     <img
                         class="derivative-img"
-                        src="{{ imagePath .Image.ID "s800" }}"
+                        src="{{ imagePath .Image.RoutesImagedID "s800" }}"
                         loading="lazy"
                         decoding="async"
                     >

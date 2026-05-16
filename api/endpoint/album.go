@@ -92,7 +92,7 @@ func AlbumPatch(cfg config.Config) gin.HandlerFunc {
 			return
 		}
 		database := db.GetDatabase()
-		album, err := dao.GetAlbumById(database, ctx, uint64(albumID))
+		album, err := dao.GetAlbumByID(database, ctx, dbo.AlbumID(albumID))
 		if err != nil {
 			logging.ExitErr(logg, err)
 			ret.HandleError("album not found")

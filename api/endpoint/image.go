@@ -12,8 +12,8 @@ import (
 	"github.com/ignisVeneficus/lumenta/config"
 	"github.com/ignisVeneficus/lumenta/db"
 	"github.com/ignisVeneficus/lumenta/db/dao"
+	"github.com/ignisVeneficus/lumenta/db/dbo"
 	"github.com/ignisVeneficus/lumenta/server/routes"
-	tlpData "github.com/ignisVeneficus/lumenta/tpl/data"
 )
 
 var (
@@ -23,7 +23,7 @@ var (
 func ImageCoordByTags(cfg config.Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		tagIdStr := c.Param("tid")
-		iPageStr := c.DefaultQuery(tlpData.ImagePageParam, "1")
+		iPageStr := c.DefaultQuery(routes.ImagePageParam, "1")
 		logg, ctx := logging.Enter(c.Request.Context(), "api/public/images/tags", tagIdStr, map[string]any{
 			"tag_id":     tagIdStr,
 			"image_page": iPageStr,
@@ -49,7 +49,7 @@ func ImageCoordByTags(cfg config.Config) gin.HandlerFunc {
 		database := db.GetDatabase()
 		acl := auth.GetAuthContex(ctx)
 
-		images, err := dao.QueryImageCoordByTagByACL(database, ctx, uint64(tagId), acl.ACLContext)
+		images, err := dao.QueryImageCoordByTagByACL(database, ctx, dbo.TagID(tagId), acl.ACLContext)
 		if err != nil {
 			logging.ExitErr(logg, err)
 			ret.HandleError("internal error")
@@ -58,8 +58,9 @@ func ImageCoordByTags(cfg config.Config) gin.HandlerFunc {
 		coords := make([]data.ImageCoord, 0, len(images))
 		start := (iPage - 1) * imagePerPage
 		end := start + imagePerPage
+		uintTagID := uint64(tagId)
 		generator := func(id uint64) string {
-			return routes.CreateTagImagePath(uint64(tagId), id)
+			return routes.CreateTagImagePath(routes.TagID(uintTagID), routes.ImageID(id))
 		}
 		for i, c := range images {
 			if c.Latitude == nil || c.Longitude == nil {

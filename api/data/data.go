@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"reflect"
 
+	"github.com/ignisVeneficus/lumenta/db/dbo"
 	"github.com/ignisVeneficus/lumenta/validate"
 	"github.com/rs/zerolog"
 )
@@ -135,7 +136,21 @@ func FieldUint64If(e *zerolog.Event, key string, f Field[uint64]) {
 		e.Uint64(key, f.Value)
 	}
 }
-
+func FieldAlbumIDIf(e *zerolog.Event, key string, f Field[dbo.AlbumID]) {
+	if f.Set && f.Valid {
+		e.Uint64(key, uint64(f.Value))
+	}
+}
+func FieldImageIDIf(e *zerolog.Event, key string, f Field[dbo.ImageID]) {
+	if f.Set && f.Valid {
+		e.Uint64(key, uint64(f.Value))
+	}
+}
+func FieldUserIDIf(e *zerolog.Event, key string, f Field[dbo.UserID]) {
+	if f.Set && f.Valid {
+		e.Uint64(key, uint64(f.Value))
+	}
+}
 func FieldStringIf(e *zerolog.Event, key string, f Field[string]) {
 	if f.Set && f.Valid {
 		e.Str(key, f.Value)

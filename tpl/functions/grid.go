@@ -39,18 +39,18 @@ func TileRole(img gridData.GridImage) string {
 
 }
 
-func genImgSrc(id uint64, width int) string {
+func genImgSrc(imageID routes.ImageID, width int) string {
 	derivative := fmt.Sprintf("w%d", width)
-	return fmt.Sprintf("%s %dw", routes.CreateDerivativePath(id, derivative), width)
+	return fmt.Sprintf("%s %dw", routes.CreateDerivativePath(imageID, derivative), width)
 }
-func TileImgList(imgID uint64, widths ...int) template.Srcset {
+func TileImgList(imageID routes.ImageID, widths ...int) template.Srcset {
 	var parts []string
 	for _, w := range widths {
-		parts = append(parts, genImgSrc(imgID, w))
+		parts = append(parts, genImgSrc(imageID, w))
 	}
 	return template.Srcset(strings.Join(parts, ", "))
 }
 
-func TileImg(imgID uint64, width int) template.HTML {
+func TileImg(imgID routes.ImageID, width int) template.HTML {
 	return template.HTML(genImgSrc(imgID, width))
 }

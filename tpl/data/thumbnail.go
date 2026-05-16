@@ -5,17 +5,18 @@ import (
 
 	"github.com/ignisVeneficus/logging"
 	"github.com/ignisVeneficus/lumenta/db/dbo"
+	"github.com/ignisVeneficus/lumenta/server/routes"
 )
 
-func CreateThumbnail(img dbo.ImageTitle, generator func(uint64) *string) *Thumbnail {
+func CreateThumbnail(img dbo.ImageTitle, generator func(routes.ImageID) *string) *Thumbnail {
 	return &Thumbnail{
-		ImageId: img.ID,
-		Url:     generator(img.ID),
+		ImageId: routes.ImageID(img.ID),
+		Url:     generator(routes.ImageID(img.ID)),
 		Title:   img.Title,
 	}
 }
 
-func CreateThumbnails(before []dbo.ImageTitle, selected *uint64, after []dbo.ImageTitle, generator func(uint64) *string, window int, beforeURL string, afterURL string) Thumbnails {
+func CreateThumbnails(before []dbo.ImageTitle, selected *routes.ImageID, after []dbo.ImageTitle, generator func(routes.ImageID) *string, window int, beforeURL string, afterURL string) Thumbnails {
 	thumbs := make([]*Thumbnail, window)
 	windowSide := (window - 1) / 2
 	if selected != nil {
@@ -69,7 +70,7 @@ type Thumbnails struct {
 }
 
 type Thumbnail struct {
-	ImageId uint64
+	ImageId routes.ImageID
 	Url     *string
 	Title   string
 }
@@ -79,8 +80,8 @@ func GenerateThumbnail(c context.Context,
 	queryNext func(context.Context, dbo.Image, int, int) ([]dbo.ImageTitle, error),
 	image dbo.Image,
 	page int,
-	imageUrlGenerator func(uint64) *string,
-	pagingUrlGenerator func(uint64, int) string,
+	imageUrlGenerator func(routes.ImageID) *string,
+	pagingUrlGenerator func(routes.ImageID, int) string,
 ) (Thumbnails, error) {
 	logScope, _ := logging.Enter(c, "tpl/image/thumbnail", image.ID, nil)
 	var err error
@@ -101,7 +102,7 @@ func GenerateThumbnail(c context.Context,
 		// starting point are 0
 		thumbnailBeforeQty = oneSide + 1
 		thumbnailAfterQty = oneSide + 1
-		img = image.ID
+		img = (*uint64)(image.ID)
 	}
 	if page > 0 {
 		thumbnailAfterQty = ThumbnailPerPage + 1
@@ -120,7 +121,7 @@ func GenerateThumbnail(c context.Context,
 		"oneSide":              oneSide,
 		"page":                 page,
 	})
-
+	imageID := routes.ImageID(*image.ID)
 	after := []dbo.ImageTitle{}
 	if thumbnailAfterQty > 0 {
 		after, err = queryNext(c, image, thumbnailAfterStart, thumbnailAfterQty)
@@ -130,11 +131,11 @@ func GenerateThumbnail(c context.Context,
 		}
 		// we got all the images => next page
 		if len(after) == thumbnailAfterQty {
-			urlAfter = pagingUrlGenerator(*image.ID, page+1)
+			urlAfter = pagingUrlGenerator(imageID, page+1)
 		}
 	} else if page < 0 {
 		// always have next page
-		urlAfter = pagingUrlGenerator(*image.ID, page+1)
+		urlAfter = pagingUrlGenerator(imageID, page+1)
 	}
 	before := []dbo.ImageTitle{}
 	if thumbnailBeforeQty > 0 {
@@ -144,12 +145,12 @@ func GenerateThumbnail(c context.Context,
 		}
 		// we got all the images => prev page
 		if len(before) == thumbnailBeforeQty {
-			urlBefore = pagingUrlGenerator(*image.ID, page-1)
+			urlBefore = pagingUrlGenerator(imageID, page-1)
 		}
 	} else if page > 0 {
 		// always have prev image
-		urlBefore = pagingUrlGenerator(*image.ID, page-1)
+		urlBefore = pagingUrlGenerator(imageID, page-1)
 	}
 	logging.Exit(logScope, "ok", nil)
-	return CreateThumbnails(before, img, after, imageUrlGenerator, ThumbnailPerPage, urlBefore, urlAfter), nil
+	return CreateThumbnails(before, (*routes.ImageID)(img), after, imageUrlGenerator, ThumbnailPerPage, urlBefore, urlAfter), nil
 }

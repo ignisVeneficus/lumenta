@@ -24,7 +24,7 @@ func SyncRunsListPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFun
 	return func(c *gin.Context) {
 		i18n := i18n.Get()
 		loc := tpl.L(c)
-		pageStr := c.DefaultQuery(data.SyncPageParam, "1")
+		pageStr := c.DefaultQuery(routes.SyncPageParam, "1")
 		logScope, ctx := logging.Enter(c.Request.Context(), "server/page/admin/sync_run", nil, map[string]any{
 			"page": pageStr,
 		})
@@ -37,7 +37,7 @@ func SyncRunsListPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFun
 		}
 
 		url := routes.BuildAdminSyncRunListPath()
-		url.WithUintQuery(data.SyncPageParam, page)
+		url.WithUintQuery(routes.SyncPageParam, page)
 
 		database := db.GetDatabase()
 		syncs, err := dao.QuerySyncRunPaged(database, ctx, (page-1)*syncRunPerPage, syncRunPerPage)
@@ -67,7 +67,7 @@ func SyncRunsListPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFun
 			},
 		}
 
-		paging := data.CreatePaging(*url, data.SyncPageParam, page, count, syncRunPerPage)
+		paging := data.CreatePaging(*url, routes.SyncPageParam, page, count, syncRunPerPage)
 
 		syncCtx := adminData.SyncRunsPageContext{}
 		pageCtx := syncCtx.GetPage()

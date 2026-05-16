@@ -117,7 +117,7 @@ func (w *WorkItem) MarshalZerologObjectWithLevel(e *zerolog.Event, level zerolog
 		}
 		e.Bool("is_dirty", w.IsDirty).Str("dirty_reason", string(w.DirtyReason))
 		if w.DBImage != nil && w.DBImage.ID != nil {
-			logging.Uint64If(e, "db_id", w.DBImage.ID)
+			logging.Uint64If(e, "db_id", (*uint64)(w.DBImage.ID))
 		}
 		e.Str("file_hash", w.FileHash)
 		logging.ObjectIf(e, "metadata", logging.WithLevel(level, &w.Metadata), false)
@@ -163,7 +163,7 @@ type PipelineContext struct {
 	// =========================================================
 	// Sync related data
 	// =========================================================
-	SyncId uint64
+	SyncId dbo.SyncRunID
 	Force  bool
 
 	// =========================================================
@@ -267,11 +267,11 @@ type AlbumContext struct {
 
 type TagCache struct {
 	mu sync.Mutex
-	m  map[string]uint64
+	m  map[string]dbo.TagID
 }
 
-func (c *TagCache) Resolve(database *sql.DB, ctx context.Context, tagPath string, source string) ([]uint64, error) {
-	ret := make([]uint64, 0)
+func (c *TagCache) Resolve(database *sql.DB, ctx context.Context, tagPath string, source string) ([]dbo.TagID, error) {
+	ret := make([]dbo.TagID, 0)
 	if tagPath == "" {
 		return ret, fmt.Errorf("empty path")
 	}
@@ -280,7 +280,7 @@ func (c *TagCache) Resolve(database *sql.DB, ctx context.Context, tagPath string
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	var parentID *uint64 = nil
+	var parentID *dbo.TagID = nil
 	for j := 0; j < len(parts); j++ {
 		cacheKey := strings.Join(parts[:j+1], "/")
 		if id, ok := c.m[cacheKey]; ok {

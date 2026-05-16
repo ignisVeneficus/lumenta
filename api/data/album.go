@@ -7,25 +7,27 @@ import (
 	"github.com/rs/zerolog"
 )
 
+type AlbumID uint64
+
 type Album struct {
-	ID          uint64   `json:"id"`
+	ID          AlbumID  `json:"id"`
 	Name        string   `json:"name"`
 	FullName    string   `json:"fullName"`
 	Description string   `json:"description"`
-	ParentID    *uint64  `json:"parent_id,omitempty"`
+	ParentID    *AlbumID `json:"parent_id,omitempty"`
 	Children    []*Album `json:"children,omitempty"`
 }
 
 func CreateAlbum(dboAlbum dbo.Album) *Album {
-	ID := uint64(0)
+	ID := AlbumID(0)
 	if dboAlbum.ID != nil {
-		ID = *dboAlbum.ID
+		ID = AlbumID(*dboAlbum.ID)
 	}
 	return &Album{
 		ID:          ID,
 		Name:        dboAlbum.Name,
 		Description: utils.FromStringPtr(dboAlbum.Description),
-		ParentID:    dboAlbum.ParentID,
+		ParentID:    (*AlbumID)(dboAlbum.ParentID),
 	}
 }
 func CreateAlbums(albums []*dbo.Album) []*Album {
@@ -40,32 +42,32 @@ func CreateAlbums(albums []*dbo.Album) []*Album {
 }
 
 type AlbumPatch struct {
-	ParentID    Field[uint64] `json:"parent_id"`
-	Name        Field[string] `json:"name"`
-	Description Field[string] `json:"description"`
+	ParentID    Field[dbo.AlbumID] `json:"parent_id"`
+	Name        Field[string]      `json:"name"`
+	Description Field[string]      `json:"description"`
 
 	Rank Field[uint64] `json:"rank"`
 
-	CoverImageID Field[uint64] `json:"cover_image_id"`
+	CoverImageID Field[dbo.ImageID] `json:"cover_image_id"`
 
 	ACLLevel  Field[dbo.DBACLLevel] `json:"acl_scope"`
-	ACLUserID Field[uint64]         `json:"acl_user_id"`
+	ACLUserID Field[dbo.UserID]     `json:"acl_user_id"`
 }
 
 func (a *AlbumPatch) MarshalZerologObjectWithLevel(e *zerolog.Event, level zerolog.Level) {
 	if level <= zerolog.DebugLevel {
 
-		FieldUint64If(e, string(definitions.AlbumFieldParentID), a.ParentID)
+		FieldAlbumIDIf(e, string(definitions.AlbumFieldParentID), a.ParentID)
 		FieldStringIf(e, string(definitions.AlbumFieldName), a.Name)
 		FieldStringIf(e, string(definitions.AlbumFieldDescription), a.Description)
 		FieldUint64If(e, string(definitions.AlbumFieldRank), a.Rank)
-		FieldUint64If(e, string(definitions.AlbumFieldCoverImageID), a.CoverImageID)
+		FieldImageIDIf(e, string(definitions.AlbumFieldCoverImageID), a.CoverImageID)
 
 		if a.ACLLevel.Set && a.ACLLevel.Valid {
 			e.Uint64(string(definitions.AlbumFieldACLLevel), uint64(a.ACLLevel.Value))
 		}
 
-		FieldUint64If(e, string(definitions.AlbumFieldACLUserID), a.ACLUserID)
+		FieldUserIDIf(e, string(definitions.AlbumFieldACLUserID), a.ACLUserID)
 	}
 }
 func (a *Album) IsRoot() bool {
@@ -73,11 +75,11 @@ func (a *Album) IsRoot() bool {
 }
 
 func (a *Album) GetID() uint64 {
-	return a.ID
+	return uint64(a.ID)
 }
 
 func (a *Album) GetParentID() *uint64 {
-	return a.ParentID
+	return (*uint64)(a.ParentID)
 }
 
 func (a *Album) ClearChildren() {

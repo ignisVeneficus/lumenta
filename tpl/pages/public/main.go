@@ -33,7 +33,7 @@ func MainPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 			logging.ExitErr(logScope, err)
 			c.AbortWithStatus(http.StatusInternalServerError)
 		}
-		makeURL := func(id uint64) string {
+		makeURL := func(id routes.ImageID) string {
 			return routes.CreateImagePath(id)
 		}
 

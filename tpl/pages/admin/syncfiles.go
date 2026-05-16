@@ -67,7 +67,7 @@ func SyncFilesListPathPage(r *tpl.TemplateResolver, cfg config.Config) gin.Handl
 		i18n := i18n.Get()
 		loc := tpl.L(c)
 		fPath := c.Param("fPath")
-		pageStr := c.DefaultQuery(data.SyncPageParam, "1")
+		pageStr := c.DefaultQuery(routes.SyncPageParam, "1")
 		logScope, ctx := logging.Enter(c.Request.Context(), "server/page/admin/sync_file/path", fPath, map[string]any{
 			"page": pageStr,
 			"path": fPath,
@@ -83,7 +83,7 @@ func SyncFilesListPathPage(r *tpl.TemplateResolver, cfg config.Config) gin.Handl
 		}
 
 		url := routes.BuildAdminSyncFilesByPathPath(dbo.BuildFullPath(root, path, filename, ext))
-		url.WithUintQuery(data.SyncPageParam, page)
+		url.WithUintQuery(routes.SyncPageParam, page)
 
 		database := db.GetDatabase()
 
@@ -107,7 +107,7 @@ func SyncFilesListPathPage(r *tpl.TemplateResolver, cfg config.Config) gin.Handl
 			}
 		}
 
-		paging := data.CreatePaging(*url, data.SyncPageParam, page, count, syncFilePerPage)
+		paging := data.CreatePaging(*url, routes.SyncPageParam, page, count, syncFilePerPage)
 
 		breadcrumbs := data.Breadcrumbs{
 			tpl.GetAdminMain(loc, i18n),
@@ -156,8 +156,8 @@ func SyncRunFilesListPage(r *tpl.TemplateResolver, cfg config.Config) gin.Handle
 		i18n := i18n.Get()
 		loc := tpl.L(c)
 		syncRunIDStr := c.Param("id")
-		filterIn := c.QueryArray(data.FilterParam)
-		pageStr := c.DefaultQuery(data.SyncPageParam, "1")
+		filterIn := c.QueryArray(routes.FilterParam)
+		pageStr := c.DefaultQuery(routes.SyncPageParam, "1")
 		logScope, ctx := logging.Enter(c.Request.Context(), "server/page/admin/sync_file/sync_run", syncRunIDStr, map[string]any{
 			"page":       pageStr,
 			"syncRun_id": syncRunIDStr,
@@ -171,7 +171,7 @@ func SyncRunFilesListPage(r *tpl.TemplateResolver, cfg config.Config) gin.Handle
 			}
 		}
 
-		syncRunId, err := tpl.ParseID(syncRunIDStr)
+		syncRunId, err := tpl.ParseSyncRunID(syncRunIDStr)
 		if err != nil {
 			logging.ExitErr(logScope, fmt.Errorf("invalid page"))
 			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "invalid page"})
@@ -186,26 +186,27 @@ func SyncRunFilesListPage(r *tpl.TemplateResolver, cfg config.Config) gin.Handle
 		}
 
 		url := routes.BuildAdminSyncRunFilesPath(syncRunId)
-		url.WithUintQuery(data.SyncPageParam, page)
+		url.WithUintQuery(routes.SyncPageParam, page)
 		if len(filter) > 0 {
-			url.WithArrayParams(data.FilterParam, filter)
+			url.WithArrayParams(routes.FilterParam, filter)
 		}
 
 		database := db.GetDatabase()
-		_, err = dao.GetSyncRunByID(database, ctx, syncRunId)
+		dbSyncRunID := dbo.SyncRunID(syncRunId)
+		_, err = dao.GetSyncRunByID(database, ctx, dbSyncRunID)
 		if err != nil {
 			logging.ExitErr(logScope, err)
-			pages.Soft404(r, cfg, c, tplData.SurfacePublic, "sync_run", routes.CreateAdminSyncRunListPath(), syncRunId)
+			pages.Soft404(r, cfg, c, tplData.SurfacePublic, "sync_run", routes.CreateAdminSyncRunListPath(), uint64(syncRunId))
 			return
 		}
 
-		syncs, err := dao.QuerySyncFileBySyncIDPaged(database, ctx, syncRunId, filter, (page-1)*syncFilePerPage, syncFilePerPage)
+		syncs, err := dao.QuerySyncFileBySyncIDPaged(database, ctx, dbSyncRunID, filter, (page-1)*syncFilePerPage, syncFilePerPage)
 		if err != nil {
 			logging.ExitErr(logScope, err)
 			c.AbortWithStatus(http.StatusInternalServerError)
 			return
 		}
-		count, err := dao.CountSyncFileBySyncID(database, ctx, syncRunId, filter)
+		count, err := dao.CountSyncFileBySyncID(database, ctx, dbSyncRunID, filter)
 		if err != nil {
 			logging.ExitErr(logScope, err)
 			c.AbortWithStatus(http.StatusInternalServerError)
@@ -219,7 +220,7 @@ func SyncRunFilesListPage(r *tpl.TemplateResolver, cfg config.Config) gin.Handle
 			}
 		}
 
-		paging := data.CreatePaging(*url, data.SyncPageParam, page, count, syncFilePerPage)
+		paging := data.CreatePaging(*url, routes.SyncPageParam, page, count, syncFilePerPage)
 
 		breadcrumbs := data.Breadcrumbs{
 			tpl.GetAdminMain(loc, i18n),
@@ -257,9 +258,9 @@ func SyncFilesListPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFu
 	return func(c *gin.Context) {
 		i18n := i18n.Get()
 		loc := tpl.L(c)
-		pageStr := c.DefaultQuery(data.SyncPageParam, "1")
-		search := c.Query(data.SearchParam)
-		filterIn := c.QueryArray(data.FilterParam)
+		pageStr := c.DefaultQuery(routes.SyncPageParam, "1")
+		search := c.Query(routes.SearchParam)
+		filterIn := c.QueryArray(routes.FilterParam)
 		logScope, ctx := logging.Enter(c.Request.Context(), "server/page/admin/sync_file", nil, map[string]any{
 			"page":   pageStr,
 			"search": search,
@@ -281,12 +282,12 @@ func SyncFilesListPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFu
 		}
 
 		url := routes.BuildAdminSyncFilesPath()
-		url.WithUintQuery(data.SyncPageParam, page)
+		url.WithUintQuery(routes.SyncPageParam, page)
 		if search != "" {
-			url.WithParam(data.SearchParam, search)
+			url.WithParam(routes.SearchParam, search)
 		}
 		if len(filter) > 0 {
-			url.WithArrayParams(data.FilterParam, filter)
+			url.WithArrayParams(routes.FilterParam, filter)
 		}
 
 		database := db.GetDatabase()
@@ -311,7 +312,7 @@ func SyncFilesListPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFu
 			}
 		}
 
-		paging := data.CreatePaging(*url, data.SyncPageParam, page, count, syncFilePerPage)
+		paging := data.CreatePaging(*url, routes.SyncPageParam, page, count, syncFilePerPage)
 
 		breadcrumbs := data.Breadcrumbs{
 			tpl.GetAdminMain(loc, i18n),

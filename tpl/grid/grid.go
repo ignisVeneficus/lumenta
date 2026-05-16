@@ -5,6 +5,7 @@ import (
 
 	"github.com/ignisVeneficus/lumenta/data"
 	"github.com/ignisVeneficus/lumenta/db/dbo"
+	"github.com/ignisVeneficus/lumenta/server/routes"
 	"github.com/rs/zerolog/log"
 
 	gridConfig "github.com/ignisVeneficus/lumenta/config/presentation"
@@ -27,7 +28,7 @@ func mix64(x uint64) uint64 {
 }
 
 func rankKey(img *gridData.GridImage, salt uint64) (int, uint64) {
-	h := mix64(img.ImgId ^ salt)
+	h := mix64(uint64(img.ImgId) ^ salt)
 	return img.Rating, h
 }
 
@@ -104,14 +105,14 @@ func BuildGrid(images []dbo.Image, gridCfg gridConfig.GridConfig, salt uint64, u
 			layouts[i] = layout
 		}
 		gi := gridData.GridImage{
-			ImgId:       *img.ID,
+			ImgId:       routes.ImageID(*img.ID),
 			Title:       title,
 			Focus:       data.ResolveFocus(img.FocusX, img.FocusY, data.ImageFocusMode(img.FocusMode)),
 			Rating:      rating,
 			AspectClass: aspectClass,
 			Layouts:     layouts,
 			Aspect:      float32(img.Width) / float32(img.Height),
-			URL:         urlBuilder(*img.ID),
+			URL:         urlBuilder(routes.ImageID(*img.ID)),
 		}
 		ret = append(ret, &gi)
 	}
@@ -157,4 +158,4 @@ func BuildForLayout(gridCfg gridConfig.GridConfig, width int, aspect gridData.As
 	}
 }
 
-type URLBuilder func(imgID uint64) string
+type URLBuilder func(imageID routes.ImageID) string

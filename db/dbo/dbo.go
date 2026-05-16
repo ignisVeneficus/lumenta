@@ -85,8 +85,10 @@ const (
 	RoleAdmin ACLRole = "admin"
 )
 
+type UserID uint64
+
 type User struct {
-	ID           *uint64
+	ID           *UserID
 	Username     string
 	Email        *string
 	Role         string
@@ -100,7 +102,7 @@ func (u *User) MarshalZerologObjectWithLevel(e *zerolog.Event, level zerolog.Lev
 		e.Str("username", u.Username).
 			Str("role", u.Role).
 			Bool("disabled", u.Disabled)
-		logging.Uint64If(e, "id", u.ID)
+		logging.Uint64If(e, "id", (*uint64)(u.ID))
 	}
 	if level == zerolog.TraceLevel {
 		logging.StrIf(e, "email", u.Email)
@@ -141,8 +143,10 @@ const (
 	SyncStatusFailed   SyncStatus = "failed"
 )
 
+type SyncRunID uint64
+
 type SyncRun struct {
-	ID           *uint64
+	ID           *SyncRunID
 	IsActive     *bool
 	StartedAt    time.Time
 	FinishedAt   *time.Time
@@ -156,7 +160,7 @@ type SyncRun struct {
 
 func (s *SyncRun) MarshalZerologObjectWithLevel(e *zerolog.Event, level zerolog.Level) {
 	if level <= zerolog.DebugLevel {
-		logging.Uint64If(e, "id", s.ID)
+		logging.Uint64If(e, "id", (*uint64)(s.ID))
 		logging.BoolIf(e, "is_active", s.IsActive)
 
 		e.Time("started_at", s.StartedAt).
@@ -195,9 +199,10 @@ var (
 // SyncFileStatusForced      SyncFileStatus = "forced"
 )
 
+type SyncFileID uint64
 type SyncFile struct {
-	ID     *uint64
-	SyncID uint64
+	ID     *SyncFileID
+	SyncID SyncRunID
 
 	Root     string
 	Path     string
@@ -214,9 +219,9 @@ type SyncFile struct {
 
 func (s *SyncFile) MarshalZerologObjectWithLevel(e *zerolog.Event, level zerolog.Level) {
 	if level <= zerolog.DebugLevel {
-		logging.Uint64If(e, "id", s.ID)
+		logging.Uint64If(e, "id", (*uint64)(s.ID))
 
-		e.Uint64("sync_id", s.SyncID).
+		e.Uint64("sync_id", uint64(s.SyncID)).
 			Str("root", s.Root).
 			Str("path", s.Path).
 			Str("filename", s.Filename).
@@ -278,14 +283,14 @@ func ValidateACLLevel(level DBACLLevel) bool {
 }
 
 type ACLContext struct {
-	ViewerUserID *uint64
+	ViewerUserID *UserID
 	Role         ACLRole
 }
 
 func (a *ACLContext) MarshalZerologObjectWithLevel(e *zerolog.Event, level zerolog.Level) {
 	if level <= zerolog.DebugLevel {
 		e.Str("role", string(a.Role))
-		logging.Uint64If(e, "userID", a.ViewerUserID)
+		logging.Uint64If(e, "userID", (*uint64)(a.ViewerUserID))
 	}
 }
 func BuildFullPath(root, path, filename, ext string) string {

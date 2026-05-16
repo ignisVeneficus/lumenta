@@ -29,10 +29,10 @@ var (
 	imagePerTagPage uint64 = 24
 )
 
-func BuildTagFolders(c context.Context, database *sql.DB, loc string, i18n *i18n.Service, tagId uint64, acl dbo.ACLContext, page uint64, url tplData.URLBuilder) (tplData.Folders, error) {
+func BuildTagFolders(c context.Context, database *sql.DB, loc string, i18n *i18n.Service, tagId dbo.TagID, acl dbo.ACLContext, page uint64, url routes.URLBuilder) (tplData.Folders, error) {
 	type tagImage struct {
 		dbo.TagWCount
-		ImageId *uint64
+		ImageId *routes.ImageID
 	}
 
 	logScope, ctx := logging.Enter(c, "server/page/public/tag/buildDirGrid", tagId, map[string]any{
@@ -49,7 +49,7 @@ func BuildTagFolders(c context.Context, database *sql.DB, loc string, i18n *i18n
 		logging.ExitErr(logScope, err)
 		return tplData.Folders{}, err
 	}
-	paging := tplData.CreatePaging(url, tplData.FolderPageParam, page, qty, tagsPerPage)
+	paging := tplData.CreatePaging(url, routes.FolderPageParam, page, qty, tagsPerPage)
 
 	tagsItems := []tagImage{}
 	for _, t := range tags {
@@ -59,7 +59,7 @@ func BuildTagFolders(c context.Context, database *sql.DB, loc string, i18n *i18n
 		img, err := dao.GetImageIdByTagACLFirstHash(database, ctx, *t.ID, acl)
 		switch {
 		case err == nil:
-			dir.ImageId = &img
+			dir.ImageId = (*routes.ImageID)(&img)
 		case !errors.Is(err, dao.ErrDataNotFound):
 			logging.ExitErr(logScope, err)
 			return tplData.Folders{}, err
@@ -67,12 +67,12 @@ func BuildTagFolders(c context.Context, database *sql.DB, loc string, i18n *i18n
 		tagsItems = append(tagsItems, dir)
 	}
 
-	mapping := func(album tagImage) tplData.Folder {
+	mapping := func(folder tagImage) tplData.Folder {
 		return tplData.Folder{
-			URL:   template.URL(routes.CreateTagPath(*album.ID)),
-			Name:  album.Name,
-			Info:  i18n.T(loc, "page.public.tag.nr_images", map[string]any{"images": album.Count}),
-			Image: album.ImageId,
+			URL:   template.URL(routes.CreateTagPath(routes.TagID(*folder.ID))),
+			Name:  folder.Name,
+			Info:  i18n.T(loc, "page.public.tag.nr_images", map[string]any{"images": folder.Count}),
+			Image: folder.ImageId,
 		}
 	}
 
@@ -80,7 +80,7 @@ func BuildTagFolders(c context.Context, database *sql.DB, loc string, i18n *i18n
 	logging.Exit(logScope, "ok", nil)
 	return folders, nil
 }
-func BuildTagImageGrid(c context.Context, database *sql.DB, tagId uint64, acl dbo.ACLContext, images []dbo.Image, page uint64, url tplData.URLBuilder, cfg presentation.PresentationConfig) (tplData.ImageGrid, error) {
+func BuildTagImageGrid(c context.Context, database *sql.DB, tagId dbo.TagID, acl dbo.ACLContext, images []dbo.Image, page uint64, url routes.URLBuilder, cfg presentation.PresentationConfig) (tplData.ImageGrid, error) {
 	logScope, ctx := logging.Enter(c, "server/page/public/tag/buildDirGrid", tagId, map[string]any{
 		"tag_id": tagId,
 		"page":   page,
@@ -90,14 +90,14 @@ func BuildTagImageGrid(c context.Context, database *sql.DB, tagId uint64, acl db
 		logging.ExitErr(logScope, err)
 		return tplData.ImageGrid{}, err
 	}
-	paging := tplData.CreatePaging(url, tplData.ImagePageParam, page, qty, imagePerTagPage)
-	makeURL := func(id uint64) string {
-		return routes.CreateTagImagePath(tagId, id)
+	paging := tplData.CreatePaging(url, routes.ImagePageParam, page, qty, imagePerTagPage)
+	makeURL := func(id routes.ImageID) string {
+		return routes.CreateTagImagePath(routes.TagID(tagId), id)
 	}
 	logging.Exit(logScope, "ok", nil)
 	return tplData.ImageGrid{
 		Paging: &paging,
-		Images: grid.BuildGrid(images, cfg.Grid, tagId*page, makeURL),
+		Images: grid.BuildGrid(images, cfg.Grid, uint64(tagId)*page, makeURL),
 	}, nil
 }
 
@@ -106,15 +106,15 @@ func TagPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 		i18n := i18n.Get()
 		loc := tpl.L(c)
 		tagIdStr := c.Param("tid")
-		tPageStr := c.DefaultQuery(tplData.FolderPageParam, "1")
-		iPageStr := c.DefaultQuery(tplData.ImagePageParam, "1")
+		tPageStr := c.DefaultQuery(routes.FolderPageParam, "1")
+		iPageStr := c.DefaultQuery(routes.ImagePageParam, "1")
 		logScope, ctx := logging.Enter(c.Request.Context(), tagIdStr, "server/page/public/tag", map[string]any{
 			"tag_id":      tagIdStr,
 			"subTag_page": tPageStr,
 			"image_page":  iPageStr,
 		})
 
-		tagId, err := tpl.ParseID(tagIdStr)
+		tagId, err := tpl.ParseTagID(tagIdStr)
 		if err != nil {
 			logging.ExitErr(logScope, fmt.Errorf("invalid tag id"))
 			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "invalid tag id"})
@@ -140,12 +140,13 @@ func TagPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 
 		database := db.GetDatabase()
 		acl := auth.GetAuthContex(c)
+		dbTagID := dbo.TagID(tagId)
 
-		thisTag, err := dao.GetTagByIDACL(database, ctx, tagId, acl.ACLContext)
+		thisTag, err := dao.GetTagByIDACL(database, ctx, dbTagID, acl.ACLContext)
 		switch {
 		case errors.Is(err, dao.ErrDataNotFound):
 			logging.ExitErr(logScope, err)
-			pages.Soft404(r, cfg, c, tplData.SurfacePublic, "tag", routes.CreateTagsRootPath(), tagId)
+			pages.Soft404(r, cfg, c, tplData.SurfacePublic, "tag", routes.CreateTagsRootPath(), uint64(tagId))
 			return
 		case err != nil:
 			logging.ExitErr(logScope, err)
@@ -153,21 +154,21 @@ func TagPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 			return
 		}
 
-		folders, err := BuildTagFolders(ctx, database, loc, i18n, tagId, acl.ACLContext, tPage, *url)
+		folders, err := BuildTagFolders(ctx, database, loc, i18n, dbTagID, acl.ACLContext, tPage, *url)
 		if err != nil {
 			logging.ExitErr(logScope, err)
 			c.AbortWithStatus(http.StatusInternalServerError)
 			return
 		}
 
-		images, err := dao.QueryImageByTagACLPaged(database, ctx, tagId, acl.ACLContext, (iPage-1)*imagePerTagPage, imagePerTagPage)
+		images, err := dao.QueryImageByTagACLPaged(database, ctx, dbTagID, acl.ACLContext, (iPage-1)*imagePerTagPage, imagePerTagPage)
 		if err != nil {
 			logging.ExitErr(logScope, err)
 			c.AbortWithStatus(http.StatusInternalServerError)
 			return
 		}
 
-		imageGrid, err := BuildTagImageGrid(ctx, database, tagId, acl.ACLContext, images, iPage, *url, cfg.Presentation)
+		imageGrid, err := BuildTagImageGrid(ctx, database, dbTagID, acl.ACLContext, images, iPage, *url, cfg.Presentation)
 		if err != nil {
 			logging.ExitErr(logScope, err)
 			c.AbortWithStatus(http.StatusInternalServerError)
@@ -183,10 +184,10 @@ func TagPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 		flatForrest := tplData.NewFlatForrest()
 		mapper := func(t *dbo.Tag) tplData.ViewTreeNode {
 			return tplData.ViewTreeNode{
-				ID:       *t.ID,
-				ParentID: t.ParentID,
+				ID:       uint64(*t.ID),
+				ParentID: (*uint64)(t.ParentID),
 				Label:    t.Name,
-				URL:      template.URL(routes.CreateTagPath(*t.ID)),
+				URL:      template.URL(routes.CreateTagPath(routes.TagID(*t.ID))),
 			}
 		}
 		for _, img := range images {
