@@ -242,46 +242,28 @@ func GetImageMetadata(ctx context.Context, img dbo.Image) (data.Metadata, error)
 	err := json.Unmarshal([]byte(img.ExifJSON), &m)
 	return m, logging.Return(logScope, err)
 }
-
-func ParseID(s string) (uint64, error) {
-	if s == "" {
-		return 0, tplData.ErrMissingMandatoryValue
-	}
-	return strconv.ParseUint(s, 10, 64)
-}
-
 func ParseAlbumID(s string) (routes.AlbumID, error) {
-	id, err := ParseID(s)
+	id, err := utils.ParseUint(s)
 	return routes.AlbumID(id), err
 }
 func ParseImageID(s string) (routes.ImageID, error) {
-	id, err := ParseID(s)
+	id, err := utils.ParseUint(s)
 	return routes.ImageID(id), err
 }
 func ParseTagID(s string) (routes.TagID, error) {
-	id, err := ParseID(s)
+	id, err := utils.ParseUint(s)
 	return routes.TagID(id), err
 }
 func ParseSyncRunID(s string) (routes.SyncRunID, error) {
-	id, err := ParseID(s)
+	id, err := utils.ParseUint(s)
 	return routes.SyncRunID(id), err
 }
 func ParseSyncFileID(s string) (routes.SyncFileID, error) {
-	id, err := ParseID(s)
+	id, err := utils.ParseUint(s)
 	return routes.SyncFileID(id), err
 }
 func ParsePaging(s string) (uint64, error) {
-	if s == "" {
-		return 1, nil
-	}
-	v, err := strconv.ParseUint(s, 10, 64)
-	if err != nil {
-		return 0, err
-	}
-	if v == 0 {
-		return 0, tplData.ErrInvalidValue
-	}
-	return v, nil
+	return utils.ParseEmptyUint(s)
 }
 
 func UintToString(val *uint64) string {

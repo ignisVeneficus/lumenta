@@ -139,9 +139,8 @@ func handleAlbumForm(c *gin.Context, album dbo.Album, save func(dbo.Album) (dbo.
 	return &form, nil
 }
 
-func NewAlbumPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
+func NewAlbumPage(r *tpl.TemplateResolver, cfg config.Config, i18n *i18n.Service) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		i18n := i18n.Get()
 		loc := tpl.L(c)
 		logScope, ctx := logging.Enter(c.Request.Context(), "server/page/admin/album/new", nil, nil)
 		database := db.GetDatabase()
@@ -195,9 +194,8 @@ func NewAlbumPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 	}
 }
 
-func EditAlbumPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
+func EditAlbumPage(r *tpl.TemplateResolver, cfg config.Config, i18n *i18n.Service) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		i18n := i18n.Get()
 		loc := tpl.L(c)
 		albumIDStr := c.Param("id")
 		flash := c.Query(routes.QueryFlash)

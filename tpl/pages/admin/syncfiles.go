@@ -62,9 +62,8 @@ func parsePath(p string) (root, path, filename, ext string) {
 /*
 Sync files for one image
 */
-func SyncFilesListPathPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
+func SyncFilesListPathPage(r *tpl.TemplateResolver, cfg config.Config, i18n *i18n.Service) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		i18n := i18n.Get()
 		loc := tpl.L(c)
 		fPath := c.Param("fPath")
 		pageStr := c.DefaultQuery(routes.SyncPageParam, "1")
@@ -151,9 +150,8 @@ func SyncFilesListPathPage(r *tpl.TemplateResolver, cfg config.Config) gin.Handl
 /*
 files for one run
 */
-func SyncRunFilesListPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
+func SyncRunFilesListPage(r *tpl.TemplateResolver, cfg config.Config, i18n *i18n.Service) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		i18n := i18n.Get()
 		loc := tpl.L(c)
 		syncRunIDStr := c.Param("id")
 		filterIn := c.QueryArray(routes.FilterParam)
@@ -254,9 +252,8 @@ func SyncRunFilesListPage(r *tpl.TemplateResolver, cfg config.Config) gin.Handle
 /*
 All sync run file
 */
-func SyncFilesListPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
+func SyncFilesListPage(r *tpl.TemplateResolver, cfg config.Config, i18n *i18n.Service) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		i18n := i18n.Get()
 		loc := tpl.L(c)
 		pageStr := c.DefaultQuery(routes.SyncPageParam, "1")
 		search := c.Query(routes.SearchParam)

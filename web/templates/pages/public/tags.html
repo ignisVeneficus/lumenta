@@ -1,0 +1,26 @@
+{{ define "page-head" }}
+    {{- if .Map -}}
+       {{template "partials/map/head.html" }}
+    {{- end -}}
+{{ end }}
+
+
+{{ define "main" }}
+<div class="breadcrumbs-wrapper">
+{{- if .Breadcrumbs }}
+    {{- template "partials/breadcrumbs.html" .Breadcrumbs -}}
+    {{- template "partials/tag-ctx-menu.html" . -}}
+{{- end -}}
+</div>
+<div class="content folder-page">
+    {{- if .PageCards.Cards -}}
+        {{- template "partials/card-grid.html" .PageCards -}}
+    {{- end -}}
+
+    {{- template "partials/image-grid.html" .ImageGrid -}}
+    
+    {{- with .Map -}}        
+    {{- template "partials/map/map.html" . -}}
+    {{- end -}}
+</div>
+{{ end }}

@@ -98,9 +98,8 @@ func getSyncFilesCard(database *sql.DB, ctx context.Context, loc string, i18n *i
 	}, nil
 }
 
-func MainPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
+func MainPage(r *tpl.TemplateResolver, cfg config.Config, i18n *i18n.Service) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		i18n := i18n.Get()
 		loc := tpl.L(c)
 		logScope, ctx := logging.Enter(c.Request.Context(), "server/page/admin/main", nil, nil)
 

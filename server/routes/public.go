@@ -21,6 +21,9 @@ func GetAlbumImagePath() string {
 func CreateAlbumImagePath(albumID AlbumID, imageID ImageID) string {
 	return fmt.Sprintf(albumImagePath, albumID, imageID)
 }
+func BuildAlbumImagePath(albumID AlbumID, imageID ImageID) *URLBuilder {
+	return NewURL(CreateAlbumImagePath(albumID, imageID))
+}
 
 func GetImageDerivativePath() string {
 	return getPath(derivativePath, ":id", ":type")
@@ -75,6 +78,7 @@ func CreateTagImagePath(tagID TagID, imageID ImageID) string {
 func BuildTagImagePath(tagID TagID, imageID ImageID) *URLBuilder {
 	return NewURL(CreateTagImagePath(tagID, imageID))
 }
+
 func GetImagePath() string {
 	return getPath(imagePath, ":id")
 }

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/ignisVeneficus/logging"
@@ -13,6 +12,7 @@ import (
 	"github.com/ignisVeneficus/lumenta/config"
 	derivativeConfig "github.com/ignisVeneficus/lumenta/config/derivative"
 	"github.com/ignisVeneficus/lumenta/derivative"
+	"github.com/ignisVeneficus/lumenta/utils"
 )
 
 func DerivativeHandler(cfg config.Config) gin.HandlerFunc {
@@ -26,8 +26,8 @@ func DerivativeHandler(cfg config.Config) gin.HandlerFunc {
 			"type": kind,
 		})
 
-		imgID, err := strconv.ParseUint(imageIdStr, 10, 64)
-		if err != nil {
+		imgID, err := utils.ParseUint(imageIdStr)
+		if err != nil || imgID == 0 {
 			logging.ExitErr(logg, err)
 			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
 				"error": "invalid image id",

@@ -103,7 +103,7 @@ LIMIT ?`
 
 const updateImageSyncID = `UPDATE images SET last_seen_sync=? WHERE id=?`
 
-const queryImagesWLastSyncWUserByPathPaged = `SELECT ` + imageFields + ` , sr.finished_at, u.username FROM images AS i LEFT JOIN sync_runs AS sr ON i.last_seen_sync=sr.id LEFT JOIN users AS u ON u.id=i.acl_user_id WHERE i.root=? AND i.path = ? ORDER BY i.filename, i.ext LIMIT ?,?`
+const queryImageWLastSyncWUserByPathPaged = `SELECT ` + imageFields + ` , sr.finished_at, u.username FROM images AS i LEFT JOIN sync_runs AS sr ON i.last_seen_sync=sr.id LEFT JOIN users AS u ON u.id=i.acl_user_id WHERE i.root=? AND i.path = ? ORDER BY i.filename, i.ext LIMIT ?,?`
 const countImagesByPath = `SELECT count(*) FROM images AS i WHERE i.root = ? AND i.path = ?`
 
 const getImageIdByPathFirstHash = `SELECT i.id FROM images AS i WHERE i.root = ? AND (i.path = ? OR i.path like CONCAT(?,'/%')) ORDER BY i.file_hash LIMIT 1`
@@ -168,6 +168,69 @@ AND %s
 WHERE ai.album_id=? 
 ORDER BY ai.position
 LIMIT ?,?
+`
+
+const countImagesByAlbumDescendantIDsByACL = `SELECT count(DISTINCT i.id)
+FROM albums a
+JOIN album_images ai ON a.ID = ai.album_id
+JOIN images i ON i.id = ai.image_id
+AND %s 
+WHERE JSON_CONTAINS(a.ancestor_ids, ?)
+AND %s `
+
+const queryImageCoordByAlbumDescendantIDsByACL = `SELECT DISTINCT i.id,COALESCE(NULLIF(i.title,''), i.filename) AS display_name, i.latitude, i.longitude
+FROM albums a
+JOIN album_images ai ON a.ID = ai.album_id
+JOIN images i ON i.id = ai.image_id
+AND %s 
+WHERE JSON_CONTAINS(a.ancestor_ids, ?)
+AND %s `
+
+const queryImageCoordByAlbumRootByACL = `
+SELECT i.id,COALESCE(NULLIF(i.title,''), i.filename) AS display_name, i.latitude, i.longitude
+FROM images i
+INNER JOIN album_images AS ai
+ON i.id = ai.image_id
+WHERE 1=1
+AND %s
+`
+
+const queryImageIDByAlbumACLBegin = `
+SELECT i.id,COALESCE(NULLIF(i.title,''), i.filename) AS display_name FROM album_images AS ai
+JOIN images AS i
+ON i.id = ai.image_id
+WHERE ai.album_id = ?
+AND %s
+`
+
+const queryImageIDByAlbumACLNext = queryImageIDByAlbumACLBegin +
+	`
+AND ai.position > (
+	SELECT position FROM album_images
+	WHERE album_id = ? AND image_id = ?
+)
+ORDER BY ai.position
+LIMIT ?,?
+`
+const queryImageIDByAlbumACLPrev = queryImageIDByAlbumACLBegin +
+	`
+AND ai.position < (
+	SELECT position FROM album_images
+	WHERE album_id = ? AND image_id = ?
+)
+ORDER BY ai.position DESC
+LIMIT ?,?
+`
+
+const countImageByAlbumsBinding = `
+SELECT
+    COALESCE(SUM(CASE WHEN ai.image_id IS NOT NULL THEN 1 ELSE 0 END), 0) AS with_album,
+    COALESCE(SUM(CASE WHEN ai.image_id IS NULL THEN 1 ELSE 0 END), 0) AS without_album
+FROM images i
+LEFT JOIN (
+    SELECT DISTINCT image_id
+    FROM album_images
+) ai ON ai.image_id = i.id;
 `
 
 // parseImage scans a single image row into an Image value.
@@ -612,7 +675,7 @@ func (q *Queries) UpdateImageSyncID(ctx context.Context, imageID dbo.ImageID, sy
 //   - []dbo.ImageWLastSyncWUser: matching images with joined sync and user fields.
 //   - error: query, scan, or row iteration error.
 func (q *Queries) QueryImageWLastSyncByWUserPathPaged(ctx context.Context, root, path string, from, qty uint64) ([]dbo.ImageWLastSyncWUser, error) {
-	rows, err := q.db.QueryContext(ctx, queryImagesWLastSyncWUserByPathPaged, root, path, from, qty)
+	rows, err := q.db.QueryContext(ctx, queryImageWLastSyncWUserByPathPaged, root, path, from, qty)
 	if err != nil {
 		return nil, err
 	}
@@ -1208,6 +1271,172 @@ func (q *Queries) CountImageByAlbumACL(ctx context.Context, albumId dbo.AlbumID,
 	var count uint64
 	err := row.Scan(&count)
 	return count, err
+}
+
+// CountImageByAlbumDescendantIDsByACL counts distinct images in descendant albums visible through ACL.
+//
+// Input:
+//   - ctx: request context.
+//   - albumID: root album ID whose ancestor list is matched.
+//   - acl: ACL context used for album and image visibility filters.
+//
+// Output:
+//   - uint64: distinct visible image count.
+//   - error: query or scan error, if any.
+func (q *Queries) CountImageByAlbumDescendantIDsByACL(ctx context.Context, albumID dbo.AlbumID, acl dbo.ACLContext) (uint64, error) {
+	aclAWhere, aclAParams := CreateAclWhere("a", acl)
+	aclIWhere, aclIParams := CreateAclWhere("i", acl)
+	params := []any{}
+	params = append(params, aclIParams...)
+	params = append(params, fmt.Sprintf("[%d]", albumID))
+	params = append(params, aclAParams...)
+	sql := fmt.Sprintf(countImagesByAlbumDescendantIDsByACL, aclIWhere, aclAWhere)
+	row := q.db.QueryRowContext(ctx, sql, params...)
+	var count uint64
+	err := row.Scan(&count)
+	return count, err
+}
+
+func (q *Queries) QueryImageCoordByAlbumDescendantIDsByACL(ctx context.Context, albumID dbo.AlbumID, acl dbo.ACLContext) ([]dbo.ImageCoord, error) {
+	aclAWhere, aclAParams := CreateAclWhere("a", acl)
+	aclIWhere, aclIParams := CreateAclWhere("i", acl)
+	params := []any{}
+	params = append(params, aclIParams...)
+	params = append(params, fmt.Sprintf("[%d]", albumID))
+	params = append(params, aclAParams...)
+	sql := fmt.Sprintf(queryImageCoordByAlbumDescendantIDsByACL, aclIWhere, aclAWhere)
+	rows, err := q.db.QueryContext(ctx, sql, params...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make([]dbo.ImageCoord, 0)
+	for rows.Next() {
+		var i dbo.ImageCoord
+		if err := rows.Scan(&i.ID, &i.Title, &i.Latitude, &i.Longitude); err != nil {
+			return nil, err
+		}
+		out = append(out, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (q *Queries) QueryImageCoordByAlbumRootByACL(ctx context.Context, acl dbo.ACLContext) ([]dbo.ImageCoord, error) {
+	aclWhere, aclParams := CreateAclWhere("i", acl)
+	sql := fmt.Sprintf(queryImageCoordByAlbumRootByACL, aclWhere)
+	rows, err := q.db.QueryContext(ctx, sql, aclParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make([]dbo.ImageCoord, 0)
+	for rows.Next() {
+		var i dbo.ImageCoord
+		if err := rows.Scan(&i.ID, &i.Title, &i.Latitude, &i.Longitude); err != nil {
+			return nil, err
+		}
+		out = append(out, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// QueryImageIDByAlbumACLNext reads next image IDs and titles in an album under ACL.
+//
+// Input:
+//   - ctx: request context.
+//   - albumID: album ID to filter by.
+//   - imageID: current image ID used as a position cursor.
+//   - acl: ACL context used to build the visibility filter.
+//   - from: first row offset.
+//   - qty: maximum number of rows.
+//
+// Output:
+//   - []dbo.ImageTitle: next image IDs with display titles.
+//   - error: query, scan, or row iteration error.
+func (q *Queries) QueryImageIDByAlbumACLNext(ctx context.Context, albumID dbo.AlbumID, imageID dbo.ImageID, acl dbo.ACLContext, from, qty uint64) ([]dbo.ImageTitle, error) {
+	aclWhere, aclParams := CreateAclWhere("i", acl)
+
+	params := []any{albumID}
+	params = append(params, aclParams...)
+	params = append(params, albumID, imageID, from, qty)
+	rows, err := q.db.QueryContext(ctx, fmt.Sprintf(queryImageIDByAlbumACLNext, aclWhere), params...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make([]dbo.ImageTitle, 0)
+	for rows.Next() {
+		var i dbo.ImageTitle
+		if err := rows.Scan(&i.ID, &i.Title); err != nil {
+			return nil, err
+		}
+		out = append(out, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// QueryImageIDByAlbumACLPrev reads previous image IDs and titles in an album under ACL.
+//
+// Input:
+//   - ctx: request context.
+//   - albumID: album ID to filter by.
+//   - imageID: current image ID used as a position cursor.
+//   - acl: ACL context used to build the visibility filter.
+//   - from: first row offset.
+//   - qty: maximum number of rows.
+//
+// Output:
+//   - []dbo.ImageTitle: previous image IDs with display titles.
+//   - error: query, scan, or row iteration error.
+func (q *Queries) QueryImageIDByAlbumACLPrev(ctx context.Context, albumID dbo.AlbumID, imageID dbo.ImageID, acl dbo.ACLContext, from, qty uint64) ([]dbo.ImageTitle, error) {
+	aclWhere, aclParams := CreateAclWhere("i", acl)
+
+	params := []any{albumID}
+	params = append(params, aclParams...)
+	params = append(params, albumID, imageID, from, qty)
+	rows, err := q.db.QueryContext(ctx, fmt.Sprintf(queryImageIDByAlbumACLPrev, aclWhere), params...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make([]dbo.ImageTitle, 0)
+	for rows.Next() {
+		var i dbo.ImageTitle
+		if err := rows.Scan(&i.ID, &i.Title); err != nil {
+			return nil, err
+		}
+		out = append(out, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// CountImageByAlbumsBinding counts images with and without album bindings.
+//
+// Input:
+//   - ctx: request context.
+//
+// Output:
+//   - uint64: number of images with at least one album binding.
+//   - uint64: number of images without album binding.
+//   - error: query or scan error, if any.
+func (q *Queries) CountImageByAlbumsBinding(ctx context.Context) (uint64, uint64, error) {
+	row := q.db.QueryRowContext(ctx, countImageByAlbumsBinding)
+	var withAlbum uint64
+	var withoutAlbum uint64
+	err := row.Scan(&withAlbum, &withoutAlbum)
+	return withAlbum, withoutAlbum, err
 }
 
 //
@@ -2388,4 +2617,154 @@ func CountImageByAlbumACL(db *sql.DB, c context.Context, album dbo.AlbumID, acl 
 	}
 	logging.Exit(logScope, "ok", map[string]any{"return": qty})
 	return qty, nil
+}
+
+// CountImageByAlbumDescendantIDsByACL counts distinct images in descendant albums visible through ACL.
+//
+// Input:
+//   - db: database handle.
+//   - c: request context.
+//   - albumID: root album ID whose ancestor list is matched.
+//   - acl: ACL context used for album and image visibility filters.
+//
+// Output:
+//   - uint64: distinct visible image count.
+//   - error: query or scan error, if any.
+func CountImageByAlbumDescendantIDsByACL(db *sql.DB, c context.Context, albumID dbo.AlbumID, acl dbo.ACLContext) (uint64, error) {
+	logScope, ctx := logging.Enter(c, "dao/album/count/images/descendant/acl", nil, map[string]any{
+		"acl":      acl,
+		"album_id": albumID,
+	})
+	q := NewQueries(db)
+	qty, err := q.CountImageByAlbumDescendantIDsByACL(ctx, albumID, acl)
+	if err != nil {
+		logging.ExitErr(logScope, err)
+		return 0, err
+	}
+	logging.Exit(logScope, "ok", map[string]any{"return": qty})
+	return qty, nil
+}
+func QueryImageCoordByAlbumDescendantIDsByACL(db *sql.DB, c context.Context, albumID dbo.AlbumID, acl dbo.ACLContext) ([]dbo.ImageCoord, error) {
+	logScope, ctx := logging.Enter(c, "dao/image/query/coord/byAlbumDescantes/ACL", albumID, map[string]any{
+		"album_id": albumID,
+		"acl":      acl,
+	})
+	q := NewQueries(db)
+	imagesCoords, err := q.QueryImageCoordByAlbumDescendantIDsByACL(ctx, albumID, acl)
+	if err != nil {
+		logging.ExitErr(logScope, err)
+		return nil, err
+	}
+	logging.Exit(logScope, "ok", map[string]any{
+		"found": len(imagesCoords),
+	})
+	return imagesCoords, nil
+}
+func QueryImageCoordByAlbumRootByACL(db *sql.DB, c context.Context, acl dbo.ACLContext) ([]dbo.ImageCoord, error) {
+	logScope, ctx := logging.Enter(c, "dao/image/query/coord/byAlbumRoot/ACL", nil, map[string]any{
+		"acl": acl,
+	})
+	q := NewQueries(db)
+	imagesCoords, err := q.QueryImageCoordByAlbumRootByACL(ctx, acl)
+	if err != nil {
+		logging.ExitErr(logScope, err)
+		return nil, err
+	}
+	logging.Exit(logScope, "ok", map[string]any{
+		"found": len(imagesCoords),
+	})
+	return imagesCoords, nil
+}
+
+// QueryImageIDByAlbumACLNext reads next image IDs and titles in an album under ACL.
+//
+// Input:
+//   - db: database handle.
+//   - c: request context.
+//   - albumID: album ID to filter by.
+//   - imgID: current image ID used as a position cursor.
+//   - acl: ACL context used to build the visibility filter.
+//   - from: first row offset.
+//   - qty: maximum number of rows.
+//
+// Output:
+//   - []dbo.ImageTitle: next image IDs with display titles.
+//   - error: query, scan, or row iteration error.
+func QueryImageIDByAlbumACLNext(db *sql.DB, c context.Context, albumID dbo.AlbumID, imgID dbo.ImageID, acl dbo.ACLContext, from, qty uint64) ([]dbo.ImageTitle, error) {
+	logScope, ctx := logging.Enter(c, "dao/image/query/idTitle/byAlbum/ACL/next", albumID, map[string]any{
+		"album_id": albumID,
+		"image_id": imgID,
+		"from":     from,
+		"qty":      qty,
+		"acl":      acl,
+	})
+	q := NewQueries(db)
+	imagesTitle, err := q.QueryImageIDByAlbumACLNext(ctx, albumID, imgID, acl, from, qty)
+	if err != nil {
+		logging.ExitErr(logScope, err)
+		return nil, err
+	}
+	logging.Exit(logScope, "ok", map[string]any{
+		"found": len(imagesTitle),
+	})
+	return imagesTitle, nil
+}
+
+// QueryImageIDByAlbumACLPrev reads previous image IDs and titles in an album under ACL.
+//
+// Input:
+//   - db: database handle.
+//   - c: request context.
+//   - albumID: album ID to filter by.
+//   - imgID: current image ID used as a position cursor.
+//   - acl: ACL context used to build the visibility filter.
+//   - from: first row offset.
+//   - qty: maximum number of rows.
+//
+// Output:
+//   - []dbo.ImageTitle: previous image IDs with display titles.
+//   - error: query, scan, or row iteration error.
+func QueryImageIDByAlbumACLPrev(db *sql.DB, c context.Context, albumID dbo.AlbumID, imgID dbo.ImageID, acl dbo.ACLContext, from, qty uint64) ([]dbo.ImageTitle, error) {
+	logScope, ctx := logging.Enter(c, "dao/image/query/idTitle/byAlbum/ACL/prev", albumID, map[string]any{
+		"album_id": albumID,
+		"image_id": imgID,
+		"from":     from,
+		"qty":      qty,
+		"acl":      acl,
+	})
+	q := NewQueries(db)
+	imagesTitle, err := q.QueryImageIDByAlbumACLPrev(ctx, albumID, imgID, acl, from, qty)
+	if err != nil {
+		logging.ExitErr(logScope, err)
+		return nil, err
+	}
+	logging.Exit(logScope, "ok", map[string]any{
+		"found": len(imagesTitle),
+	})
+	return imagesTitle, nil
+}
+
+// CountImageByAlbumsBinding counts images with and without album bindings with logging.
+//
+// Input:
+//   - db: database handle.
+//   - c: request context.
+//
+// Output:
+//   - uint64: number of images with at least one album binding.
+//   - uint64: number of images without album binding.
+//   - error: query or scan error, if any.
+func CountImageByAlbumsBinding(db *sql.DB, c context.Context) (uint64, uint64, error) {
+	logScope, ctx := logging.Enter(c, "dao/image/count/byAlbumsBinding", nil, nil)
+	q := NewQueries(db)
+	withAlbum, withoutAlbum, err := q.CountImageByAlbumsBinding(ctx)
+	if err != nil {
+		logging.ExitErr(logScope, err)
+		return 0, 0, err
+	}
+	logging.Exit(logScope, "ok", map[string]any{
+		"with_album":    withAlbum,
+		"without_album": withoutAlbum,
+	})
+	return withAlbum, withoutAlbum, nil
 }

@@ -124,14 +124,6 @@ FROM albums a
 WHERE JSON_CONTAINS(a.ancestor_ids, ?)
 AND %s `
 
-const countAlbumImagesDescendantIDsByACL = `SELECT count(DISTINCT i.id)
-FROM albums a
-JOIN album_images ai ON a.ID = ai.album_id
-JOIN images i ON i.id = ai.image_id
-AND %s 
-WHERE JSON_CONTAINS(a.ancestor_ids, ?)
-AND %s `
-
 const getAlbumByIDACL = `
 SELECT ` + albumFields + ` FROM albums a WHERE 
 a.id=?
@@ -652,30 +644,6 @@ func (q *Queries) CountAlbumDescendantIDsByACL(ctx context.Context, albumID dbo.
 	params := []any{fmt.Sprintf("[%d]", albumID)}
 	params = append(params, aclParams...)
 	sql := fmt.Sprintf(countAlbumDescendantIDsByACL, aclWhere)
-	row := q.db.QueryRowContext(ctx, sql, params...)
-	var count uint64
-	err := row.Scan(&count)
-	return count, err
-}
-
-// CountAlbumImagesDescendantIDsByACL counts distinct images in descendant albums visible through ACL.
-//
-// Input:
-//   - ctx: request context.
-//   - albumID: root album ID whose ancestor list is matched.
-//   - acl: ACL context used for album and image visibility filters.
-//
-// Output:
-//   - uint64: distinct visible image count.
-//   - error: query or scan error, if any.
-func (q *Queries) CountAlbumImagesDescendantIDsByACL(ctx context.Context, albumID dbo.AlbumID, acl dbo.ACLContext) (uint64, error) {
-	aclAWhere, aclAParams := CreateAclWhere("a", acl)
-	aclIWhere, aclIParams := CreateAclWhere("i", acl)
-	params := []any{}
-	params = append(params, aclIParams...)
-	params = append(params, fmt.Sprintf("[%d]", albumID))
-	params = append(params, aclAParams...)
-	sql := fmt.Sprintf(countAlbumImagesDescendantIDsByACL, aclIWhere, aclAWhere)
 	row := q.db.QueryRowContext(ctx, sql, params...)
 	var count uint64
 	err := row.Scan(&count)
@@ -1343,32 +1311,6 @@ func CountAlbumDescendantIDsByACL(db *sql.DB, c context.Context, albumID dbo.Alb
 	})
 	q := NewQueries(db)
 	qty, err := q.CountAlbumDescendantIDsByACL(ctx, albumID, acl)
-	if err != nil {
-		logging.ExitErr(logScope, err)
-		return 0, err
-	}
-	logging.Exit(logScope, "ok", map[string]any{"return": qty})
-	return qty, nil
-}
-
-// CountAlbumImagesDescendantIDsByACL counts distinct images in descendant albums visible through ACL.
-//
-// Input:
-//   - db: database handle.
-//   - c: request context.
-//   - albumID: root album ID whose ancestor list is matched.
-//   - acl: ACL context used for album and image visibility filters.
-//
-// Output:
-//   - uint64: distinct visible image count.
-//   - error: query or scan error, if any.
-func CountAlbumImagesDescendantIDsByACL(db *sql.DB, c context.Context, albumID dbo.AlbumID, acl dbo.ACLContext) (uint64, error) {
-	logScope, ctx := logging.Enter(c, "dao/album/count/images/descendant/acl", nil, map[string]any{
-		"acl":      acl,
-		"album_id": albumID,
-	})
-	q := NewQueries(db)
-	qty, err := q.CountAlbumImagesDescendantIDsByACL(ctx, albumID, acl)
 	if err != nil {
 		logging.ExitErr(logScope, err)
 		return 0, err

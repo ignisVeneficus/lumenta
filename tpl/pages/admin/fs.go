@@ -224,9 +224,8 @@ func createFsBreadcrumbs(root, path string, lang string, i18n *i18n.Service) tpl
 	return res
 }
 
-func FSPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
+func FSPage(r *tpl.TemplateResolver, cfg config.Config, i18n *i18n.Service) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		i18n := i18n.Get()
 		loc := tpl.L(c)
 		path := c.Param("fsPath")
 		path = strings.TrimPrefix(path, "/")

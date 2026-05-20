@@ -17,9 +17,8 @@ import (
 	"github.com/ignisVeneficus/lumenta/utils"
 )
 
-func MainPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
+func MainPage(r *tpl.TemplateResolver, cfg config.Config, i18n *i18n.Service) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		i18n := i18n.Get()
 		loc := tpl.L(c)
 		logScope, ctx := logging.Enter(c.Request.Context(), "server/page/main", nil, nil)
 

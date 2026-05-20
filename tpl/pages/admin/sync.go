@@ -20,9 +20,8 @@ const (
 	syncRunPerPage uint64 = 20
 )
 
-func SyncRunsListPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
+func SyncRunsListPage(r *tpl.TemplateResolver, cfg config.Config, i18n *i18n.Service) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		i18n := i18n.Get()
 		loc := tpl.L(c)
 		pageStr := c.DefaultQuery(routes.SyncPageParam, "1")
 		logScope, ctx := logging.Enter(c.Request.Context(), "server/page/admin/sync_run", nil, map[string]any{

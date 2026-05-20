@@ -49,7 +49,7 @@
 
   {{ block "page-head" . }}{{ end }}
   <!-- TODO: replace it to template -->
-  {{ block "head-extra" . }}{{ end }}
+  {{ template "partials/custom-head.html" . }}
 
   <script>
     {{ block "page-js" . }}{{ end }}

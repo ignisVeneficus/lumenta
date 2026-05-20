@@ -25,6 +25,12 @@ type FolderPageContext struct {
 	Map       MultiMap
 }
 
+type AlbumPageContext struct {
+	FolderPageContext
+	AlbumDescription string
+	AlbumID          routes.AlbumID
+}
+
 func CreateFolders[T any](items []T, paging Paging, mapper func(T) Folder) Folders {
 	cards := make([]Folder, 0, len(items))
 	for _, item := range items {

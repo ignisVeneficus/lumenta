@@ -71,7 +71,7 @@ func BuildAlbumFolders(c context.Context, database *sql.DB, loc string, i18n *i1
 				return tplData.Folders{}, err
 			}
 		}
-		imagesCount, err := dao.CountAlbumImagesDescendantIDsByACL(database, ctx, *a.ID, acl)
+		imagesCount, err := dao.CountImageByAlbumDescendantIDsByACL(database, ctx, *a.ID, acl)
 		if err != nil {
 			logging.ExitErr(logScope, err)
 			return tplData.Folders{}, err
@@ -126,9 +126,8 @@ func BuildAlbumImageGrid(c context.Context, database *sql.DB, albumId dbo.AlbumI
 	}, nil
 }
 
-func AlbumPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
+func AlbumPage(r *tpl.TemplateResolver, cfg config.Config, i18n *i18n.Service) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		i18n := i18n.Get()
 		loc := tpl.L(c)
 		albumIdStr := c.Param("aid")
 		tPageStr := c.DefaultQuery(routes.FolderPageParam, "1")
@@ -139,7 +138,7 @@ func AlbumPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 			"image_page":  iPageStr,
 		})
 
-		albumId, err := tpl.ParseAlbumID(albumIdStr)
+		albumID, err := tpl.ParseAlbumID(albumIdStr)
 		if err != nil {
 			logging.ExitErr(logScope, fmt.Errorf("invalid album id"))
 			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "invalid album id"})
@@ -160,17 +159,17 @@ func AlbumPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 			return
 		}
 
-		url := routes.BuildAlbumPath(albumId)
+		url := routes.BuildAlbumPath(albumID)
 		url.WithFolderPaging(tPage).WithImagePaging(iPage)
 
 		database := db.GetDatabase()
 		acl := auth.GetAuthContex(c)
-		dbAlbumId := dbo.AlbumID(albumId)
+		dbAlbumId := dbo.AlbumID(albumID)
 		thisAlbum, err := dao.GetAlbumByIDACL(database, ctx, dbAlbumId, acl.ACLContext)
 		switch {
 		case errors.Is(err, dao.ErrDataNotFound):
 			logging.ExitErr(logScope, err)
-			pages.Soft404(r, cfg, c, tplData.SurfacePublic, "tag", routes.CreateTagsRootPath(), uint64(albumId))
+			pages.Soft404(r, cfg, c, tplData.SurfacePublic, "album", routes.CreateTagsRootPath(), uint64(albumID))
 			return
 		case err != nil:
 			logging.ExitErr(logScope, err)
@@ -220,7 +219,7 @@ func AlbumPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 		forest := flatForrest.Build()
 		tplData.SetTagsMeaning(forest, cfg.Presentation.TagMeaningConfig)
 
-		apiUrl := routes.BuildApiAlbumPath(albumId).WithImagePaging(iPage)
+		apiUrl := routes.BuildApiAlbumCoordPath(albumID).WithImagePaging(iPage)
 		multiMap := tplData.MultiMap{
 			APIURL:      apiUrl.String(),
 			Cluster:     true,
@@ -229,17 +228,19 @@ func AlbumPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 			NrMaxPoints: 100,
 		}
 
-		tagPageCtx := tplData.FolderPageContext{}
-		pageCtx := tagPageCtx.GetPage()
+		albumPageCtx := tplData.AlbumPageContext{}
+		pageCtx := albumPageCtx.GetPage()
 		tpl.CreatePageContext(pageCtx, cfg, c, "album", tplData.SurfacePublic)
-		tagPageCtx.Breadcrumbs = breadcrumbs
-		tagPageCtx.PageCards = folders
-		tagPageCtx.ImageGrid = imageGrid
-		tagPageCtx.ImageTags = *forest
-		tagPageCtx.Map = multiMap
+		albumPageCtx.Breadcrumbs = breadcrumbs
+		albumPageCtx.PageCards = folders
+		albumPageCtx.ImageGrid = imageGrid
+		albumPageCtx.ImageTags = *forest
+		albumPageCtx.Map = multiMap
+		albumPageCtx.AlbumDescription = utils.FromStringPtr(thisAlbum.Description)
+		albumPageCtx.AlbumID = albumID
 
 		logging.Exit(logScope, "ok", nil)
-		if err := r.RenderPage(c.Writer, "public/folders", tagPageCtx, loc, i18n); err != nil {
+		if err := r.RenderPage(c.Writer, "public/albums", albumPageCtx, loc, i18n); err != nil {
 			c.AbortWithStatus(http.StatusInternalServerError)
 			logging.ExitErr(logScope, err)
 			return
@@ -248,9 +249,8 @@ func AlbumPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 
 	}
 }
-func AlbumsRootPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
+func AlbumsRootPage(r *tpl.TemplateResolver, cfg config.Config, i18n *i18n.Service) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		i18n := i18n.Get()
 		loc := tpl.L(c)
 		tPageStr := c.DefaultQuery(routes.FolderPageParam, "1")
 		iPageStr := c.DefaultQuery(routes.ImagePageParam, "1")
@@ -293,7 +293,7 @@ func AlbumsRootPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc 
 			},
 		}
 
-		apiUrl := routes.BuildApiAlbumsRootPath().WithImagePaging(iPage)
+		apiUrl := routes.BuildApiAlbumsRootCoordPath().WithImagePaging(iPage)
 		multiMap := tplData.MultiMap{
 			APIURL:      apiUrl.String(),
 			Cluster:     true,
@@ -302,7 +302,7 @@ func AlbumsRootPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc 
 			NrMaxPoints: 100,
 		}
 
-		albumPageCtx := tplData.FolderPageContext{}
+		albumPageCtx := tplData.AlbumPageContext{}
 		pageCtx := albumPageCtx.GetPage()
 		tpl.CreatePageContext(pageCtx, cfg, c, "album", tplData.SurfacePublic)
 		albumPageCtx.Breadcrumbs = breadcrumbs
@@ -312,7 +312,7 @@ func AlbumsRootPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc 
 		albumPageCtx.Map = multiMap
 
 		logging.Exit(logScope, "ok", nil)
-		if err := r.RenderPage(c.Writer, "public/folders", albumPageCtx, loc, i18n); err != nil {
+		if err := r.RenderPage(c.Writer, "public/albums", albumPageCtx, loc, i18n); err != nil {
 			c.AbortWithStatus(http.StatusInternalServerError)
 			logging.ExitErr(logScope, err)
 			return

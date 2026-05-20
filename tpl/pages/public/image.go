@@ -19,9 +19,8 @@ import (
 	"github.com/ignisVeneficus/lumenta/tpl/pages"
 )
 
-func ImagePage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
+func ImagePage(r *tpl.TemplateResolver, cfg config.Config, i18n *i18n.Service) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		i18n := i18n.Get()
 		loc := tpl.L(c)
 		imageIdStr := c.Param("id")
 		logScope, ctx := logging.Enter(c, "server/page/public/image", imageIdStr, map[string]any{

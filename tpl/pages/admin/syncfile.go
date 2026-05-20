@@ -23,9 +23,8 @@ import (
 	"github.com/ignisVeneficus/lumenta/tpl/pages"
 )
 
-func SyncFilePage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
+func SyncFilePage(r *tpl.TemplateResolver, cfg config.Config, i18n *i18n.Service) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		i18n := i18n.Get()
 		loc := tpl.L(c)
 		syncFileIDStr := c.Param("id")
 		logScope, ctx := logging.Enter(c.Request.Context(), "server/page/admin/sync_file/one", syncFileIDStr, map[string]any{

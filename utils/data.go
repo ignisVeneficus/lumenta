@@ -3,6 +3,7 @@ package utils
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"sort"
 	"strconv"
 	"time"
@@ -11,6 +12,9 @@ import (
 	"golang.org/x/text/language"
 	"gopkg.in/yaml.v3"
 )
+
+var ErrInvalidValue = errors.New("invalid value")
+var ErrEmptyValue = errors.New("empty value")
 
 func PtrUint64(v uint64) *uint64 {
 	return &v
@@ -104,4 +108,25 @@ func SameTime(a, b time.Time) bool {
 		diff = -diff
 	}
 	return diff < time.Second
+}
+
+func ParseUint(s string) (uint64, error) {
+	if s == "" {
+		return 0, ErrEmptyValue
+	}
+	return strconv.ParseUint(s, 10, 64)
+}
+
+func ParseEmptyUint(s string) (uint64, error) {
+	if s == "" {
+		return 1, nil
+	}
+	v, err := strconv.ParseUint(s, 10, 64)
+	if err != nil {
+		return 0, err
+	}
+	if v == 0 {
+		return 0, ErrInvalidValue
+	}
+	return v, nil
 }

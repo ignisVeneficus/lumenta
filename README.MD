@@ -123,6 +123,13 @@ The web layer is template-based.
 - The structure allows future theme support
 - The goal is visual flexibility without compromising backend determinism
 
+## Design story
+
+Why Lumenta exists, what problems led to it,
+and how its architecture evolved from real-world workflow limitations:
+
+[From Piwigo to Lumenta](./doc/design-story.md)
+
 ## Development status
 
 This project is in **early development**.  

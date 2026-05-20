@@ -5,38 +5,38 @@ import (
 )
 
 const (
-	ApiPrefix         = "/api"
-	apiTagPath        = "/tags/%d"
-	apiAlbumsRootPath = "/album"
-	apiAlbumPath      = "/album/%d"
+	ApiPrefix              = "/api"
+	apiTagCoordPath        = "/tags/%d/coord"
+	apiAlbumsRootCoordPath = "/albums/coord"
+	apiAlbumCoordPath      = "/album/%d/coord"
 )
 
-func GetApiTagPath() string {
-	return getPath(apiTagPath, ":tid")
+func GetApiTagCoordPath() string {
+	return getPath(apiTagCoordPath, ":tid")
 }
-func CreateApiTagPath(tagID TagID) string {
-	return fmt.Sprintf(ApiPrefix+apiTagPath, tagID)
+func CreateApiTagCoordPath(tagID TagID) string {
+	return fmt.Sprintf(ApiPrefix+apiTagCoordPath, tagID)
 }
-func BuildApiTagPath(tagID TagID) *URLBuilder {
-	return NewURL(CreateApiTagPath(tagID))
-}
-
-func GetApiAlbumsRootPath() string {
-	return apiAlbumsRootPath
-}
-func CreateApiAlbumsRootPath() string {
-	return fmt.Sprintf(ApiPrefix + apiAlbumsRootPath)
-}
-func BuildApiAlbumsRootPath() *URLBuilder {
-	return NewURL(CreateApiAlbumsRootPath())
+func BuildApiTagCoordPath(tagID TagID) *URLBuilder {
+	return NewURL(CreateApiTagCoordPath(tagID))
 }
 
-func GetApiAlbumPath() string {
-	return getPath(apiAlbumPath, ":tid")
+func GetApiAlbumsRootCoordPath() string {
+	return apiAlbumsRootCoordPath
 }
-func CreateApiAlbumPath(albumID AlbumID) string {
-	return fmt.Sprintf(ApiPrefix+apiAlbumPath, albumID)
+func CreateApiAlbumsRootCoordPath() string {
+	return fmt.Sprintf(ApiPrefix + apiAlbumsRootCoordPath)
 }
-func BuildApiAlbumPath(albumID AlbumID) *URLBuilder {
-	return NewURL(CreateApiAlbumPath(albumID))
+func BuildApiAlbumsRootCoordPath() *URLBuilder {
+	return NewURL(CreateApiAlbumsRootCoordPath())
+}
+
+func GetApiAlbumCoordPath() string {
+	return getPath(apiAlbumCoordPath, ":tid")
+}
+func CreateApiAlbumCoordPath(albumID AlbumID) string {
+	return fmt.Sprintf(ApiPrefix+apiAlbumCoordPath, albumID)
+}
+func BuildApiAlbumCoordPath(albumID AlbumID) *URLBuilder {
+	return NewURL(CreateApiAlbumCoordPath(albumID))
 }

@@ -34,6 +34,7 @@ func DefaultFuncMap(i18n *i18n.Service, iconMap data.IconMap) template.FuncMap {
 		"adminRootPath":     functions.AdminRootPath,
 		"adminImagePath":    functions.AdminImagePath,
 		"adminAlbumsPath":   functions.AdminAlbumsPath,
+		"adminAlbumPath":    functions.AdminAlbumPath,
 		"adminAlbumNewPath": functions.AdminAlbumNewPath,
 		"adminFsPath":       functions.AdminFsPath,
 		"adminSyncRunsPath": functions.AdminSyncRunsPath,

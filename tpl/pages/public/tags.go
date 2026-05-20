@@ -101,9 +101,8 @@ func BuildTagImageGrid(c context.Context, database *sql.DB, tagId dbo.TagID, acl
 	}, nil
 }
 
-func TagPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
+func TagPage(r *tpl.TemplateResolver, cfg config.Config, i18n *i18n.Service) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		i18n := i18n.Get()
 		loc := tpl.L(c)
 		tagIdStr := c.Param("tid")
 		tPageStr := c.DefaultQuery(routes.FolderPageParam, "1")
@@ -197,7 +196,7 @@ func TagPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 		forest := flatForrest.Build()
 		tplData.SetTagsMeaning(forest, cfg.Presentation.TagMeaningConfig)
 
-		apiUrl := routes.BuildApiTagPath(tagId).WithImagePaging(iPage)
+		apiUrl := routes.BuildApiTagCoordPath(tagId).WithImagePaging(iPage)
 		multiMap := tplData.MultiMap{
 			APIURL:      apiUrl.String(),
 			Cluster:     true,
@@ -216,7 +215,7 @@ func TagPage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
 		tagPageCtx.Map = multiMap
 
 		logging.Exit(logScope, "ok", nil)
-		if err := r.RenderPage(c.Writer, "public/folders", tagPageCtx, loc, i18n); err != nil {
+		if err := r.RenderPage(c.Writer, "public/tags", tagPageCtx, loc, i18n); err != nil {
 			c.AbortWithStatus(http.StatusInternalServerError)
 			logging.ExitErr(logScope, err)
 			return

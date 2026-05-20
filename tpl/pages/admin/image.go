@@ -56,9 +56,8 @@ func createHistoryDate(database *sql.DB, ctx context.Context, root, path, filena
 	return syncData, nil
 }
 
-func ImagePage(r *tpl.TemplateResolver, cfg config.Config) gin.HandlerFunc {
+func ImagePage(r *tpl.TemplateResolver, cfg config.Config, i18n *i18n.Service) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		i18n := i18n.Get()
 		loc := tpl.L(c)
 		imageIDStr := c.Param("id")
 		logScope, ctx := logging.Enter(c.Request.Context(), "server/page/admin/image", imageIDStr, map[string]any{

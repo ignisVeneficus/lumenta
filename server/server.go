@@ -59,19 +59,20 @@ func Server(cfg config.Config, i18n *i18n.Service, ctx context.Context) {
 	publicGrp.Use(DefaultHTMLMime())
 	{
 
-		publicGrp.GET("/", public.MainPage(templatreResolver, cfg))
+		publicGrp.GET("/", public.MainPage(templatreResolver, cfg, i18n))
 		/*
 			web.GET("/album/:id", AlbumHandler)
 			web.GET("/album/:aid/img/:iid", ImageHandler)
 		*/
-		publicGrp.GET(routes.GetTagsRootPath(), public.TagsRootPage(templatreResolver, cfg))
-		publicGrp.GET(routes.GetTagPath(), public.TagPage(templatreResolver, cfg))
-		publicGrp.GET(routes.GetTagImagePath(), public.TagImagePage(templatreResolver, cfg))
+		publicGrp.GET(routes.GetTagsRootPath(), public.TagsRootPage(templatreResolver, cfg, i18n))
+		publicGrp.GET(routes.GetTagPath(), public.TagPage(templatreResolver, cfg, i18n))
+		publicGrp.GET(routes.GetTagImagePath(), public.AlbumImagePage(templatreResolver, cfg, i18n))
 
-		publicGrp.GET(routes.GetImagePath(), public.ImagePage(templatreResolver, cfg))
+		publicGrp.GET(routes.GetImagePath(), public.ImagePage(templatreResolver, cfg, i18n))
 
-		publicGrp.GET(routes.GetAlbumPath(), public.AlbumPage(templatreResolver, cfg))
-		publicGrp.GET(routes.GetAlbumsRootPath(), public.AlbumsRootPage(templatreResolver, cfg))
+		publicGrp.GET(routes.GetAlbumPath(), public.AlbumPage(templatreResolver, cfg, i18n))
+		publicGrp.GET(routes.GetAlbumsRootPath(), public.AlbumsRootPage(templatreResolver, cfg, i18n))
+		publicGrp.GET(routes.GetAlbumImagePath(), public.AlbumImagePage(templatreResolver, cfg, i18n))
 
 		/// "/img/:id/:type"
 		publicGrp.GET(routes.GetImageDerivativePath(), DerivativeHandler(cfg))
@@ -79,25 +80,25 @@ func Server(cfg config.Config, i18n *i18n.Service, ctx context.Context) {
 	adminGrp := r.Group("/admin")
 	adminGrp.Use(RequireRole(dbo.RoleAdmin), DefaultHTMLMime())
 	{
-		adminGrp.GET("/", admin.MainPage(templatreResolver, cfg))
-		adminGrp.GET(routes.GetAdminFsPath(), admin.FSPage(templatreResolver, cfg))
+		adminGrp.GET("/", admin.MainPage(templatreResolver, cfg, i18n))
+		adminGrp.GET(routes.GetAdminFsPath(), admin.FSPage(templatreResolver, cfg, i18n))
 
-		adminGrp.GET(routes.GetAdminImgPath(), admin.ImagePage(templatreResolver, cfg))
+		adminGrp.GET(routes.GetAdminImgPath(), admin.ImagePage(templatreResolver, cfg, i18n))
 
-		adminGrp.GET(routes.GetAdminAlbumsPath(), admin.AlbumsPage(templatreResolver, cfg))
+		adminGrp.GET(routes.GetAdminAlbumsPath(), admin.AlbumsPage(templatreResolver, cfg, i18n))
 
-		adminGrp.GET(routes.GetAdminAlbumNewPath(), admin.NewAlbumPage(templatreResolver, cfg))
-		adminGrp.POST(routes.GetAdminAlbumNewPath(), admin.NewAlbumPage(templatreResolver, cfg))
+		adminGrp.GET(routes.GetAdminAlbumNewPath(), admin.NewAlbumPage(templatreResolver, cfg, i18n))
+		adminGrp.POST(routes.GetAdminAlbumNewPath(), admin.NewAlbumPage(templatreResolver, cfg, i18n))
 
-		adminGrp.GET(routes.GetAdminAlbumPath(), admin.EditAlbumPage(templatreResolver, cfg))
-		adminGrp.POST(routes.GetAdminAlbumPath(), admin.EditAlbumPage(templatreResolver, cfg))
+		adminGrp.GET(routes.GetAdminAlbumPath(), admin.EditAlbumPage(templatreResolver, cfg, i18n))
+		adminGrp.POST(routes.GetAdminAlbumPath(), admin.EditAlbumPage(templatreResolver, cfg, i18n))
 
-		adminGrp.GET(routes.GetAdminSyncRunsPath(), admin.SyncRunsListPage(templatreResolver, cfg))
-		adminGrp.GET(routes.GetAdminSyncRunFilesPath(), admin.SyncRunFilesListPage(templatreResolver, cfg))
+		adminGrp.GET(routes.GetAdminSyncRunsPath(), admin.SyncRunsListPage(templatreResolver, cfg, i18n))
+		adminGrp.GET(routes.GetAdminSyncRunFilesPath(), admin.SyncRunFilesListPage(templatreResolver, cfg, i18n))
 
-		adminGrp.GET(routes.GetAdminSyncFilesPath(), admin.SyncFilesListPage(templatreResolver, cfg))
-		adminGrp.GET(routes.GetAdminSyncFilesByPathPath(), admin.SyncFilesListPathPage(templatreResolver, cfg))
-		adminGrp.GET(routes.GetAdminSyncFilePath(), admin.SyncFilePage(templatreResolver, cfg))
+		adminGrp.GET(routes.GetAdminSyncFilesPath(), admin.SyncFilesListPage(templatreResolver, cfg, i18n))
+		adminGrp.GET(routes.GetAdminSyncFilesByPathPath(), admin.SyncFilesListPathPage(templatreResolver, cfg, i18n))
+		adminGrp.GET(routes.GetAdminSyncFilePath(), admin.SyncFilePage(templatreResolver, cfg, i18n))
 
 		/*
 			filesystem: /fs/
@@ -113,7 +114,9 @@ func Server(cfg config.Config, i18n *i18n.Service, ctx context.Context) {
 	}
 	apiGrp := r.Group(routes.ApiPrefix)
 	{
-		apiGrp.GET(routes.GetApiTagPath(), endpoint.ImageCoordByTags(cfg))
+		apiGrp.GET(routes.GetApiTagCoordPath(), endpoint.ImageCoordByTags(cfg))
+		apiGrp.GET(routes.GetApiAlbumsRootCoordPath(), endpoint.ImageCoordByAlbumRoot(cfg))
+		apiGrp.GET(routes.GetApiAlbumCoordPath(), endpoint.ImageCoordByAlbums(cfg))
 	}
 	apiAdminGrp := apiGrp.Group(routes.AdminPrefix)
 	apiAdminGrp.Use(RequireAPIRole(dbo.RoleAdmin))

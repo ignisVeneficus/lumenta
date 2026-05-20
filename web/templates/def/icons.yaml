@@ -61,6 +61,8 @@ action:
       fullscreen_off: "fa-solid fa-compress"
       info: "fa-solid fa-circle-info"
       slideshow: "fa-solid fa-play"
+    album:
+      open_admin: "fa-solid fa-up-right-from-square"
   admin:
     albums:
       edit: "fa-solid fa-pen"

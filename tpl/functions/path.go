@@ -33,6 +33,9 @@ func AdminImagePath(imageID routes.ImageID) template.URL {
 func AdminAlbumsPath() template.URL {
 	return template.URL(routes.CreateAdminAlbumsPath())
 }
+func AdminAlbumPath(albumId routes.AlbumID) template.URL {
+	return template.URL(routes.CreateAdminAlbumPath(albumId))
+}
 
 func AdminAlbumNewPath() template.URL {
 	return template.URL(routes.CreateAdminAlbumNewPath())

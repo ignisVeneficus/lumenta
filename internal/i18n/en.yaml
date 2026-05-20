@@ -288,6 +288,10 @@ action:
       open_admin:
         short: "Admin"
         label: "Open image in administration"
+    album:
+      open_admin:
+        short: "Admin"
+        label: "Open album in administration"
   admin:
     albums:
       edit:
