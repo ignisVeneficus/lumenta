@@ -14,7 +14,7 @@ import (
 	"github.com/ignisVeneficus/lumenta/data"
 )
 
-func applyTask(c context.Context, t Task, img image.Image, focus data.Focus) error {
+func applyTask(c context.Context, t Task, img image.Image, focus data.Focus, jpgQuality int) error {
 	logScope, ctx := logging.Enter(c, "service/derivative/task/resize", nil, map[string]any{"task": t})
 
 	targetW := t.Mode.MaxWidth
@@ -37,7 +37,7 @@ func applyTask(c context.Context, t Task, img image.Image, focus data.Focus) err
 		logging.ExitErr(logScope, err)
 		return err
 	}
-	if err := writeImage(ctx, img, t.TargetPath); err != nil {
+	if err := writeImage(ctx, img, t.TargetPath, jpgQuality); err != nil {
 		logging.ExitErr(logScope, err)
 	}
 	logging.Exit(logScope, "ok", nil)
@@ -58,7 +58,7 @@ func GenerateDerivativeStep(j *Job) error {
 	j.ImageParams.Focus.Rotate(j.ImageParams.Rotation)
 
 	for _, t := range j.Tasks {
-		err := applyTask(ctx, t, img, j.ImageParams.Focus)
+		err := applyTask(ctx, t, img, j.ImageParams.Focus, t.Mode.JPGQuality)
 		if err != nil {
 			logging.ErrorContinue(logScope, err, map[string]any{"task": t.Mode.Name})
 		}
@@ -168,7 +168,7 @@ func resizeCrop(img image.Image, targetW, targetH int, focus data.Focus) image.I
 	return cropToTarget(img, targetW, targetH, focus)
 }
 
-func writeImage(c context.Context, img image.Image, path string) error {
+func writeImage(c context.Context, img image.Image, path string, jpgQuality int) error {
 	logScope, _ := logging.Enter(c, "service/derivative/task/write", path, map[string]any{"path": path})
 
 	tmp := path + ".tmp"
@@ -183,7 +183,7 @@ func writeImage(c context.Context, img image.Image, path string) error {
 		logging.ExitErrParams(logScope, err, map[string]any{"step": "create file"})
 		return err
 	}
-	if err := imaging.Encode(out, img, imaging.JPEG, imaging.JPEGQuality(85)); err != nil {
+	if err := imaging.Encode(out, img, imaging.JPEG, imaging.JPEGQuality(jpgQuality)); err != nil {
 		out.Close()
 		os.Remove(tmp)
 		logging.ExitErrParams(logScope, err, map[string]any{"step": "write"})

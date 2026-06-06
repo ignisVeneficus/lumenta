@@ -73,6 +73,12 @@ type FooterInfo struct {
 type MainPageContext struct {
 	PageContext
 	ImageGrid ImageGrid
+	DailyTags []DailyTag
+}
+type DailyTag struct {
+	Type string
+	Name string
+	Url  string
 }
 
 type NavigationContext struct {

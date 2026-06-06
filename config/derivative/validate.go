@@ -7,8 +7,8 @@ import (
 	"github.com/ignisVeneficus/lumenta/config/validate"
 )
 
-func (derivative DerivativesConfig) Validate(v *validate.ValidationErrors, path string) {
-	if len(derivative) == 0 {
+func (derivatives DerivativesConfig) Validate(v *validate.ValidationErrors, path string) {
+	if len(derivatives) == 0 {
 		err := errors.New("at least one derivative must be defined")
 		validate.LogConfigError(path, nil, err)
 		v.Add(err)
@@ -17,7 +17,7 @@ func (derivative DerivativesConfig) Validate(v *validate.ValidationErrors, path 
 
 	seen := map[string]struct{}{}
 
-	for i, d := range derivative {
+	for i, d := range derivatives {
 		base := fmt.Sprintf("%s[%d]", path, i)
 		name := d.validate(v, base)
 		if name != "" {

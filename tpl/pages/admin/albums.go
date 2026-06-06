@@ -39,10 +39,12 @@ func AlbumsPage(r *tpl.TemplateResolver, cfg config.Config, i18n *i18n.Service) 
 		pageCtx := albumsCtx.GetPage()
 		tpl.CreatePageContext(pageCtx, cfg, c, "albums", tplData.SurfaceAdmin)
 		albumsCtx.Breadcrumbs = tplData.Breadcrumbs{
-			tpl.GetAdminMain(loc, i18n),
+			tpl.GetAdminMain(),
 			tplData.Breadcrumb{
-				Label: i18n.T(loc, "nav.page.admin.albums.short", nil),
-				Type:  "page",
+				Link: tplData.Link{
+					LabelKey: "nav.page.admin.albums.short",
+				},
+				Type: "page",
 			},
 		}
 		albumsCtx.Albums = *forest

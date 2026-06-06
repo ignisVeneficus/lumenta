@@ -173,14 +173,14 @@ func TagPage(r *tpl.TemplateResolver, cfg config.Config, i18n *i18n.Service) gin
 			c.AbortWithStatus(http.StatusInternalServerError)
 			return
 		}
-		breadcrumbs, err := tpl.BuildTagBreadcumb(database, ctx, loc, i18n, thisTag, true)
+		breadcrumbs, err := tpl.BuildTagBreadcumb(database, ctx, thisTag, true)
 		if err != nil {
 			logging.ExitErr(logScope, err)
 			c.AbortWithStatus(http.StatusInternalServerError)
 			return
 		}
 
-		flatForrest := tplData.NewFlatForrest()
+		flatForrest := tplData.NewFlatForest()
 		mapper := func(t *dbo.Tag) tplData.ViewTreeNode {
 			return tplData.ViewTreeNode{
 				ID:       uint64(*t.ID),

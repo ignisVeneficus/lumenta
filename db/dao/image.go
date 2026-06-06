@@ -2447,7 +2447,7 @@ func QueryImageRandomByACL(db *sql.DB, c context.Context, hash string, acl dbo.A
 	}
 	newQty := qty - len(images)
 	if newQty > 0 {
-		images2, err := q.QueryImageRandomByHashByACLBackward(ctx, hash, acl, qty)
+		images2, err := q.QueryImageRandomByHashByACLBackward(ctx, hash, acl, newQty)
 		if err != nil {
 			logging.ExitErr(logScope, err)
 			return nil, err

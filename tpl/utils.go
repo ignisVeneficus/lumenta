@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"html/template"
 	"strconv"
 	"strings"
@@ -15,22 +14,22 @@ import (
 	"github.com/ignisVeneficus/logging"
 	"github.com/ignisVeneficus/lumenta/auth"
 	"github.com/ignisVeneficus/lumenta/config"
+	"github.com/ignisVeneficus/lumenta/config/presentation"
 	"github.com/ignisVeneficus/lumenta/data"
 	"github.com/ignisVeneficus/lumenta/db/dao"
 	"github.com/ignisVeneficus/lumenta/db/dbo"
-	"github.com/ignisVeneficus/lumenta/internal/i18n"
 	"github.com/ignisVeneficus/lumenta/server/routes"
 	tplData "github.com/ignisVeneficus/lumenta/tpl/data"
 	"github.com/ignisVeneficus/lumenta/utils"
 )
 
-func CreateImage(c context.Context, cfg config.Config, image dbo.Image) tplData.PageImage {
+func CreateImage(c context.Context, cfg config.Config, db *sql.DB, image dbo.Image, acl dbo.ACLContext) (tplData.PageImage, error) {
 	logScope, ctx := logging.Enter(c, "tpl/utils/image/create", image.ID, map[string]any{
 		"image": image,
 	})
 	// TODO: use visibility settings
 
-	flatForrest := tplData.NewFlatForrest()
+	flatForrest := tplData.NewFlatForest()
 	tagsList := tplData.MapToViewNodes(image.Tags, func(t *dbo.Tag) tplData.ViewTreeNode {
 		return tplData.ViewTreeNode{
 			ID:       uint64(*t.ID),
@@ -52,26 +51,97 @@ func CreateImage(c context.Context, cfg config.Config, image dbo.Image) tplData.
 			Long: *image.Longitude,
 		}
 	}
+	albums, err := CreateImageAlbums(ctx, db, *image.ID, acl)
+	if err != nil {
+		return tplData.PageImage{}, err
+	}
+	similars, err := CreateImageSimilars(ctx, db, cfg.Presentation.TagMeaningConfig, image.Tags, acl)
+
 	ret := tplData.PageImage{
 		Image:     image,
 		SingleMap: singleMap,
 		Tags:      *forest,
+		Albums:    *albums,
+		SameTags:  similars,
 	}
 
 	ret.Metadata = handleImgMetadata(ctx, cfg, image)
 	logging.Exit(logScope, "ok", nil)
-	return ret
+	return ret, nil
+}
+func CreateImageAlbums(c context.Context, db *sql.DB, imageID dbo.ImageID, acl dbo.ACLContext) (*data.Forest[*tplData.ViewTreeNode], error) {
+	logScope, ctx := logging.Enter(c, "tpl/utils/image/albums", imageID, nil)
+	albums, err := dao.QueryAlbumIDByImageID(db, ctx, imageID)
+	if err != nil {
+		logging.ExitErr(logScope, err)
+		return nil, err
+	}
+	albumIDs := make(map[dbo.AlbumID]dbo.Album)
+	imageAlbums := make([]*dbo.Album, 0)
+	for len(albums) > 0 {
+		id := albums[0]
+		albums = albums[1:]
+		if _, ok := albumIDs[id]; ok {
+			continue
+		}
+		album, err := dao.GetAlbumByIDACL(db, ctx, id, acl)
+		switch {
+		case errors.Is(err, dao.ErrDataNotFound):
+			continue
+		case err != nil:
+			logging.ExitErr(logScope, err)
+			return nil, err
+		}
+		albumIDs[id] = album
+		imageAlbums = append(imageAlbums, &album)
+		albums = append(albums, album.AncestorIDs...)
+	}
+	flatForrest := tplData.NewFlatForest()
+
+	tagsList := tplData.MapToViewNodes(imageAlbums, func(a *dbo.Album) tplData.ViewTreeNode {
+		return tplData.ViewTreeNode{
+			ID:       uint64(*a.ID),
+			ParentID: (*uint64)(a.ParentID),
+			Label:    a.Name,
+			URL:      template.URL(routes.CreateAlbumPath(routes.AlbumID(*a.ID))),
+			Title:    utils.FromStringPtr(a.Description),
+		}
+	})
+	flatForrest.Add(tagsList)
+	return flatForrest.Build(), nil
+}
+func CreateImageSimilars(c context.Context, db *sql.DB, tagMeaningConfig *presentation.TagMeaningConfig, imageTags []*dbo.Tag, acl dbo.ACLContext) ([]tplData.SameTags, error) {
+	logScope, ctx := logging.Enter(c, "tpl/utils/image/albums", nil, nil)
+	tags, err := dao.QueryTagsByACL(db, ctx, acl)
+	if err != nil {
+		logging.ExitErr(logScope, err)
+		return nil, err
+	}
+	tagsPoi := dbo.TagsWCountToPointer(tags)
+	tagDiscovery := tplData.CreateTagDiscovery(tagMeaningConfig, tagsPoi)
+	result := tagDiscovery.GetSame(imageTags)
+	logging.Debug(logScope, "after_result", map[string]any{"result": result})
+	ret := make([]tplData.SameTags, 0)
+	for m, list := range result {
+		item := tplData.SameTags{
+			Type: string(m),
+		}
+		for _, t := range list {
+			item.Links = append(item.Links, tplData.Link{
+				URL:      routes.CreateTagPath(routes.TagID(*t.ID)),
+				Label:    t.Name,
+				TitleKey: "nav.page.common.browse",
+				TitleMap: map[string]interface{}{
+					"folder": t.Name,
+				},
+			})
+		}
+		ret = append(ret, item)
+	}
+	logging.Exit(logScope, "ok", nil)
+	return ret, nil
 }
 
-/*
-	func appendMetadata(list []tplData.MetadataValue, label string, key string, m data.Metadata) []tplData.MetadataValue {
-		mtv, ok := m[key]
-		if ok {
-			list = append(list, createMetadata(label, mtv))
-		}
-		return list
-	}
-*/
 func createMetadata(label string, m data.MetadataValue) tplData.MetadataValue {
 	value, _ := m.AsString()
 	if value != "" && m.Unit != "" {
@@ -148,7 +218,7 @@ func addListIfNotEmpty(list []string, data data.Metadata, key string) []string {
 	return list
 }
 
-func BuildTagBreadcumb(database *sql.DB, c context.Context, loc string, i18n *i18n.Service, tag dbo.Tag, last bool) (tplData.Breadcrumbs, error) {
+func BuildTagBreadcumb(database *sql.DB, c context.Context, tag dbo.Tag, last bool) (tplData.Breadcrumbs, error) {
 	path := []dbo.Tag{tag}
 	var err error
 	for tag.ParentID != nil {
@@ -158,16 +228,18 @@ func BuildTagBreadcumb(database *sql.DB, c context.Context, loc string, i18n *i1
 		}
 		path = append([]dbo.Tag{tag}, path...)
 	}
-	return createTagsBreadcrumbs(loc, i18n, path, last), nil
+	return createTagsBreadcrumbs(path, last), nil
 }
 
-func createTagsBreadcrumbs(loc string, i18n *i18n.Service, tags []dbo.Tag, last bool) tplData.Breadcrumbs {
+func createTagsBreadcrumbs(tags []dbo.Tag, last bool) tplData.Breadcrumbs {
 	ret := tplData.Breadcrumbs{
 		tplData.Breadcrumb{
-			Label: i18n.T(loc, "nav.page.public.tags.short", nil),
-			Link:  template.URL(routes.CreateTagsRootPath()),
-			Type:  "page",
-			Title: i18n.T(loc, "nav.page.public.tags.long", nil),
+			Link: tplData.Link{
+				LabelKey: "nav.page.public.tags.short",
+				TitleKey: "nav.page.public.tags.label",
+				URL:      routes.CreateTagsRootPath(),
+			},
+			Type: "page",
 		},
 	}
 	end := len(tags)
@@ -176,17 +248,24 @@ func createTagsBreadcrumbs(loc string, i18n *i18n.Service, tags []dbo.Tag, last 
 	}
 	for i := 0; i < end; i++ {
 		brc := tplData.Breadcrumb{
-			Label: tags[i].Name,
-			Link:  template.URL(routes.CreateTagPath(routes.TagID(*tags[i].ID))),
-			Type:  "tag",
-			Title: fmt.Sprintf("View: %s", tags[i].Name),
+			Link: tplData.Link{
+				Label:    tags[i].Name,
+				TitleKey: "nav.page.common.browse",
+				TitleMap: map[string]interface{}{
+					"folder": tags[i].Name,
+				},
+				URL: routes.CreateTagPath(routes.TagID(*tags[i].ID)),
+			},
+			Type: "tag",
 		}
 		ret = append(ret, brc)
 	}
 	if last {
 		brc := tplData.Breadcrumb{
-			Label: tags[len(tags)-1].Name,
-			Type:  "tag",
+			Link: tplData.Link{
+				Label: tags[len(tags)-1].Name,
+			},
+			Type: "tag",
 		}
 		ret = append(ret, brc)
 	}
@@ -194,13 +273,15 @@ func createTagsBreadcrumbs(loc string, i18n *i18n.Service, tags []dbo.Tag, last 
 
 }
 
-func BuildAlbumBreadcumb(database *sql.DB, c context.Context, loc string, i18n *i18n.Service, album dbo.Album, acl dbo.ACLContext, last bool) (tplData.Breadcrumbs, error) {
+func BuildAlbumBreadcumb(database *sql.DB, c context.Context, album dbo.Album, acl dbo.ACLContext, last bool) (tplData.Breadcrumbs, error) {
 	ret := tplData.Breadcrumbs{
 		tplData.Breadcrumb{
-			Label: i18n.T(loc, "nav.page.public.albums.short", nil),
-			Link:  template.URL(routes.CreateAlbumsRootPath()),
-			Type:  "albums",
-			Title: i18n.T(loc, "nav.page.public.albums.long", nil),
+			Link: tplData.Link{
+				LabelKey: "nav.page.public.albums.short",
+				Title:    "nav.page.public.albums.long",
+				URL:      routes.CreateAlbumsRootPath(),
+			},
+			Type: "albums",
 		},
 	}
 	ids := album.AncestorIDs
@@ -211,10 +292,12 @@ func BuildAlbumBreadcumb(database *sql.DB, c context.Context, loc string, i18n *
 		switch {
 		case err == nil:
 			br := tplData.Breadcrumb{
-				Label: a.Name,
-				Link:  template.URL(routes.CreateAlbumPath(routes.AlbumID(id))),
-				Type:  "album",
-				Title: utils.FromStringPtr(a.Description),
+				Link: tplData.Link{
+					Label: a.Name,
+					Title: utils.FromStringPtr(a.Description),
+					URL:   routes.CreateAlbumPath(routes.AlbumID(id)),
+				},
+				Type: "album",
 			}
 			ret = append(ret, br)
 		case !errors.Is(err, dao.ErrDataNotFound):
@@ -222,11 +305,13 @@ func BuildAlbumBreadcumb(database *sql.DB, c context.Context, loc string, i18n *
 		}
 	}
 	br := tplData.Breadcrumb{
-		Label: album.Name,
-		Type:  "album",
+		Link: tplData.Link{
+			Label: album.Name,
+		},
+		Type: "album",
 	}
 	if !last {
-		br.Link = template.URL(routes.CreateAlbumPath(routes.AlbumID(*album.ID)))
+		br.URL = routes.CreateAlbumPath(routes.AlbumID(*album.ID))
 		br.Title = utils.FromStringPtr(album.Description)
 	}
 	ret = append(ret, br)
@@ -288,11 +373,13 @@ func L(c *gin.Context) string {
 	return a.Locale
 }
 
-func GetAdminMain(lang string, i18n *i18n.Service) tplData.Breadcrumb {
+func GetAdminMain() tplData.Breadcrumb {
 	return tplData.Breadcrumb{
-		Label: i18n.T(lang, "nav.page.admin.home.short", nil),
-		Link:  template.URL(routes.CreateAdminRootPath()),
-		Type:  "page",
-		Title: i18n.T(lang, "nav.page.admin.home.label", nil),
+		Link: tplData.Link{
+			LabelKey: "nav.page.admin.home.short",
+			URL:      routes.CreateAdminRootPath(),
+			TitleKey: "nav.page.admin.home.label",
+		},
+		Type: "page",
 	}
 }

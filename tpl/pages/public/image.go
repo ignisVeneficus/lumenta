@@ -16,6 +16,7 @@ import (
 	"github.com/ignisVeneficus/lumenta/server/routes"
 	"github.com/ignisVeneficus/lumenta/tpl"
 	"github.com/ignisVeneficus/lumenta/tpl/data"
+	tplData "github.com/ignisVeneficus/lumenta/tpl/data"
 	"github.com/ignisVeneficus/lumenta/tpl/pages"
 )
 
@@ -48,9 +49,15 @@ func ImagePage(r *tpl.TemplateResolver, cfg config.Config, i18n *i18n.Service) g
 			c.AbortWithStatus(http.StatusInternalServerError)
 			return
 		}
+		tplImage, err := tpl.CreateImage(ctx, cfg, database, image, acl.ACLContext)
+		if err != nil {
+			logging.ExitErr(logScope, err)
+			c.AbortWithStatus(http.StatusInternalServerError)
+			return
+		}
 
 		imagePageCtx := data.ImagePageContext{
-			Image:      tpl.CreateImage(ctx, cfg, image),
+			Image:      tplImage,
 			Thumbnails: nil,
 			Next:       nil,
 			Prev:       nil,
@@ -58,8 +65,10 @@ func ImagePage(r *tpl.TemplateResolver, cfg config.Config, i18n *i18n.Service) g
 		}
 		imagePageCtx.Breadcrumbs = data.Breadcrumbs{
 			data.Breadcrumb{
-				Label: image.GetTitle(),
-				Type:  "image",
+				Link: tplData.Link{
+					Label: image.GetTitle(),
+				},
+				Type: "image",
 			},
 		}
 

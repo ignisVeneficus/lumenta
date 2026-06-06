@@ -19,7 +19,14 @@
     </div>
 </div>
 <div class="content main-page">
-    <div class="inline">Random selection · <a href="{{ albumsRootPath }}" class="hint">Explore albums →</a></div>
+    <div class="ctx-menu">
+        <div class="action"><a href="{{ albumsRootPath }}">Albums</a>
+        </div>
+        {{ range .DailyTags -}}
+        <div class="sep">·</div>
+        <div class="action"><a href="{{ .Url }}" title="{{ t (printf "page.public.main.daily.%s" .Type) (dict "tag" .Name) }}">{{ .Name }}</a></div>
+        {{end -}}
+    </div>
     {{  template "partials/image-grid.html" .ImageGrid }}
 </div>
 {{ end }}

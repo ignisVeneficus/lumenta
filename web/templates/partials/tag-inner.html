@@ -4,7 +4,10 @@
         (t (printf "data.tag.meaning.%s.label" .Type))
         "tag-meaning tree-type-icon")}}
 {{- end -}}
-<a href="{{ .URL }}" class="tag-link tree-link">{{ .Label }}</a>
+<a href="{{ .URL }}" class="tag-link tree-link"
+    {{- if .Title -}}
+    title="{{ .Title }}"
+    {{- end -}}>{{ .Label }}</a>
 {{- range .Notes -}}
     <span class="tree-sep">·</span><span class="tree-note tag-note">{{.}}</span>
 {{- end -}}

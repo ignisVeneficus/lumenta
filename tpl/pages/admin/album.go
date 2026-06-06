@@ -27,18 +27,22 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func createAlbumBreadcrumbs(lastItem string, loc string, i18n *i18n.Service) tplData.Breadcrumbs {
+func createAlbumBreadcrumbs(lastItem string) tplData.Breadcrumbs {
 	return tplData.Breadcrumbs{
-		tpl.GetAdminMain(loc, i18n),
+		tpl.GetAdminMain(),
 		tplData.Breadcrumb{
-			Label: i18n.T(loc, "nav.page.admin.albums.short", nil),
-			Link:  template.URL(routes.CreateAdminAlbumsPath()),
-			Type:  "page",
-			Title: i18n.T(loc, "nav.page.admin.albums.label", nil),
+			Link: tplData.Link{
+				LabelKey: "nav.page.admin.albums.short",
+				TitleKey: "nav.page.admin.albums.label",
+				URL:      routes.CreateAdminAlbumsPath(),
+			},
+			Type: "page",
 		},
 		tplData.Breadcrumb{
-			Label: lastItem,
-			Type:  "Edit",
+			Link: tplData.Link{
+				Label: lastItem,
+			},
+			Type: "Edit",
 		},
 	}
 }
@@ -183,7 +187,7 @@ func NewAlbumPage(r *tpl.TemplateResolver, cfg config.Config, i18n *i18n.Service
 		tpl.CreatePageContext(pageCtx, cfg, c, "album", tplData.SurfaceAdmin)
 
 		albumPageCtx.Album = *albumCtx
-		albumPageCtx.Breadcrumbs = createAlbumBreadcrumbs("New Album", loc, i18n)
+		albumPageCtx.Breadcrumbs = createAlbumBreadcrumbs("New Album")
 		if err := r.RenderPage(c.Writer, "admin/album", albumPageCtx, loc, i18n); err != nil {
 			c.AbortWithStatus(http.StatusInternalServerError)
 			logging.ExitErr(logScope, err)
@@ -250,7 +254,7 @@ func EditAlbumPage(r *tpl.TemplateResolver, cfg config.Config, i18n *i18n.Servic
 		tpl.CreatePageContext(pageCtx, cfg, c, "album", tplData.SurfaceAdmin)
 		albumCtx.Flash = adminData.Flash(flash)
 		albumPageCtx.Album = *albumCtx
-		albumPageCtx.Breadcrumbs = createAlbumBreadcrumbs("Edit: "+name, loc, i18n)
+		albumPageCtx.Breadcrumbs = createAlbumBreadcrumbs("Edit: " + name)
 
 		if err := r.RenderPage(c.Writer, "admin/album", albumPageCtx, loc, i18n); err != nil {
 			c.AbortWithStatus(http.StatusInternalServerError)

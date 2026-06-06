@@ -196,14 +196,14 @@ func AlbumPage(r *tpl.TemplateResolver, cfg config.Config, i18n *i18n.Service) g
 			return
 		}
 
-		breadcrumbs, err := tpl.BuildAlbumBreadcumb(database, ctx, loc, i18n, thisAlbum, acl.ACLContext, true)
+		breadcrumbs, err := tpl.BuildAlbumBreadcumb(database, ctx, thisAlbum, acl.ACLContext, true)
 		if err != nil {
 			logging.ExitErr(logScope, err)
 			c.AbortWithStatus(http.StatusInternalServerError)
 			return
 		}
 
-		flatForrest := tplData.NewFlatForrest()
+		flatForrest := tplData.NewFlatForest()
 		mapper := func(t *dbo.Tag) tplData.ViewTreeNode {
 			return tplData.ViewTreeNode{
 				ID:       uint64(*t.ID),
@@ -288,8 +288,10 @@ func AlbumsRootPage(r *tpl.TemplateResolver, cfg config.Config, i18n *i18n.Servi
 
 		breadcrumbs := tplData.Breadcrumbs{
 			tplData.Breadcrumb{
-				Label: i18n.T(loc, "nav.page.public.albums.short", nil),
-				Type:  "albums",
+				Link: tplData.Link{
+					LabelKey: "nav.page.public.albums.short",
+				},
+				Type: "albums",
 			},
 		}
 
@@ -308,7 +310,7 @@ func AlbumsRootPage(r *tpl.TemplateResolver, cfg config.Config, i18n *i18n.Servi
 		albumPageCtx.Breadcrumbs = breadcrumbs
 		albumPageCtx.PageCards = folders
 		albumPageCtx.ImageGrid = tplData.ImageGrid{}
-		albumPageCtx.ImageTags = *tplData.NewFlatForrest().Build()
+		albumPageCtx.ImageTags = *tplData.NewFlatForest().Build()
 		albumPageCtx.Map = multiMap
 
 		logging.Exit(logScope, "ok", nil)

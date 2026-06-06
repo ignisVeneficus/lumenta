@@ -1,19 +1,12 @@
 <div class="ctx-menu">
 
+{{- template "partials/images-tag-tree.html" . -}}
 {{- if eq .User.Role "admin" -}}
-<a href="{{ adminAlbumPath .AlbumID }}" class="action button action-admin">
-    {{- template "icon" (i "action.public.album.open_admin" (t "action.public.album.open_admin.label") "admin-icon") -}}
-</a>
+<div class="ctx-menu-block">
+  <a href="{{ adminAlbumPath .AlbumID }}" class="action button action-admin">
+      {{- template "icon" (i "action.public.album.open_admin" (t "action.public.album.open_admin.label") "admin-icon") -}}
+  </a>
+</div>
 {{- end -}}
 
-{{- if .ImageTags -}}
-<details class="image-tag-panel context-panel">
-  <summary class="image-tag-trigger context-trigger action button">
-    {{ template "icon" (i "action.ctx.tags" (t "action.ctx.tags.label"))}}
-  </summary>
-  <div class="tag-content context-content tree-wrapper">
-    {{- template "partials/tag-forest.html" .ImageTags.Roots }}
-  </div>
-</details>
-{{- end -}}
 </div>

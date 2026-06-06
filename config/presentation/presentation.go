@@ -21,7 +21,52 @@ type TagMeaningConfig struct {
 	Threshold  int           `yaml:"threshold"`
 }
 
-type TagMeaningMap map[TagMeaning][]string
+type TagMeaningMap map[TagMeaning]TagDefinion
+
+func (tmm TagMeaningMap) HasConfig(meaning TagMeaning) bool {
+	_, ok := tmm[meaning]
+	return ok
+}
+func (tmm TagMeaningMap) HasFeature(meaning TagMeaning, feature TagFeature) bool {
+	tagDef, ok := tmm[meaning]
+	if !ok {
+		return false
+	}
+	return tagDef.HasFeature(feature)
+}
+func (tmm TagMeaningMap) GetMeaning(tagName string) TagMeaning {
+	for k, cfg := range tmm {
+		for _, t := range cfg.TagRoots {
+			if tagName == t {
+				return k
+			}
+		}
+	}
+	return ""
+}
+
+type TagDefinion struct {
+	TagRoots    []string                `yaml:"roots"`
+	Features    []TagFeature            `yaml:"features"`
+	FeaturesMap map[TagFeature]struct{} `yaml:"-"`
+}
+
+func (td TagDefinion) HasFeature(feature TagFeature) bool {
+	_, ok := td.FeaturesMap[feature]
+	return ok
+}
+
+type TagFeature string
+
+const (
+	TagFeatureDaily   TagFeature = "daily"
+	TagFeatureSimilar TagFeature = "similar"
+)
+
+var TagFeatureSet = map[TagFeature]struct{}{
+	TagFeatureDaily:   {},
+	TagFeatureSimilar: {},
+}
 
 type TagMeaning string
 
@@ -57,6 +102,10 @@ var TagMeaningList = []TagMeaning{
 
 func IsValidTagMeaning(m TagMeaning) bool {
 	_, ok := TagMeaningSet[m]
+	return ok
+}
+func IsValidTagFeature(f TagFeature) bool {
+	_, ok := TagFeatureSet[f]
 	return ok
 }
 

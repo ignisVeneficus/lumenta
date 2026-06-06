@@ -66,7 +66,7 @@ func Server(cfg config.Config, i18n *i18n.Service, ctx context.Context) {
 		*/
 		publicGrp.GET(routes.GetTagsRootPath(), public.TagsRootPage(templatreResolver, cfg, i18n))
 		publicGrp.GET(routes.GetTagPath(), public.TagPage(templatreResolver, cfg, i18n))
-		publicGrp.GET(routes.GetTagImagePath(), public.AlbumImagePage(templatreResolver, cfg, i18n))
+		publicGrp.GET(routes.GetTagImagePath(), public.TagImagePage(templatreResolver, cfg, i18n))
 
 		publicGrp.GET(routes.GetImagePath(), public.ImagePage(templatreResolver, cfg, i18n))
 

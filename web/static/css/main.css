@@ -142,7 +142,6 @@ body {
 
 .site-footer a:hover {
   color: var(--text-primary);
-  text-decoration: underline;
 }
 
 
@@ -225,22 +224,7 @@ body {
   opacity: 0.35;
   pointer-events: none;
 }
-/*
-.admin-icon{
-  color: var(--color2-text-middle)
-}
-.admin-icon:hover,
-.admin-icon:focus-visible{
-  color: var(--color2-text-light)
-}
-.public-icon{
-  color: var(--color1-text-middle)  
-}
-.public-icon:hover,
-.public-icon:focus-visible{
-  color: var(--color1-text-light)  
-}
-*/
+
 /* ==========================================================================
    ICONS
    ========================================================================== */
@@ -434,14 +418,16 @@ textarea:focus-visible {
 
   font-size: var(--font-size-sm);
   font-family: var(--font-sans);
-
-  gap: var(--size-2);
+/*
+  gap: var(--size-1);
+*/
 }
 
 .breadcrumb {
   text-decoration: none;
   color: var(--text-accent);
-
+  padding-left: var(--size-2);
+  padding-right: var(--size-2);
 }
 
 a.breadcrumb:hover {
@@ -574,10 +560,17 @@ div > ul.tree{
 .breadcrumbs-wrapper .breadcrumbs{
   flex: 1 1 auto;
 }
-.breadcrumbs-wrapper .ctx-menu{
+.ctx-menu{
+  display: flex;
+  align-items: center;
+  gap: var(--size-4)
+}
+
+.ctx-menu-block{
   display: flex;
   align-items: center;
 }
+
 
 .ctx-toggle {
   display: none;

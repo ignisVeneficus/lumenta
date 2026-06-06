@@ -1,13 +1,5 @@
 <div class="ctx-menu">
     
-{{- if .ImageTags -}}
-<details class="image-tag-panel context-panel">
-  <summary class="image-tag-trigger context-trigger action button">
-    {{ template "icon" (i "action.ctx.tags" (t "action.ctx.tags.label"))}}
-  </summary>
-  <div class="tag-content context-content tree-wrapper">
-    {{- template "partials/tag-forest.html" .ImageTags.Roots }}
-  </div>
-</details>
-{{- end -}}
+{{- template "partials/images-tag-tree.html" . -}}
+
 </div>

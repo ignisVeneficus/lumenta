@@ -9,10 +9,28 @@
     {{- else -}}
         {{ template "icon" (i "ui.breadcrumbs.heavy_separator" "" "sep") }}
     {{- end -}}
-    {{- if $v.Link -}}
-        <a class="breadcrumb" href="{{$v.Link}}" title="{{$v.Title}}">{{$v.Label}}</a>
+    {{- if $v.URL -}}
+        <a class="breadcrumb" href="{{$v.TemplateURL}}" title="
+        {{- if $v.TitleKey -}}
+            {{- t $v.TitleKey $v.TitleMap -}}
+        {{- else -}}
+            {{- $v.Title -}}
+        {{- end -}}
+        ">
+        {{- if $v.LabelKey -}}
+            {{- t $v.LabelKey $v.LabelMap -}}
+        {{- else -}}
+            {{- $v.Label -}}
+        {{- end -}}
+        </a>
     {{- else -}}
-        <span class="breadcrumb">{{$v.Label}}</a>
+        <span class="breadcrumb">
+        {{- if $v.LabelKey -}}
+            {{- t $v.LabelKey $v.LabelMap -}}
+        {{- else -}}
+            {{- $v.Label -}}
+        {{- end -}}
+        </a>
     {{- end -}}
     {{- $p = $v.Type -}}
 {{ end }}

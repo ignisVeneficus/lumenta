@@ -25,7 +25,9 @@ func TagsRootPage(r *tpl.TemplateResolver, cfg config.Config, i18n *i18n.Service
 
 		breadCrumbs := tplData.Breadcrumbs{
 			tplData.Breadcrumb{
-				Label: "Tags",
+				Link: tplData.Link{
+					LabelKey: "nav.page.public.tags.short",
+				},
 			},
 		}
 		database := db.GetDatabase()
@@ -36,7 +38,7 @@ func TagsRootPage(r *tpl.TemplateResolver, cfg config.Config, i18n *i18n.Service
 			c.AbortWithStatus(http.StatusInternalServerError)
 			return
 		}
-		flatForrest := tplData.NewFlatForrest()
+		flatForrest := tplData.NewFlatForest()
 		tagsList := tplData.MapToViewNodes(tags,
 			func(t dbo.TagWCount) tplData.ViewTreeNode {
 				return tplData.ViewTreeNode{

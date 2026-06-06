@@ -19,6 +19,7 @@ import (
 	"github.com/ignisVeneficus/lumenta/server/routes"
 	"github.com/ignisVeneficus/lumenta/tpl"
 	"github.com/ignisVeneficus/lumenta/tpl/data"
+	tplData "github.com/ignisVeneficus/lumenta/tpl/data"
 	"github.com/ignisVeneficus/lumenta/tpl/pages"
 	"github.com/ignisVeneficus/lumenta/utils"
 )
@@ -134,11 +135,13 @@ func AlbumImagePage(r *tpl.TemplateResolver, cfg config.Config, i18n *i18n.Servi
 
 		prev, next, err := AlbumImagePrevNext(database, ctx, acl.ACLContext, dbAlbumID, image)
 
-		breadcrumbs, err := tpl.BuildAlbumBreadcumb(database, ctx, loc, i18n, thisAlbum, acl.ACLContext, false)
+		breadcrumbs, err := tpl.BuildAlbumBreadcumb(database, ctx, thisAlbum, acl.ACLContext, false)
 		title := image.GetTitle()
 		breadcrumbs = append(breadcrumbs, data.Breadcrumb{
-			Label: title,
-			Type:  "image",
+			Link: tplData.Link{
+				Label: title,
+			},
+			Type: "image",
 		})
 
 		var nextThumb *data.Thumbnail
@@ -150,9 +153,15 @@ func AlbumImagePage(r *tpl.TemplateResolver, cfg config.Config, i18n *i18n.Servi
 		if prev != nil {
 			prevThumb = data.CreateThumbnail(*prev, generator)
 		}
+		tplImage, err := tpl.CreateImage(ctx, cfg, database, image, acl.ACLContext)
+		if err != nil {
+			logging.ExitErr(logScope, err)
+			c.AbortWithStatus(http.StatusInternalServerError)
+			return
+		}
 
 		tagImagePageCtx := data.ImagePageContext{
-			Image:      tpl.CreateImage(ctx, cfg, image),
+			Image:      tplImage,
 			Thumbnails: &thumbnails,
 			Next:       nextThumb,
 			Prev:       prevThumb,

@@ -11,6 +11,8 @@ type PageImage struct {
 	SingleMap *SingleMap
 	Metadata  Metadata
 	Tags      data.Forest[*ViewTreeNode]
+	Albums    data.Forest[*ViewTreeNode]
+	SameTags  []SameTags
 }
 
 func (pi PageImage) RoutesImagedID() routes.ImageID {
@@ -43,4 +45,9 @@ func (mb MetadataBlock) IsEmpty() bool {
 		}
 	}
 	return true
+}
+
+type SameTags struct {
+	Type  string
+	Links []Link
 }

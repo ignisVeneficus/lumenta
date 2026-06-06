@@ -124,9 +124,6 @@
    IMAGE CONTEXT MENU
    ========================================================================== */
 
-/*
-TODO: merge style
-*/
 .context-panel {
   position: relative;
 }
@@ -144,11 +141,11 @@ TODO: merge style
 /* Panel */
 .context-content {
   position: absolute;
-  top: calc(100% + 0.5rem);
-  right: 0;                  /* <-- EZ A LÉNYEG */
+  top: calc(100% + var(--space-4));
+  right: 0;
 
   width: 320px;
-  max-width: min(90vw, 400px); /* responsive védelem */
+  max-width: min(90vw, 400px);
   max-height: 60vh;
   overflow-y: auto;
 
@@ -156,9 +153,47 @@ TODO: merge style
   padding: 1rem;
 
   background: var(--bg-upper);
-  border-radius: 12px;
-  border: 1px solid var(--border-subtle);
   z-index: 100;
+  box-shadow: var(--shadow-overlay);
+}
+.ctx-submenu{
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+.ctx-submenu-block{
+  position: absolute;
+  top: 100%;
+  right: 0;
+  display: none;
+  padding-top: var(--size-4);
+  box-shadow: var(--shadow-overlay);  
+  z-index: 1000;
+  min-width: var(--size-14);
+}
+.ctx-submenu-list{
+  background-color: var(--bg-context);
+  padding: var(--size-4);
+  display: flex;
+  flex-direction: column;
+}
+.ctx-submenu-list a{
+  text-decoration: none;
+  color: var(--text-accent);
+}
+.ctx-submenu-list a{
+  text-decoration: none;
+  color: var(--text-accent);
+  padding-left: var(--size-2);
+  padding-right: var(--size-2);  
+}
+.ctx-submenu-list a:hover{
+  color: var(--icon-hover);
+  background: var(--background-hover)
+}
+
+.ctx-submenu:hover .ctx-submenu-block {
+    display:block;
 }
 
 /* ==========================================================================
@@ -182,6 +217,7 @@ TODO: merge style
   max-height: 70vh;
   object-fit: contain;
 }
+
 .image-content .image .caption{
   position: absolute;
   left: 0;
@@ -225,7 +261,7 @@ TODO: merge style
   position: absolute;
   inset: 0;
   pointer-events: none;
-  z-index: 8000;
+  z-index: 1;
   display: flex;
 }
 .overlay .image-nav{
@@ -264,6 +300,13 @@ TODO: merge style
   --tree-size-base: var(--font-size-meta);
   --tree-size-secondary: var(--font-size-small);
 }
+
+.image-page #info-panel .album-tree-box{
+  --tree-size-base: var(--font-size-meta);
+  --tree-size-secondary: var(--font-size-small);  
+}
+
+
 
 .image-nav.up {
   height: 80px;
@@ -327,6 +370,9 @@ html.is-fullscreen .image-content{
   background: var(--bg-deep);
   overflow: auto;
   padding: var(--size-4) var(--size-page-x);
+}
+html.is-fullscreen .image-content .image img{
+  max-height: 90vh;
 }
 html.is-fullscreen .ctx-menu{
   position: fixed;

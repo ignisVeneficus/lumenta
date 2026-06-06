@@ -1,12 +1,87 @@
 <div class="ctx-menu">
-{{- if .ImageTags -}}
-<details class="image-tag-panel context-panel">
-  <summary class="image-tag-trigger context-trigger action button">
-    {{ template "icon" (i "action.ctx.tags" (t "action.ctx.tags.label"))}}
-  </summary>
-  <div class="tag-content context-content tree-wrapper">
-    {{- template "partials/tag-forest.html" .ImageTags.Roots }}
-  </div>
-</details>
-{{- end -}}
+    <div class="ctx-menu-block off-fs">
+        {{- if .Prev -}}
+        <a class="action off-fs" href="{{ .Prev.Url }}">
+            {{- template "icon" (i "action.common.prev" .Prev.Title) -}}
+        </a>
+        {{- else -}}
+        <span class="action disabled off-fs">
+            {{- template "icon" (i "action.common.prev" (t "action.public.image.prev.label")) -}}
+        </span>
+        {{- end -}}
+
+        <a class="action off-fs" href="{{ .Up }}">
+            {{- template "icon" (i "action.public.image.back" (t "action.public.image.back.label")) -}}
+        </a>
+
+        {{- if .Next -}}
+        <a class="action off-fs" href="{{ .Next.Url }}">
+            {{- template "icon" (i "action.common.next" .Next.Title) -}}
+        </a>
+        {{- else -}}
+        <span class="action disabled off-fs">
+            {{- template "icon" (i "action.common.next" (t "action.public.image.next.label")) -}}
+        </span>
+        {{- end -}}
+    </div>
+    {{ if .Image.SameTags -}}
+    <div class="ctx-menu-block off-fs">
+      {{- range .Image.SameTags -}}
+        <div class="ctx-submenu">
+          <span class="action">
+            {{- template "icon" (i 
+              ( printf "data.tag.meaning.%s" .Type) 
+              (t ( printf  "page.public.image.same.%s" .Type) ))  -}}
+          </span>
+          <div class="ctx-submenu-block">
+            <div class="ctx-submenu-list">
+                {{ range .Links }}
+                <a class="ctx-submenu-list-item" href="{{.TemplateURL}}" title="
+                {{- if .TitleKey -}}
+                    {{- t .TitleKey .TitleMap -}}
+                {{- else -}}
+                    {{- .Title -}}
+                {{- end -}}
+                ">
+                {{- if .LabelKey -}}
+                    {{- t .LabelKey .LabelMap -}}
+                {{- else -}}
+                    {{- .Label -}}
+                {{- end -}}
+                </a>
+                {{ end -}}
+            </div>
+          </div>
+        </div>
+      {{- end -}}
+    </div>
+    {{- end }}
+
+    <div class="ctx-menu-block">
+        <a class="ctx-btn action off-fs" id="fullscreen-on">
+            {{- template "icon" (i "action.public.image.fullscreen_on" (t "action.public.image.fullscreen_on.label")) -}}
+        </a>
+        <a class="ctx-btn action on-fs" id="fullscreen-off">
+            {{- template "icon" (i "action.public.image.fullscreen_off" (t "action.public.image.fullscreen_off.label")) -}}
+        </a>
+
+        <input type="checkbox" id="toggle-info" class="ctx-toggle">
+        <label for="toggle-info" class="ctx-btn action off-fs">
+            {{- template "icon" (i "action.public.image.info" (t "action.public.image.toggle_info.label")) -}}
+        </label>
+
+        <input type="checkbox" id="toggle-slideshow" class="ctx-toggle">
+        <label for="toggle-slideshow" class="ctx-btn action on-fs">
+            {{- template "icon" (i "action.public.image.slideshow" (t "action.public.image.toggle_slideshow.label")) -}}
+        </label>
+    </div>
+    
+    {{- if eq .User.Role "admin" -}}
+    <div class="ctx-menu-block off-fs">
+        <a href="{{ adminImagePath .Image.RoutesImagedID }}" class="action button action-admin">
+            {{- template "icon" (i "action.public.image.open_admin" (t "action.public.image.open_admin.label") "admin-icon") -}}
+        </a>
+    </div>
+    {{- end -}}        
+
 </div>

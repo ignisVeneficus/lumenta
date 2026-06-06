@@ -3,7 +3,6 @@ package admin
 import (
 	"encoding/json"
 	"fmt"
-	"html/template"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -60,24 +59,30 @@ func SyncFilePage(r *tpl.TemplateResolver, cfg config.Config, i18n *i18n.Service
 		}
 
 		breadcrumbs := data.Breadcrumbs{
-			tpl.GetAdminMain(loc, i18n),
+			tpl.GetAdminMain(),
 			data.Breadcrumb{
-				Label: i18n.T(loc, "nav.page.admin.sync_files.short", nil),
-				Type:  "sync",
-				Title: i18n.T(loc, "nav.page.admin.sync_files.label", nil),
-				Link:  template.URL(routes.CreateAdminSyncFilesPath()),
+				Link: tplData.Link{
+					LabelKey: "nav.page.admin.sync_files.short",
+					TitleKey: "nav.page.admin.sync_files.label",
+					URL:      routes.CreateAdminSyncFilesPath(),
+				},
+				Type: "sync",
 			},
 
 			data.Breadcrumb{
-				Label: syncData.FullPathText(),
-				Type:  "sync",
-				Link:  template.URL(routes.CreateAdminSyncFilesByPathPath(syncFile.PathFull())),
-				Title: i18n.T(loc, "nav.page.admin.sync_file_history.label", nil),
+				Link: tplData.Link{
+					Label:    syncData.FullPathText(),
+					URL:      routes.CreateAdminSyncFilesByPathPath(syncFile.PathFull()),
+					TitleKey: "nav.page.admin.sync_file_history.label",
+				},
+				Type: "sync",
 			},
 
 			data.Breadcrumb{
-				Label: locale.FormatTime(syncData.CreatedAt, loc),
-				Type:  "file",
+				Link: tplData.Link{
+					Label: locale.FormatTime(syncData.CreatedAt, loc),
+				},
+				Type: "file",
 			},
 		}
 

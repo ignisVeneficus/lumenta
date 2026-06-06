@@ -2,7 +2,6 @@ package admin
 
 import (
 	"fmt"
-	"html/template"
 	"net/http"
 	"strings"
 
@@ -109,21 +108,25 @@ func SyncFilesListPathPage(r *tpl.TemplateResolver, cfg config.Config, i18n *i18
 		paging := data.CreatePaging(*url, routes.SyncPageParam, page, count, syncFilePerPage)
 
 		breadcrumbs := data.Breadcrumbs{
-			tpl.GetAdminMain(loc, i18n),
+			tpl.GetAdminMain(),
 		}
 		rootElem := data.Breadcrumb{
-			Label: i18n.T(loc, "nav.page.admin.sync_files.short", nil),
-			Type:  "sync",
+			Link: tplData.Link{
+				LabelKey: "nav.page.admin.sync_files.short",
+			},
+			Type: "sync",
 		}
 		if root != "" {
-			rootElem.Link = template.URL(routes.CreateAdminSyncFilesPath())
-			rootElem.Title = i18n.T(loc, "nav.page.admin.sync_files.label", nil)
+			rootElem.URL = routes.CreateAdminSyncFilesPath()
+			rootElem.TitleKey = "nav.page.admin.sync_files.label"
 
 			breadcrumbs = append(breadcrumbs,
 				rootElem,
 				data.Breadcrumb{
-					Label: fPath,
-					Type:  "sync",
+					Link: tplData.Link{
+						Label: fPath,
+					},
+					Type: "sync",
 				})
 		} else {
 			breadcrumbs = append(breadcrumbs, rootElem)
@@ -221,10 +224,12 @@ func SyncRunFilesListPage(r *tpl.TemplateResolver, cfg config.Config, i18n *i18n
 		paging := data.CreatePaging(*url, routes.SyncPageParam, page, count, syncFilePerPage)
 
 		breadcrumbs := data.Breadcrumbs{
-			tpl.GetAdminMain(loc, i18n),
+			tpl.GetAdminMain(),
 			data.Breadcrumb{
-				Label: i18n.T(loc, "nav.page.admin.sync_run_files.short", nil),
-				Type:  "sync",
+				Link: tplData.Link{
+					LabelKey: "nav.page.admin.sync_run_files.short",
+				},
+				Type: "sync",
 			},
 		}
 
@@ -312,10 +317,12 @@ func SyncFilesListPage(r *tpl.TemplateResolver, cfg config.Config, i18n *i18n.Se
 		paging := data.CreatePaging(*url, routes.SyncPageParam, page, count, syncFilePerPage)
 
 		breadcrumbs := data.Breadcrumbs{
-			tpl.GetAdminMain(loc, i18n),
+			tpl.GetAdminMain(),
 			data.Breadcrumb{
-				Label: i18n.T(loc, "nav.page.admin.sync_files.short", nil),
-				Type:  "sync",
+				Link: tplData.Link{
+					LabelKey: "nav.page.admin.sync_files.short",
+				},
+				Type: "sync",
 			},
 		}
 

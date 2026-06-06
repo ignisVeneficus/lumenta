@@ -133,7 +133,7 @@ func (s *Service) Submit(j Job) (bool, error) {
 		return false, ErrClosed
 	}
 	if _, exists := s.pending[j.Key]; exists {
-		logging.ExitErr(logg, ErrDuplicate)
+		logging.Exit(logg, "duplicated", nil)
 		return false, ErrDuplicate
 	}
 

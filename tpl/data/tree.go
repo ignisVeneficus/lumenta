@@ -16,6 +16,7 @@ type ViewTreeNode struct {
 	Path     []string
 	Type     string
 	URL      template.URL
+	Title    string
 }
 
 func (tw *ViewTreeNode) GetSorting() string {
@@ -41,7 +42,7 @@ type FlatForrest struct {
 	Nodes map[uint64]*ViewTreeNode
 }
 
-func NewFlatForrest() *FlatForrest {
+func NewFlatForest() *FlatForrest {
 	return &FlatForrest{
 		Nodes: make(map[uint64]*ViewTreeNode),
 	}

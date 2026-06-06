@@ -181,7 +181,7 @@ func BuildImageGrid(c context.Context, database *sql.DB, root, path string, page
 
 }
 
-func createFsBreadcrumbs(root, path string, lang string, i18n *i18n.Service) tplData.Breadcrumbs {
+func createFsBreadcrumbs(root, path string) tplData.Breadcrumbs {
 	parts := []string{}
 	if root != "" {
 		parts = append(parts, root)
@@ -190,16 +190,18 @@ func createFsBreadcrumbs(root, path string, lang string, i18n *i18n.Service) tpl
 		parts = append(parts, strings.Split(path, "/")...)
 	}
 	selfRoot := tplData.Breadcrumb{
-		Label: i18n.T(lang, "nav.page.admin.images.short", nil),
-		Type:  "page",
-		Title: i18n.T(lang, "nav.page.admin.images.label", nil),
+		Link: tplData.Link{
+			LabelKey: "nav.page.admin.images.short",
+			TitleKey: "nav.page.admin.images.label",
+		},
+		Type: "page",
 	}
 	if len(parts) > 0 {
-		selfRoot.Link = template.URL(routes.BuildAdminFsPath("").String())
+		selfRoot.URL = routes.BuildAdminFsPath("").String()
 
 	}
 	res := tplData.Breadcrumbs{
-		tpl.GetAdminMain(lang, i18n),
+		tpl.GetAdminMain(),
 		selfRoot,
 	}
 
@@ -208,16 +210,21 @@ func createFsBreadcrumbs(root, path string, lang string, i18n *i18n.Service) tpl
 		for i := 0; i < len(parts)-1; i++ {
 			path := strings.Join(parts[:i+1], "/")
 			brc := tplData.Breadcrumb{
-				Label: parts[i],
-				Link:  template.URL(routes.BuildAdminFsPath(path).String()),
-				Type:  "filesystem",
-				Title: fmt.Sprintf("Browse: %s", parts[i]),
+				Link: tplData.Link{
+					Label:    parts[i],
+					TitleKey: "nav.page.common.browse",
+					TitleMap: map[string]interface{}{"folder": parts[i]},
+					URL:      routes.BuildAdminFsPath(path).String(),
+				},
+				Type: "filesystem",
 			}
 			res = append(res, brc)
 		}
 		brc := tplData.Breadcrumb{
-			Label: parts[len(parts)-1],
-			Type:  "filesystem",
+			Link: tplData.Link{
+				Label: parts[len(parts)-1],
+			},
+			Type: "filesystem",
 		}
 		res = append(res, brc)
 	}
@@ -286,7 +293,7 @@ func FSPage(r *tpl.TemplateResolver, cfg config.Config, i18n *i18n.Service) gin.
 		tpl.CreatePageContext(pageCtx, cfg, c, "fs", tplData.SurfaceAdmin)
 		fsCtx.Dirs = dirs
 		fsCtx.Images = images
-		fsCtx.Breadcrumbs = createFsBreadcrumbs(root, path, loc, i18n)
+		fsCtx.Breadcrumbs = createFsBreadcrumbs(root, path)
 
 		if err := r.RenderPage(c.Writer, "admin/fs", fsCtx, loc, i18n); err != nil {
 			c.AbortWithStatus(http.StatusInternalServerError)

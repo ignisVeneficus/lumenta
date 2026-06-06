@@ -81,3 +81,11 @@ func TagsToPointer(tags []Tag) []*Tag {
 	}
 	return ret
 }
+
+func TagsWCountToPointer(tags []TagWCount) []*TagWCount {
+	ret := make([]*TagWCount, len(tags))
+	for i := range tags {
+		ret[i] = &tags[i]
+	}
+	return ret
+}

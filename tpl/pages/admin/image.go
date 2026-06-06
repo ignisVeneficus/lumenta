@@ -107,7 +107,7 @@ func ImagePage(r *tpl.TemplateResolver, cfg config.Config, i18n *i18n.Service) g
 			ACLUserID: strconv.FormatUint(uint64(image.ACLUserID), 10),
 		}
 		// tags
-		forest := tplData.ForrestFromTags(image.Tags, func(id uint64) string {
+		forest := tplData.ForestFromTags(image.Tags, func(id uint64) string {
 			return ""
 		})
 		tplData.SetTagsMeaning(forest, cfg.Presentation.TagMeaningConfig)
@@ -116,7 +116,7 @@ func ImagePage(r *tpl.TemplateResolver, cfg config.Config, i18n *i18n.Service) g
 		pageCtx := imageCtx.GetPage()
 		tpl.CreatePageContext(pageCtx, cfg, c, "image", tplData.SurfaceAdmin)
 		filePath := image.Path + "/" + image.Filename + "." + image.Ext
-		imageCtx.Breadcrumbs = createFsBreadcrumbs(image.Root, filePath, loc, i18n)
+		imageCtx.Breadcrumbs = createFsBreadcrumbs(image.Root, filePath)
 		imageCtx.Image = adminData.PageImage{
 			Image:         image,
 			Realpath:      tpl.CreateSpacePath(image.PathFull()),

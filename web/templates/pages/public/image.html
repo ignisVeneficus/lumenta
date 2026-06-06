@@ -18,54 +18,7 @@
 {{- if .Breadcrumbs }}
     {{- template "partials/breadcrumbs.html" .Breadcrumbs -}}
 {{- end -}}
-    <div class="ctx-menu">
-        {{- if .Prev -}}
-        <a class="action off-fs" href="{{ .Prev.Url }}">
-            {{- template "icon" (i "action.common.prev" .Prev.Title) -}}
-        </a>
-        {{- else -}}
-        <span class="action disabled off-fs">
-            {{- template "icon" (i "action.common.prev" (t "action.public.image.prev.label")) -}}
-        </span>
-        {{- end -}}
-
-        <a class="action off-fs" href="{{ .Up }}">
-            {{- template "icon" (i "action.public.image.back" (t "action.public.image.back.label")) -}}
-        </a>
-
-        {{- if .Next -}}
-        <a class="action off-fs" href="{{ .Next.Url }}">
-            {{- template "icon" (i "action.common.next" .Next.Title) -}}
-        </a>
-        {{- else -}}
-        <span class="action disabled off-fs">
-            {{- template "icon" (i "action.common.next" (t "action.public.image.next.label")) -}}
-        </span>
-        {{- end -}}
-
-        {{- if eq .User.Role "admin" -}}
-        <a href="{{ adminImagePath .Image.RoutesImagedID }}" class="action button action-admin">
-            {{- template "icon" (i "action.public.image.open_admin" (t "action.public.image.open_admin.label") "admin-icon") -}}
-        </a>
-        {{- end -}}        
-
-        <a class="ctx-btn action off-fs" id="fullscreen-on">
-            {{- template "icon" (i "action.public.image.fullscreen_on" (t "action.public.image.fullscreen_on.label")) -}}
-        </a>
-        <a class="ctx-btn action on-fs" id="fullscreen-off">
-            {{- template "icon" (i "action.public.image.fullscreen_off" (t "action.public.image.fullscreen_off.label")) -}}
-        </a>
-
-        <input type="checkbox" id="toggle-info" class="ctx-toggle">
-        <label for="toggle-info" class="ctx-btn action off-fs">
-            {{- template "icon" (i "action.public.image.info" (t "action.public.image.toggle_info.label")) -}}
-        </label>
-
-        <input type="checkbox" id="toggle-slideshow" class="ctx-toggle">
-        <label for="toggle-slideshow" class="ctx-btn action on-fs">
-            {{- template "icon" (i "action.public.image.slideshow" (t "action.public.image.toggle_slideshow.label")) -}}
-        </label>
-    </div>
+    {{- template "partials/image-ctx-menu.html" . -}}
 </div>
 <div class="content image-page">
   <div class="image-content">
@@ -124,6 +77,12 @@
                     <div class="tag-tree-box tree-wrapper">
                         {{ template "partials/tag-forest.html" .Image.Tags.Roots }}
                     </div>
+                    
+                    <div class="album-tree-box tree-wrapper">
+                        <div class="title">{{ t "page.public.image.appears_albums"}}</div>
+                        {{ template "partials/tag-forest.html" .Image.Albums.Roots }}
+                    </div>
+
 
                 </div>
             </aside>

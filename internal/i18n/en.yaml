@@ -322,6 +322,25 @@ page:
   footer:
     powered: "Powered by"
   public:
+    main:
+      daily:
+        location: "Featured place: {tag}"
+        subject:  "Featured subject: {tag}"
+        people: "Featured person: {tag}"
+        project: "Featured project: {tag}"
+        mood: "Featured mood: {tag}"
+        time: "Featured moment: {tag}"
+        gear:  "Featured gear: {tag}"
+    image:
+      appears_albums: "Appears in albums"
+      same:
+        location: "Explore this place"
+        subject: "Explore this subject"
+        people: "Explore these people"
+        project: "Explore these projects"
+        mood: "Explore this mood"
+        time: "Explore this moment"
+        gear: "Explore this gear"
     album:
       nr_content: "{images} images in {albums} albums"
     tags:
@@ -392,6 +411,8 @@ page:
 
 nav:
   page:
+    common:
+      browse: "Browse: {folder}"
     home:
       short: "Home"
       label: "Go to home"

@@ -10,5 +10,6 @@ func (c *Config) TransformAfterValidation() error {
 	_ = c.Sync.TransformAfterValidation()
 	_ = c.Auth.TransformAfterValidation()
 	_ = c.Presentation.TransformAfterValidation()
+	_ = c.Derivatives.TransformAfterValidation()
 	return nil
 }

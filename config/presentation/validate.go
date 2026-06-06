@@ -118,16 +118,24 @@ func (tm TagMeaningMap) validate(v *validate.ValidationErrors, path string) {
 		v.Add(err)
 		return
 	}
-	for k, val := range tm {
+	for k, tag := range tm {
 		if !IsValidTagMeaning((k)) {
 			err := fmt.Errorf("key: invalid meaning")
 			validate.LogConfigError(path, k, err)
 			v.Add(err)
 		}
-		if len(val) == 0 {
+		p := path + "/" + string(k) + "/"
+		if len(tag.TagRoots) == 0 {
 			err := fmt.Errorf("value: empty list")
-			validate.LogConfigError(path+"/"+string(k), nil, err)
+			validate.LogConfigError(p+"roots", nil, err)
 			v.Add(err)
+		}
+		for i, f := range tag.Features {
+			if !IsValidTagFeature(f) {
+				err := fmt.Errorf("value: empty list")
+				validate.LogConfigError(fmt.Sprintf("%sfeature[%d]", p, i), nil, err)
+				v.Add(err)
+			}
 		}
 	}
 }

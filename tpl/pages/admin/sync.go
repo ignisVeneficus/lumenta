@@ -13,6 +13,7 @@ import (
 	"github.com/ignisVeneficus/lumenta/server/routes"
 	"github.com/ignisVeneficus/lumenta/tpl"
 	"github.com/ignisVeneficus/lumenta/tpl/data"
+	tplData "github.com/ignisVeneficus/lumenta/tpl/data"
 	adminData "github.com/ignisVeneficus/lumenta/tpl/data/admin"
 )
 
@@ -59,10 +60,12 @@ func SyncRunsListPage(r *tpl.TemplateResolver, cfg config.Config, i18n *i18n.Ser
 		}
 
 		breadcrumbs := data.Breadcrumbs{
-			tpl.GetAdminMain(loc, i18n),
+			tpl.GetAdminMain(),
 			data.Breadcrumb{
-				Label: i18n.T(loc, "nav.page.admin.sync_runs.short", nil),
-				Type:  "sync",
+				Link: tplData.Link{
+					LabelKey: "nav.page.admin.sync_runs.short",
+				},
+				Type: "sync",
 			},
 		}
 

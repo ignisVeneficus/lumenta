@@ -10,9 +10,10 @@ var (
 )
 
 type DerivativeConfig struct {
-	Name      string             `yaml:"name"`
-	Postfix   string             `yaml:"postfix"`
-	MaxWidth  int                `yaml:"max_width"`
-	MaxHeight int                `yaml:"max_height"`
-	Mode      DerivativeSizeMode `yaml:"mode"` // crop | fit
+	Name       string             `yaml:"name"`
+	Postfix    string             `yaml:"postfix"`
+	MaxWidth   int                `yaml:"max_width"`
+	MaxHeight  int                `yaml:"max_height"`
+	Mode       DerivativeSizeMode `yaml:"mode"` // crop | fit
+	JPGQuality int                `yaml:"jpg_quality"`
 }
