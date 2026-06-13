@@ -1,0 +1,17 @@
+{{- range . -}}
+<div class="metadata-label">
+    {{- if .LabelKey -}}{{- t .LabelKey -}}{{- else -}}{{ .Label}}{{- end -}}
+</div>
+<div class="metadata-source">
+    {{- template "icon" (i 
+        (printf "data.metadata.source.%s" .Source) 
+        (t (printf "data.metadata.source.%s.label" .Source))
+        )}}
+</div>
+<div class="metadata-values">
+    {{- range .Value -}}
+        <div class="metadata-value">{{ . }}</div>
+    {{- end -}}
+</div>
+
+{{- end -}}

@@ -29,10 +29,51 @@ const (
 	MetaTags         = "tags"
 	MetaHeight       = "height"
 	MetaWidth        = "width"
-	MetaMaker        = "maker"
+	MetaMaker        = "maker" // not in db
 	MetaExposureTime = "exposure_time"
-	MetaSize         = "size"
+	MetaSize         = "size" //not in db
 )
+
+var MetadataInDB = []string{
+	MetaTitle,
+	MetaCaption,
+	MetaTags,
+	MetaRating,
+
+	MetaTakenAt,
+	MetaLatitude,
+	MetaLongitude,
+
+	MetaCamera,
+	MetaLens,
+	MetaFocalLength,
+	MetaAperture,
+	MetaExposureTime,
+	MetaISO,
+
+	MetaWidth,
+	MetaHeight,
+	MetaRotation,
+}
+
+var MetadataSetInDB = map[string]struct{}{
+	MetaTakenAt:      {},
+	MetaCamera:       {},
+	MetaLens:         {},
+	MetaFocalLength:  {},
+	MetaAperture:     {},
+	MetaISO:          {},
+	MetaLatitude:     {},
+	MetaLongitude:    {},
+	MetaRotation:     {},
+	MetaRating:       {},
+	MetaTitle:        {},
+	MetaCaption:      {},
+	MetaTags:         {},
+	MetaHeight:       {},
+	MetaWidth:        {},
+	MetaExposureTime: {},
+}
 
 type MetadataType string
 
@@ -65,12 +106,15 @@ func (mt *Metadata) MarshalZerologObjectWithLevel(e *zerolog.Event, level zerolo
 	}
 }
 
+type MetadataSource string
+
 type MetadataValue struct {
-	Alias string       `json:"alias"` // user-defined (pl "focal_length")
-	Ref   string       `json:"ref"`   // EXIF:FocalLength
-	Type  MetadataType `json:"type"`  // string, int, float, rational, list
-	Value any          `json:"value"`
-	Unit  string       `json:"unit,omitempty"`
+	Alias  string         `json:"alias"` // user-defined (pl "focal_length")
+	Ref    string         `json:"ref"`   // EXIF:FocalLength
+	Type   MetadataType   `json:"type"`  // string, int, float, rational, list
+	Value  any            `json:"value"`
+	Unit   string         `json:"unit,omitempty"`
+	Source MetadataSource `json:"source"`
 	/*
 		Lang     string   `json:"lang,omitempty"`
 		Priority int      `json:"priority"` // config order

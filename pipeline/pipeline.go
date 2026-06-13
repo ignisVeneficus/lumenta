@@ -56,7 +56,7 @@ func RunForcedImageSync(ctx context.Context, cfg config.Config, imageIDs []uint6
 	return err
 }
 
-func RunGlobalSync(c context.Context, cfg config.Config, cleanUp bool) error {
+func RunGlobalSync(c context.Context, cfg config.Config, cleanUp bool, force bool) error {
 	logScope, ctx := logging.Enter(c, "sync/global", nil, map[string]any{"root": cfg.Filesystem.Originals, "cleanup": cleanUp})
 	pipelineCtx := createPipelineContex(cfg, ctx)
 	metaHash := cfg.Sync.MetadataHash
@@ -74,6 +74,8 @@ func RunGlobalSync(c context.Context, cfg config.Config, cleanUp bool) error {
 	case !cleanUp:
 		mode = dbo.SyncModeIncremental
 	case metaHash != dbMetaHash:
+		pipelineCtx.Force = true
+	case force:
 		pipelineCtx.Force = true
 	}
 	var (

@@ -77,6 +77,9 @@ func runSync(cfg config.Config, ctx context.Context, args []string) error {
 	noCleanUp := fs.Bool("noCleanUp", false, "do not delete images missing from sync result")
 	fs.BoolVar(noCleanUp, "nc", false, "shorthand for -noCleanUp")
 
+	forceSync := fs.Bool("force", false, "force to reread all metadata even file not changed")
+	fs.BoolVar(forceSync, "f", false, "shorthand for -force")
+
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -84,8 +87,12 @@ func runSync(cfg config.Config, ctx context.Context, args []string) error {
 	if noCleanUp != nil && (*noCleanUp) == true {
 		cleanUp = false
 	}
+	force := false
+	if forceSync != nil && (*forceSync) == true {
+		force = true
+	}
 
-	err := pipeline.RunGlobalSync(ctx, cfg, cleanUp)
+	err := pipeline.RunGlobalSync(ctx, cfg, cleanUp, force)
 	return err
 }
 func runExport(cfg config.Config, args []string) error {

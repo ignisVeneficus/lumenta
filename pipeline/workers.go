@@ -179,7 +179,7 @@ func dBLoopupByPathWorker(ctx *PipelineContext) error {
 		case err == nil:
 			job.DBImage = &image
 			setJobFromImage(&job)
-			albums, err := dao.QueryAlbumIDByImageID(ctx.Database, c, *job.DBImage.ID)
+			albums, err := dao.QueryAlbumsIDByImageID(ctx.Database, c, *job.DBImage.ID)
 			if err != nil {
 				logging.ExitErr(logScope, err)
 				return err
@@ -397,10 +397,20 @@ func metadataReaderWorker(ctx *PipelineContext) error {
 		log := "nop"
 		if job.IsDirty {
 			log = "ok"
-			path := []string{job.RealPath}
-			if job.MetadataFile != "" {
-				path = append(path, job.MetadataFile)
+			path := []metadata.Path{
+				{
+					Path:     job.RealPath,
+					PathType: metadata.PathTypeImage,
+				},
 			}
+			if job.MetadataFile != "" {
+				path = append(path, metadata.Path{
+					Path:     job.MetadataFile,
+					PathType: metadata.PathTypeSidecar,
+				},
+				)
+			}
+
 			metadata, err := metadata.ExtractMetadata(exiftool, c, path...)
 			if err != nil {
 				logging.ExitErr(logScope, err)

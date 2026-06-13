@@ -27,6 +27,7 @@ func DefaultFuncMap(i18n *i18n.Service, iconMap data.IconMap) template.FuncMap {
 		"toPercent":     ToPercent,
 
 		"imagePath":      functions.ImagePath,
+		"imagePagePath":  functions.ImagePagePath,
 		"tagsRootPath":   functions.TagsRootPath,
 		"tagPath":        functions.TagPath,
 		"albumsRootPath": functions.AlbumsRootPath,

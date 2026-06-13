@@ -1,0 +1,15 @@
+<div class="ctx-menu">
+
+    <div class="ctx-menu-block">
+        <a  href="{{ adminSyncFilesPathPath .Image.PathFull }}" class="ctx-btn action">
+            {{- template "icon" (i "action.admin.image.history" (t "nav.page.admin.sync_files.label")) -}}
+        </a>
+    </div>
+    
+    <div class="ctx-menu-block">
+        <a href="{{ imagePagePath .Image.RoutesImagedID }}" class="ctx-btn action action-public">
+            {{- template "icon" (i "action.admin.image.visit" (t "action.admin.image.visit.label")) -}}
+        </a>
+    </div>
+
+</div>

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"html/template"
 	"net/http"
 	"strconv"
 
@@ -22,7 +23,75 @@ import (
 	adminData "github.com/ignisVeneficus/lumenta/tpl/data/admin"
 	"github.com/ignisVeneficus/lumenta/tpl/grid"
 	"github.com/ignisVeneficus/lumenta/tpl/pages"
+	"github.com/ignisVeneficus/lumenta/utils"
 )
+
+func getDisplayValues(m data.MetadataValue) []string {
+	switch v := m.Value.(type) {
+
+	case []string:
+		if m.Unit == "" {
+			return v
+		}
+
+		result := make([]string, len(v))
+		for i, s := range v {
+			result[i] = s + " " + m.Unit
+		}
+		utils.SortStrings(result)
+		return result
+	case []interface{}:
+		result := make([]string, len(v))
+		for i, d := range v {
+			s := fmt.Sprint(d)
+			if m.Unit != "" {
+				s += " " + m.Unit
+			}
+			result[i] = s
+		}
+		utils.SortStrings(result)
+		return result
+	default:
+		s := fmt.Sprint(v)
+
+		if m.Unit != "" {
+			s += " " + m.Unit
+		}
+
+		return []string{s}
+	}
+}
+
+func transformMetadata(metadata data.MetadataValue, hasLabelKey bool) adminData.MetadataValue {
+	ret := adminData.MetadataValue{
+		Source: metadata.Source,
+		Value:  getDisplayValues(metadata),
+	}
+	if hasLabelKey {
+		ret.LabelKey = "data.metadata.alias." + metadata.Alias + ".label"
+	} else {
+		ret.Label = metadata.Alias
+	}
+	return ret
+}
+
+func groupMetadata(metadata data.Metadata) ([]adminData.MetadataValue, []adminData.MetadataValue) {
+	indb := make([]adminData.MetadataValue, 0)
+	outdb := make([]adminData.MetadataValue, 0)
+	for _, k := range data.MetadataInDB {
+		mv, ok := metadata[k]
+		if ok {
+			indb = append(indb, transformMetadata(mv, true))
+		}
+	}
+	for k, mc := range metadata {
+		_, ok := data.MetadataSetInDB[k]
+		if !ok {
+			outdb = append(outdb, transformMetadata(mc, false))
+		}
+	}
+	return indb, outdb
+}
 
 func resolveFocus(img dbo.Image) data.Focus {
 	return data.ResolveFocus(img.FocusX, img.FocusY, data.ImageFocusMode(img.FocusMode))
@@ -94,7 +163,7 @@ func ImagePage(r *tpl.TemplateResolver, cfg config.Config, i18n *i18n.Service) g
 		}
 
 		// Album related query
-		albums, err := dao.QueryAlbumsIdByCover(database, ctx, dbImageID)
+		coverAlbums, err := dao.QueryAlbumsIdByCover(database, ctx, dbImageID)
 		if err != nil {
 			logging.ExitErr(logScope, err)
 			c.AbortWithStatus(http.StatusInternalServerError)
@@ -106,11 +175,37 @@ func ImagePage(r *tpl.TemplateResolver, cfg config.Config, i18n *i18n.Service) g
 			ACLLevel:  strconv.FormatUint(uint64(image.ACLLevel), 10),
 			ACLUserID: strconv.FormatUint(uint64(image.ACLUserID), 10),
 		}
+		//metadata
+		metadata, err := tpl.GetImageMetadata(c, image)
+		if err != nil {
+			logging.ExitErr(logScope, err)
+			c.AbortWithStatus(http.StatusInternalServerError)
+			return
+		}
+		indb, outdb := groupMetadata(metadata)
+
 		// tags
 		forest := tplData.ForestFromTags(image.Tags, func(id uint64) string {
 			return ""
 		})
 		tplData.SetTagsMeaning(forest, cfg.Presentation.TagMeaningConfig)
+
+		//albums
+		albumsId, err := dao.QueryAlbumsIDByImageID(database, ctx, dbImageID)
+		if err != nil {
+			logging.ExitErr(logScope, err)
+			c.AbortWithStatus(http.StatusInternalServerError)
+			return
+		}
+		albums, err := tpl.CollectAlbums(database, ctx, albumsId)
+		if err != nil {
+			logging.ExitErr(logScope, err)
+			c.AbortWithStatus(http.StatusInternalServerError)
+			return
+		}
+		albumTree := tpl.CreateImageAlbums(albums, func(id dbo.AlbumID) template.URL {
+			return template.URL(routes.CreateAdminAlbumPath(routes.AlbumID(id)))
+		})
 
 		imageCtx := adminData.ImagePageContext{}
 		pageCtx := imageCtx.GetPage()
@@ -125,6 +220,9 @@ func ImagePage(r *tpl.TemplateResolver, cfg config.Config, i18n *i18n.Service) g
 			Aspect:        grid.ClassifyAspect(int(image.Width), int(image.Height)),
 			Form:          form,
 			Tags:          *forest,
+			Albums:        albumTree,
+			MetadataDB:    indb,
+			Metadata:      outdb,
 		}
 		if image.Latitude != nil && image.Longitude != nil {
 			imageCtx.Image.SingleMap = &tplData.SingleMap{
@@ -133,7 +231,7 @@ func ImagePage(r *tpl.TemplateResolver, cfg config.Config, i18n *i18n.Service) g
 			}
 		}
 		albumIDs := make([]routes.AlbumID, 0)
-		for _, ai := range albums {
+		for _, ai := range coverAlbums {
 			albumIDs = append(albumIDs, routes.AlbumID(ai))
 		}
 		imageCtx.Image.Covers = albumIDs

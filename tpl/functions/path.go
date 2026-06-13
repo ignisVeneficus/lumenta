@@ -18,6 +18,10 @@ func TagPath(tagID routes.TagID) template.URL {
 	return template.URL(routes.CreateTagPath(tagID))
 }
 
+func ImagePagePath(id routes.ImageID) template.URL {
+	return template.URL(routes.CreateImagePath(id))
+}
+
 func TagsRootPath() template.URL {
 	return template.URL(routes.CreateTagsRootPath())
 }

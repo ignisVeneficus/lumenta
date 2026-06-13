@@ -125,7 +125,9 @@
 .column-3{
   flex: 0 0 min(400px, 33%);
 }
-
+.column.max-width{
+  flex: 1;
+}
 .panel{
   display: flex;
   flex-direction: column;
@@ -141,6 +143,11 @@
 }
 .panel .title-button div{
   flex: 1;
+}
+
+.image-metadatas-panel .metadata-panel{
+  display: grid;
+  grid-template-columns: 1fr 32px 2fr;
 }
 
 /* ==========================================================================

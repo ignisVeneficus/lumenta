@@ -38,6 +38,10 @@ data:
       mood: "fa-solid fa-face-smile"
       time: "fa-solid fa-clock"
       gear: "fa-solid fa-camera"
+  metadata:
+    source:
+      image: "fa-solid fa-file-image"
+      sidecar: "fa-solid fa-paperclip"
 
 action:
   ctx:
@@ -70,6 +74,9 @@ action:
       visit: "fa-solid fa-up-right-from-square"
       child: "fa-solid fa-folder-plus"
       new: "fa-solid fa-folder-plus"
+    image:
+      visit: "fa-solid fa-up-right-from-square"
+      history: "fa-solid fa-clock-rotate-left"
   tree:
     tag:
       toggle: "fa-solid fa-chevron-right"

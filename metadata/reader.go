@@ -5,26 +5,69 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/ignisVeneficus/logging"
 	"github.com/ignisVeneficus/lumenta/config"
 	metadataConfig "github.com/ignisVeneficus/lumenta/config/sync"
 	"github.com/ignisVeneficus/lumenta/data"
 	"github.com/ignisVeneficus/lumenta/exif"
-	"github.com/rs/zerolog/log"
 )
 
-func ExtractMetadata(exiftool *exif.PersistentExiftool, c context.Context, paths ...string) (data.Metadata, error) {
-	logScope, ctx := logging.Enter(c, "metadata.extract", paths[0], map[string]any{"source": paths})
+func buildTimeFormats() []string {
+	ret := []string{time.RFC3339}
+	dateParts := []string{
+		"2006-01-02",
+		"2006:01:02",
+	}
+
+	sepParts := []string{
+		"T",
+		" ",
+	}
+
+	tzParts := []string{
+		"",
+		"Z",
+		"-07:00",
+	}
+
+	for _, date := range dateParts {
+		for _, sep := range sepParts {
+			for _, tz := range tzParts {
+				ret = append(ret,
+					date+sep+"15:04:05"+tz)
+			}
+		}
+	}
+	return ret
+}
+
+var timeFormats = buildTimeFormats()
+
+type PathType string
+
+const (
+	PathTypeImage   PathType = "image"
+	PathTypeSidecar PathType = "sidecar"
+)
+
+type Path struct {
+	PathType PathType
+	Path     string
+}
+
+func ExtractMetadata(exiftool *exif.PersistentExiftool, c context.Context, paths ...Path) (data.Metadata, error) {
+	logScope, ctx := logging.Enter(c, "metadata/extract", paths[0], map[string]any{"source": paths})
 
 	var metadata data.Metadata
 	for i, path := range paths {
-		rawdata, err := exiftool.Read(ctx, path)
+		rawdata, err := exiftool.Read(ctx, path.Path)
 		if err != nil {
 			logging.ExitErr(logScope, err)
 			return nil, err
 		}
-		mtd := resolveMetadata(rawdata)
+		mtd := resolveMetadata(ctx, rawdata, path.PathType)
 		if i == 0 {
 			metadata = mtd
 		} else {
@@ -37,20 +80,23 @@ func ExtractMetadata(exiftool *exif.PersistentExiftool, c context.Context, paths
 	return metadata, nil
 }
 
-func resolveMetadata(raw exif.RawMetadata) data.Metadata {
+func resolveMetadata(c context.Context, raw exif.RawMetadata, pathType PathType) data.Metadata {
 	cfg := config.Global().Sync.MergedMetadata
 	out := make(data.Metadata)
 
 	for alias, field := range cfg.Fields {
-		if mv, ok := resolveField(alias, field, raw); ok {
+		if mv, ok := resolveField(c, alias, field, raw, pathType); ok {
 			out[alias] = mv
 		}
 	}
 	return out
 }
 
-func resolveField(alias string, field metadataConfig.MetadataFieldConfig, raw exif.RawMetadata) (data.MetadataValue, bool) {
-	log.Logger.Trace().Str("alias", alias).Msg("parsing for alias")
+func resolveField(c context.Context, alias string, field metadataConfig.MetadataFieldConfig, raw exif.RawMetadata, pathType PathType) (data.MetadataValue, bool) {
+	logScope, _ := logging.Enter(c, "metadata/extract/field", alias, map[string]any{
+		"alias":  alias,
+		"source": pathType,
+	})
 
 	for _, src := range field.Sources {
 		ref := strings.ToLower(src.Ref)
@@ -58,7 +104,6 @@ func resolveField(alias string, field metadataConfig.MetadataFieldConfig, raw ex
 		if !ok {
 			continue
 		}
-		log.Logger.Trace().Str("alias", alias).Str("source", src.Ref).Msg("Source found")
 
 		if !isMeaningfulValue(rm.Value) {
 			continue
@@ -75,19 +120,25 @@ func resolveField(alias string, field metadataConfig.MetadataFieldConfig, raw ex
 
 		val, err := coerceType(value, field.Type)
 		if err != nil {
-			log.Logger.Trace().Str("alias", alias).Str("source", src.Ref).Interface("value", value).Str("type", string(field.Type)).Msg("Type coercion failed")
+			logging.ErrorContinue(logScope, err, map[string]any{
+				"alias": alias,
+				"ref":   src.Ref,
+				"value": value,
+				"type":  string(field.Type),
+			})
 			continue
 		}
-
+		logging.Exit(logScope, "ok", nil)
 		return data.MetadataValue{
-			Alias: alias,
-			Ref:   src.Ref,
-			Value: val,
-			Type:  field.Type,
-			Unit:  field.Unit,
+			Alias:  alias,
+			Ref:    src.Ref,
+			Value:  val,
+			Type:   field.Type,
+			Unit:   field.Unit,
+			Source: data.MetadataSource(pathType),
 		}, true
 	}
-
+	logging.Exit(logScope, "no found", nil)
 	return data.MetadataValue{}, false
 }
 
@@ -129,6 +180,19 @@ func coerceType(v any, t data.MetadataType) (any, error) {
 		case string:
 			return []string{x}, nil
 		}
+	case data.MetaDateTime:
+		switch x := v.(type) {
+		case time.Time:
+			return x, nil
+		case string:
+			for _, timeFormat := range timeFormats {
+				if t, err := time.Parse(timeFormat, x); err == nil {
+					return t, nil
+				}
+			}
+
+		}
+
 	}
 
 	return nil, fmt.Errorf("cannot coerce %T to %s", v, t)

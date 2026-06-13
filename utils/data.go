@@ -72,6 +72,12 @@ func SortByStringKey[T any](items []T, key func(T) string) {
 	})
 }
 
+func SortStrings(items []string) {
+	SortByStringKey(items, func(d string) string {
+		return d
+	})
+}
+
 func SortByUint64Key[T any](items []T, key func(T) uint64) {
 	sort.Slice(items, func(i, j int) bool {
 		return key(items[i]) < key(items[j])

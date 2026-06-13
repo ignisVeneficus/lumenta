@@ -51,17 +51,24 @@ func CreateImage(c context.Context, cfg config.Config, db *sql.DB, image dbo.Ima
 			Long: *image.Longitude,
 		}
 	}
-	albums, err := CreateImageAlbums(ctx, db, *image.ID, acl)
+	albumIds, err := dao.QueryAlbumsIDByImageID(db, ctx, *image.ID)
 	if err != nil {
+		logging.ExitErr(logScope, err)
 		return tplData.PageImage{}, err
 	}
+	albums, err := CollectAlbumsByACL(db, ctx, acl, albumIds)
+
+	albumsTree := CreateImageAlbums(albums, func(id dbo.AlbumID) template.URL {
+		return template.URL(routes.CreateAlbumPath(routes.AlbumID(id)))
+	})
+
 	similars, err := CreateImageSimilars(ctx, db, cfg.Presentation.TagMeaningConfig, image.Tags, acl)
 
 	ret := tplData.PageImage{
 		Image:     image,
 		SingleMap: singleMap,
 		Tags:      *forest,
-		Albums:    *albums,
+		Albums:    albumsTree,
 		SameTags:  similars,
 	}
 
@@ -69,13 +76,8 @@ func CreateImage(c context.Context, cfg config.Config, db *sql.DB, image dbo.Ima
 	logging.Exit(logScope, "ok", nil)
 	return ret, nil
 }
-func CreateImageAlbums(c context.Context, db *sql.DB, imageID dbo.ImageID, acl dbo.ACLContext) (*data.Forest[*tplData.ViewTreeNode], error) {
-	logScope, ctx := logging.Enter(c, "tpl/utils/image/albums", imageID, nil)
-	albums, err := dao.QueryAlbumIDByImageID(db, ctx, imageID)
-	if err != nil {
-		logging.ExitErr(logScope, err)
-		return nil, err
-	}
+func CollectAlbumsByACL(db *sql.DB, c context.Context, acl dbo.ACLContext, albums []dbo.AlbumID) ([]*dbo.Album, error) {
+	logScope, ctx := logging.Enter(c, "tpl/utils/image/albums/collect/acl", nil, nil)
 	albumIDs := make(map[dbo.AlbumID]dbo.Album)
 	imageAlbums := make([]*dbo.Album, 0)
 	for len(albums) > 0 {
@@ -96,19 +98,54 @@ func CreateImageAlbums(c context.Context, db *sql.DB, imageID dbo.ImageID, acl d
 		imageAlbums = append(imageAlbums, &album)
 		albums = append(albums, album.AncestorIDs...)
 	}
+	logging.Exit(logScope, "ok", nil)
+	return imageAlbums, nil
+}
+func CollectAlbums(db *sql.DB, c context.Context, albumsID []dbo.AlbumID) ([]*dbo.Album, error) {
+	logScope, ctx := logging.Enter(c, "tpl/utils/image/albums/collect/acl", nil, nil)
+	albumIDs := make(map[dbo.AlbumID]dbo.Album)
+	imageAlbums := make([]*dbo.Album, 0)
+	for len(albumsID) > 0 {
+		id := albumsID[0]
+		albumsID = albumsID[1:]
+		if _, ok := albumIDs[id]; ok {
+			continue
+		}
+		album, err := dao.GetAlbumByID(db, ctx, id)
+		switch {
+		case errors.Is(err, dao.ErrDataNotFound):
+			continue
+		case err != nil:
+			logging.ExitErr(logScope, err)
+			return nil, err
+		}
+		albumIDs[id] = album
+		imageAlbums = append(imageAlbums, &album)
+		albumsID = append(albumsID, album.AncestorIDs...)
+	}
+	logging.Exit(logScope, "ok", nil)
+	return imageAlbums, nil
+
+}
+func CreateImageAlbums(albums []*dbo.Album, urlGen func(dbo.AlbumID) template.URL) data.Forest[*tplData.ViewTreeNode] {
+
+	albumIDs := make(map[dbo.AlbumID]*dbo.Album)
+	for _, album := range albums {
+		albumIDs[*album.ID] = album
+	}
 	flatForrest := tplData.NewFlatForest()
 
-	tagsList := tplData.MapToViewNodes(imageAlbums, func(a *dbo.Album) tplData.ViewTreeNode {
+	albumList := tplData.MapToViewNodes(albums, func(a *dbo.Album) tplData.ViewTreeNode {
 		return tplData.ViewTreeNode{
 			ID:       uint64(*a.ID),
 			ParentID: (*uint64)(a.ParentID),
 			Label:    a.Name,
-			URL:      template.URL(routes.CreateAlbumPath(routes.AlbumID(*a.ID))),
+			URL:      urlGen(*a.ID),
 			Title:    utils.FromStringPtr(a.Description),
 		}
 	})
-	flatForrest.Add(tagsList)
-	return flatForrest.Build(), nil
+	flatForrest.Add(albumList)
+	return *flatForrest.Build()
 }
 func CreateImageSimilars(c context.Context, db *sql.DB, tagMeaningConfig *presentation.TagMeaningConfig, imageTags []*dbo.Tag, acl dbo.ACLContext) ([]tplData.SameTags, error) {
 	logScope, ctx := logging.Enter(c, "tpl/utils/image/albums", nil, nil)

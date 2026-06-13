@@ -94,7 +94,7 @@ SELECT COUNT(*) FROM albums;
 const queryAlbumIDByImageID = `
 SELECT ai.album_id FROM album_images ai WHERE ai.image_id = ?;
 `
-const queryAlbumByImageIDACL = `
+const queryAlbumsByImageIDACL = `
 SELECT ` + albumFields + ` FROM album_images ai 
 JOIN albums a
 ON ai.album_id = a.id
@@ -566,7 +566,7 @@ func (q *Queries) CountAlbum(ctx context.Context) (uint64, error) {
 	return count, err
 }
 
-// QueryAlbumIDByImageID reads album IDs containing an image.
+// QueryAlbumsIDByImageID reads album IDs containing an image.
 //
 // Input:
 //   - ctx: request context.
@@ -575,7 +575,7 @@ func (q *Queries) CountAlbum(ctx context.Context) (uint64, error) {
 // Output:
 //   - []dbo.AlbumID: album IDs containing the image.
 //   - error: query, scan, or row iteration error.
-func (q *Queries) QueryAlbumIDByImageID(ctx context.Context, imageID dbo.ImageID) ([]dbo.AlbumID, error) {
+func (q *Queries) QueryAlbumsIDByImageID(ctx context.Context, imageID dbo.ImageID) ([]dbo.AlbumID, error) {
 	rows, err := q.db.QueryContext(ctx, queryAlbumIDByImageID, imageID)
 	if err != nil {
 		return nil, err
@@ -593,7 +593,7 @@ func (q *Queries) QueryAlbumIDByImageID(ctx context.Context, imageID dbo.ImageID
 	return ids, rows.Err()
 }
 
-// QueryAlbumByImageIDACL reads albums containing an image and visible through ACL.
+// QueryAlbumsByImageIDACL reads albums containing an image and visible through ACL.
 //
 // Input:
 //   - ctx: request context.
@@ -603,12 +603,12 @@ func (q *Queries) QueryAlbumIDByImageID(ctx context.Context, imageID dbo.ImageID
 // Output:
 //   - []dbo.Album: matching albums.
 //   - error: query, scan, decode, or row iteration error.
-func (q *Queries) QueryAlbumByImageIDACL(ctx context.Context, imageID dbo.ImageID, acl dbo.ACLContext) ([]dbo.Album, error) {
+func (q *Queries) QueryAlbumsByImageIDACL(ctx context.Context, imageID dbo.ImageID, acl dbo.ACLContext) ([]dbo.Album, error) {
 	aclWhere, aclParams := CreateAclWhere("a", acl)
 
 	params := []any{imageID}
 	params = append(params, aclParams...)
-	rows, err := q.db.QueryContext(ctx, fmt.Sprintf(queryAlbumByImageIDACL, aclWhere), params...)
+	rows, err := q.db.QueryContext(ctx, fmt.Sprintf(queryAlbumsByImageIDACL, aclWhere), params...)
 
 	if err != nil {
 		return nil, err
@@ -1228,7 +1228,7 @@ func CountAlbum(db *sql.DB, c context.Context) (uint64, error) {
 	return qty, nil
 }
 
-// QueryAlbumIDByImageID reads album IDs containing an image.
+// QueryAlbumsIDByImageID reads album IDs containing an image.
 //
 // Input:
 //   - db: database handle.
@@ -1238,12 +1238,12 @@ func CountAlbum(db *sql.DB, c context.Context) (uint64, error) {
 // Output:
 //   - []dbo.AlbumID: album IDs containing the image.
 //   - error: query, scan, or row iteration error.
-func QueryAlbumIDByImageID(db *sql.DB, c context.Context, imageID dbo.ImageID) ([]dbo.AlbumID, error) {
+func QueryAlbumsIDByImageID(db *sql.DB, c context.Context, imageID dbo.ImageID) ([]dbo.AlbumID, error) {
 	logScope, ctx := logging.Enter(c, "dao/album/query/id/byImage", imageID, map[string]any{
 		"image_id": imageID,
 	})
 	q := NewQueries(db)
-	albums, err := q.QueryAlbumIDByImageID(ctx, imageID)
+	albums, err := q.QueryAlbumsIDByImageID(ctx, imageID)
 	if err != nil {
 		logging.ExitErr(logScope, err)
 		return nil, err
@@ -1252,7 +1252,7 @@ func QueryAlbumIDByImageID(db *sql.DB, c context.Context, imageID dbo.ImageID) (
 	return albums, nil
 }
 
-// QueryAlbumsIDImageIDACL reads albums containing an image and visible through ACL.
+// QueryAlbumsByImageIDACL reads albums containing an image and visible through ACL.
 //
 // Input:
 //   - db: database handle.
@@ -1263,13 +1263,13 @@ func QueryAlbumIDByImageID(db *sql.DB, c context.Context, imageID dbo.ImageID) (
 // Output:
 //   - []dbo.Album: matching albums.
 //   - error: query, scan, decode, or row iteration error.
-func QueryAlbumsIDImageIDACL(db *sql.DB, c context.Context, imageID dbo.ImageID, acl dbo.ACLContext) ([]dbo.Album, error) {
+func QueryAlbumsByImageIDACL(db *sql.DB, c context.Context, imageID dbo.ImageID, acl dbo.ACLContext) ([]dbo.Album, error) {
 	logScope, ctx := logging.Enter(c, "dao/album/query/byImage/byACL", imageID, map[string]any{
 		"image_id": imageID,
 		"ac":       acl,
 	})
 	q := NewQueries(db)
-	albums, err := q.QueryAlbumByImageIDACL(ctx, imageID, acl)
+	albums, err := q.QueryAlbumsByImageIDACL(ctx, imageID, acl)
 	if err != nil {
 		logging.ExitErr(logScope, err)
 		return nil, err

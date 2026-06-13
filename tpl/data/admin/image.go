@@ -37,6 +37,16 @@ type PageImage struct {
 	Form          ImageForm
 	Covers        []routes.AlbumID
 	Tags          rootData.Forest[*data.ViewTreeNode]
+	Albums        rootData.Forest[*data.ViewTreeNode]
+	MetadataDB    []MetadataValue
+	Metadata      []MetadataValue
+}
+
+type MetadataValue struct {
+	Label    string
+	LabelKey string
+	Source   rootData.MetadataSource
+	Value    []string
 }
 
 func (pi PageImage) CoversArray() template.JS {

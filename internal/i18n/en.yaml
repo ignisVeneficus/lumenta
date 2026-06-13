@@ -10,6 +10,64 @@ data:
       l2:
         short: "Admin"
         label: "Visible to administrators only"
+  metadata:
+    alias:
+      taken_at:
+        short: "Taken"
+        label: "Taken at"
+      camera:
+        short: "Camera"
+        label: "Camera model"
+      lens:
+        short: "Lens"
+        label: "Lens model"
+      focal_length:
+        short: "Focal"
+        label: "Focal length"
+      aperture:
+        short: "Aperture"
+        label: "Aperture"
+      iso:
+        short: "ISO"
+        label: "ISO speed"
+      latitude:
+        short: "Lat"
+        label: "Latitude"
+      longitude:
+        short: "Lon"
+        label: "Longitude"
+      rotation:
+        short: "Rotation"
+        label: "Rotation"
+      rating:
+        short: "Rating"
+        label: "Rating"
+      title:
+        short: "Title"
+        label: "Title"
+      caption:
+        short: "Caption"
+        label: "Caption"
+      tags:
+        short: "Tags"
+        label: "Tags"
+      height:
+        short: "Height"
+        label: "Image height"
+      width:
+        short: "Width"
+        label: "Image width"
+      exposure_time:
+        short: "Exposure"
+        label: "Exposure time"
+    source:
+      image:
+        short: "Image"
+        label: "Read from image"
+      sidecar:
+        short: "Sidecar"
+        label: "Read from sidecar"
+
   sync_files:
     status:
       deleted:
@@ -309,6 +367,11 @@ action:
       new:
         short: "New"
         label: "Create new album"
+    image:
+      visit:
+        short: "Public"
+        label: "Open in public view"
+
 page:
   common:
     search: "Search"
@@ -385,8 +448,9 @@ page:
         focus_settings: "Focus Settings"
         cover: "Used as Album Cover"
         actions: "Actions"
-        metadata: "Metadata"
+        metadata: "Raw metadata"
         tags: "Tags"
+        albums: "Appears in albums"
       label:
         root: "Storage root"
         created: "File created"

@@ -20,6 +20,7 @@
 {{- with .Breadcrumbs }}
     {{- template "partials/breadcrumbs.html" . -}}
 {{- end -}}
+{{- template "partials/admin/image-ctx-menu.html" . -}}
 </div>
 
 <div class="admin-layout image-page">
@@ -72,7 +73,7 @@
                 </div>
             </div>
             <div class="image-history-panel panel panel-pos" >
-                <div class="title-button title"><div>{{ t "page.admin.image.title.history"}}</div><a href="{{ adminSyncFilesPathPath .Image.PathFull }}" class="action"><i class="icon fa-solid fa-clock-rotate-left" title="{{ t "nav.page.admin.sync_files.label" }}"></i></a></div>
+                <div class="title-button title"><div>{{ t "page.admin.image.title.history"}}</div><a href="{{ adminSyncFilesPathPath .Image.PathFull }}" class="action">{{- template "icon" (i "action.admin.image.history" (t "nav.page.admin.sync_files.label")) -}}</a></div>
                 <div class="data-table">
                     <div class="last-sync width-2">{{ formatTime .Image.Sync.LastSync }} - {{ t (printf "data.sync_files.status.%s.short" .Image.Sync.LastStatus)}}</div>
                     {{ if .Image.Sync.LastUpdated }}
@@ -131,9 +132,15 @@
                 <div class="title">{{ t "page.admin.image.title.actions"}}</div>
             </div>
         </div>
-        <div class="colum column-3 width-2">
+        <div class="column column-3 max-width">
             <div class="image-metadatas-panel panel panel-pos">
-                <div class="title">{{ t "page.admin.image.title.metadata"}}</div>           
+                <div class="title">{{ t "page.admin.image.title.metadata"}}</div>
+                <div class="metadata-panel">
+                     {{ template "partials/admin/image-metadata.html" .Image.MetadataDB }}
+                </div>           
+                <div class="metadata-panel">
+                     {{ template "partials/admin/image-metadata.html" .Image.Metadata }}
+                </div>           
             </div>
             <div class="tag-tree-panel panel panel-size" >
                 <div class="title">{{ t "page.admin.image.title.tags"}}</div>
@@ -142,6 +149,14 @@
                 </div>
 
             </div>
+            <div class="album-tree-panel panel panel-size" >
+                <div class="title">{{ t "page.admin.image.title.albums"}}</div>
+                <div class="tag-tree-box tree-wrapper">
+                    {{ template "partials/tag-forest.html" .Image.Albums.Roots }}
+                </div>
+
+            </div>
+
         </div>
 
     <div>
