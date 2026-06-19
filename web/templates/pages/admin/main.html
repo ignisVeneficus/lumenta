@@ -1,13 +1,14 @@
 {{ define "main" }}
 <div class="content admin-main">
     {{ range .Cards }}
-    <div class="card">
+    <div class="card admin-card">
         <a href="{{ .URL }}">
-            {{template "icon" (i .IconKey .IconTitle)}}
-        <div class="label">{{ .Title }}</div>
+            {{template "icon" (i .IconKey (t .IconTitleKey))}}
+        <div class="label">{{ t .TitleKey }}</div>
         <div class="stats">
             {{ range .Stats }}
-            <div>{{ .Label }}: {{ .Value }}</div>
+            <div class="number-table align-right">{{ .Value }}</div>
+             <div>{{ t .Label }}</div>
             {{ end }}
         </div>
         </a>

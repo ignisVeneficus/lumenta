@@ -31,19 +31,19 @@
         </div>
     </div>
     <div class="overlay">
-        <div class="image-nav left image-nav-prev">
+        <div class="image-nav left-panel image-nav-prev">
             {{- if .Prev -}}
             <a class="action" href="{{ .Prev.Url }}">
                 {{- template "icon" (i "action.common.prev" .Prev.Title) -}}
             </a>
             {{- end -}}
         </div>
-        <div class="image-nav up image-nav-up">
+        <div class="image-nav up-panel image-nav-up">
             <a class="action" href="{{ .Up }}">
                 {{- template "icon" (i "action.public.image.back" (t "action.public.image.back.label")) -}}
             </a>
         </div>
-        <div class="right">
+        <div class="right-panel">
             <div class="image-nav image-nav-next">
             {{- if .Next -}}
             <a class="action" href="{{ .Next.Url }}">

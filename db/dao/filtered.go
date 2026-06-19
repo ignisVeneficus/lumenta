@@ -36,6 +36,10 @@ SELECT 1 FROM filtered f WHERE
 f.root=? AND f.path = ? AND f.filename = ? AND f.ext = ?
 `
 
+const countFilteredBySyncID = `
+SELECT count(*) FROM filtered WHERE last_seen_sync=?
+`
+
 // parseFiltered scans a single filtered row into a FilteredOut value.
 //
 // Input:
@@ -154,6 +158,13 @@ func (q *Queries) CheckFilteredByPath(ctx context.Context, root, path, filename,
 	return row.Scan(&dummy)
 }
 
+func (q *Queries) CountFilteredBySynID(ctx context.Context, syncID dbo.SyncRunID) (uint64, error) {
+	row := q.db.QueryRowContext(ctx, countFilteredBySyncID, syncID)
+	var cnt uint64
+	err := row.Scan(&cnt)
+	return cnt, err
+}
+
 // GetFilteredByPath reads a filtered record by filesystem identity with logging.
 //
 // Input:
@@ -192,7 +203,7 @@ func DeleteFilteredNotSeen(db *sql.DB, c context.Context, syncID dbo.SyncRunID, 
 
 	tx, err := GetTx(db, ctx)
 	if err != nil {
-		logging.ExitErr(logScope, err)
+		logScope.ExitErr(err)
 		return 0, err
 	}
 	defer tx.Rollback()
@@ -200,10 +211,10 @@ func DeleteFilteredNotSeen(db *sql.DB, c context.Context, syncID dbo.SyncRunID, 
 
 	deleted, err := q.DeleteFilteredNotSeen(ctx, syncID, limit)
 	if err != nil {
-		logging.ExitErr(logScope, err)
+		logScope.ExitErr(err)
 		return 0, err
 	}
-	return deleted, logging.ReturnParams(logScope, tx.Commit(), map[string]any{"deleted": deleted})
+	return deleted, logScope.ReturnParams(tx.Commit(), map[string]any{"deleted": deleted})
 }
 
 // DeleteFilteredNotSeenAll deletes filtered records not seen in a sync run until none remain.
@@ -220,22 +231,22 @@ func DeleteFilteredNotSeenAll(db *sql.DB, c context.Context, syncID dbo.SyncRunI
 	logScope, ctx := logging.Enter(c, "dao/filtered/delete/notSeen/all", syncID, map[string]any{"sync_id": syncID, "limit": limit})
 	deleted, err := DeleteFilteredNotSeen(db, ctx, syncID, limit)
 	if err != nil {
-		logging.ExitErr(logScope, err)
+		logScope.ExitErr(err)
 		return err
 	}
 	batch := 1
 	for deleted > 0 {
-		logging.Debug(logScope, "loop", map[string]any{
+		logScope.Debug("loop", map[string]any{
 			"batch": batch,
 		})
 		deleted, err = DeleteFilteredNotSeen(db, ctx, syncID, limit)
 		if err != nil {
-			logging.ExitErr(logScope, err)
+			logScope.ExitErr(err)
 			return err
 		}
 		batch++
 	}
-	logging.Exit(logScope, "ok", map[string]any{"batch": batch})
+	logScope.Exit("ok", map[string]any{"batch": batch})
 	return nil
 }
 
@@ -260,7 +271,7 @@ func UpdateFilteredSyncIDByPath(db *sql.DB, c context.Context, root, path, filen
 
 	tx, err := GetTx(db, ctx)
 	if err != nil {
-		logging.ExitErr(logScope, err)
+		logScope.ExitErr(err)
 		return err
 	}
 	defer tx.Rollback()
@@ -268,10 +279,10 @@ func UpdateFilteredSyncIDByPath(db *sql.DB, c context.Context, root, path, filen
 
 	err = q.UpdateFilteredSyncIDByPath(ctx, root, path, filename, ext, syncID)
 	if err != nil {
-		logging.ExitErr(logScope, err)
+		logScope.ExitErr(err)
 		return err
 	}
-	return logging.Return(logScope, tx.Commit())
+	return logScope.Return(tx.Commit())
 }
 
 // CreateFiltered inserts a filtered record and writes the new ID back to f.
@@ -294,26 +305,26 @@ func CreateFiltered(db *sql.DB, c context.Context, f *dbo.FilteredOut) (dbo.Filt
 
 	tx, err := GetTx(db, ctx)
 	if err != nil {
-		logging.ExitErr(logScope, err)
+		logScope.ExitErr(err)
 		return 0, err
 	}
 	defer tx.Rollback()
 
 	q := NewQueries(tx)
 	if err := q.CreateFiltered(ctx, *f); err != nil {
-		logging.ExitErr(logScope, err)
+		logScope.ExitErr(err)
 		return 0, err
 	}
 
 	id, err := q.GetLastId(ctx)
 	if err != nil {
-		logging.ExitErr(logScope, err)
+		logScope.ExitErr(err)
 		return 0, err
 	}
 	newID := dbo.FilteredID(id)
 	f.ID = &newID
 
-	return newID, logging.ReturnParams(logScope, tx.Commit(), map[string]any{"new_ID": id})
+	return newID, logScope.ReturnParams(tx.Commit(), map[string]any{"new_ID": id})
 }
 
 // CreateOrUpdateFiltered creates a filtered record or updates its last seen sync marker.
@@ -335,7 +346,7 @@ func CreateOrUpdateFiltered(db *sql.DB, c context.Context, f *dbo.FilteredOut) e
 
 	tx, err := GetTx(db, ctx)
 	if err != nil {
-		logging.ExitErr(logScope, err)
+		logScope.ExitErr(err)
 		return err
 	}
 	defer tx.Rollback()
@@ -347,29 +358,43 @@ func CreateOrUpdateFiltered(db *sql.DB, c context.Context, f *dbo.FilteredOut) e
 	case errors.Is(err, sql.ErrNoRows):
 		found = false
 	case err != nil:
-		logging.ExitErr(logScope, err)
+		logScope.ExitErr(err)
 		return err
 	default:
 		found = true
 	}
 	if found {
 		if err := q.UpdateFilteredSyncIDByPath(ctx, f.Root, f.Path, f.Filename, f.Ext, *f.LastSeenSync); err != nil {
-			logging.ExitErr(logScope, err)
+			logScope.ExitErr(err)
 			return err
 		}
 	} else {
 		if err := q.CreateFiltered(ctx, *f); err != nil {
-			logging.ExitErr(logScope, err)
+			logScope.ExitErr(err)
 			return err
 		}
 		id, err := q.GetLastId(ctx)
 		if err != nil {
-			logging.ExitErr(logScope, err)
+			logScope.ExitErr(err)
 			return err
 		}
 		newID := dbo.FilteredID(id)
 		f.ID = &newID
 
 	}
-	return logging.Return(logScope, tx.Commit())
+	return logScope.Return(tx.Commit())
+}
+
+func CountFilteredBySynID(db *sql.DB, c context.Context, syncID dbo.SyncRunID) (uint64, error) {
+	logScope, ctx := logging.Enter(c, "dao/filtered/count/bySyncID", syncID, map[string]any{
+		"sync_ID": syncID,
+	})
+	q := NewQueries(db)
+	qty, err := q.CountFilteredBySynID(ctx, syncID)
+	if err != nil {
+		logScope.ExitErr(err)
+		return 0, err
+	}
+	logScope.Exit("ok", map[string]any{"return": qty})
+	return qty, nil
 }

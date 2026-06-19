@@ -9,12 +9,12 @@ type MainPageContext struct {
 	Cards []DashboardCard
 }
 type DashboardCard struct {
-	ID        string // "images", "albums"
-	Title     string
-	IconTitle string
-	IconKey   string
-	URL       string
-	Stats     []DashboardStat
+	ID           string // "images", "albums"
+	TitleKey     string
+	IconTitleKey string
+	IconKey      string
+	URL          string
+	Stats        []DashboardStat
 }
 
 type DashboardStat struct {

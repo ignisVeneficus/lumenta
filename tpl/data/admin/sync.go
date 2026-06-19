@@ -86,7 +86,7 @@ func (sf SyncFileData) ResultOrder() []ruleengine.RuleEvaluation {
 }
 
 func (sf SyncFileData) Age() *time.Duration {
-	return calcDuration(&sf.CreatedAt, nil)
+	return tpl.CalcDuration(&sf.CreatedAt, nil)
 }
 func (sf SyncFileData) FullPathText() string {
 	return tpl.CreateSpacePath(sf.PathFull())

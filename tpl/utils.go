@@ -8,6 +8,7 @@ import (
 	"html/template"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -53,7 +54,7 @@ func CreateImage(c context.Context, cfg config.Config, db *sql.DB, image dbo.Ima
 	}
 	albumIds, err := dao.QueryAlbumsIDByImageID(db, ctx, *image.ID)
 	if err != nil {
-		logging.ExitErr(logScope, err)
+		logScope.ExitErr(err)
 		return tplData.PageImage{}, err
 	}
 	albums, err := CollectAlbumsByACL(db, ctx, acl, albumIds)
@@ -73,7 +74,7 @@ func CreateImage(c context.Context, cfg config.Config, db *sql.DB, image dbo.Ima
 	}
 
 	ret.Metadata = handleImgMetadata(ctx, cfg, image)
-	logging.Exit(logScope, "ok", nil)
+	logScope.Exit("ok", nil)
 	return ret, nil
 }
 func CollectAlbumsByACL(db *sql.DB, c context.Context, acl dbo.ACLContext, albums []dbo.AlbumID) ([]*dbo.Album, error) {
@@ -91,14 +92,14 @@ func CollectAlbumsByACL(db *sql.DB, c context.Context, acl dbo.ACLContext, album
 		case errors.Is(err, dao.ErrDataNotFound):
 			continue
 		case err != nil:
-			logging.ExitErr(logScope, err)
+			logScope.ExitErr(err)
 			return nil, err
 		}
 		albumIDs[id] = album
 		imageAlbums = append(imageAlbums, &album)
 		albums = append(albums, album.AncestorIDs...)
 	}
-	logging.Exit(logScope, "ok", nil)
+	logScope.Exit("ok", nil)
 	return imageAlbums, nil
 }
 func CollectAlbums(db *sql.DB, c context.Context, albumsID []dbo.AlbumID) ([]*dbo.Album, error) {
@@ -116,14 +117,14 @@ func CollectAlbums(db *sql.DB, c context.Context, albumsID []dbo.AlbumID) ([]*db
 		case errors.Is(err, dao.ErrDataNotFound):
 			continue
 		case err != nil:
-			logging.ExitErr(logScope, err)
+			logScope.ExitErr(err)
 			return nil, err
 		}
 		albumIDs[id] = album
 		imageAlbums = append(imageAlbums, &album)
 		albumsID = append(albumsID, album.AncestorIDs...)
 	}
-	logging.Exit(logScope, "ok", nil)
+	logScope.Exit("ok", nil)
 	return imageAlbums, nil
 
 }
@@ -151,13 +152,13 @@ func CreateImageSimilars(c context.Context, db *sql.DB, tagMeaningConfig *presen
 	logScope, ctx := logging.Enter(c, "tpl/utils/image/albums", nil, nil)
 	tags, err := dao.QueryTagsByACL(db, ctx, acl)
 	if err != nil {
-		logging.ExitErr(logScope, err)
+		logScope.ExitErr(err)
 		return nil, err
 	}
 	tagsPoi := dbo.TagsWCountToPointer(tags)
 	tagDiscovery := tplData.CreateTagDiscovery(tagMeaningConfig, tagsPoi)
 	result := tagDiscovery.GetSame(imageTags)
-	logging.Debug(logScope, "after_result", map[string]any{"result": result})
+	logScope.Debug("after_result", map[string]any{"result": result})
 	ret := make([]tplData.SameTags, 0)
 	for m, list := range result {
 		item := tplData.SameTags{
@@ -175,7 +176,7 @@ func CreateImageSimilars(c context.Context, db *sql.DB, tagMeaningConfig *presen
 		}
 		ret = append(ret, item)
 	}
-	logging.Exit(logScope, "ok", nil)
+	logScope.Exit("ok", nil)
 	return ret, nil
 }
 
@@ -362,7 +363,7 @@ func GetImageMetadata(ctx context.Context, img dbo.Image) (data.Metadata, error)
 	})
 	m := data.Metadata{}
 	err := json.Unmarshal([]byte(img.ExifJSON), &m)
-	return m, logging.Return(logScope, err)
+	return m, logScope.Return(err)
 }
 func ParseAlbumID(s string) (routes.AlbumID, error) {
 	id, err := utils.ParseUint(s)
@@ -419,4 +420,20 @@ func GetAdminMain() tplData.Breadcrumb {
 		},
 		Type: "page",
 	}
+}
+
+func CalcDuration(start, end *time.Time) *time.Duration {
+	if start == nil {
+		return nil
+	}
+
+	var d time.Duration
+
+	if end != nil {
+		d = end.Sub(*start)
+	} else {
+		d = time.Since(*start)
+	}
+	return &d
+
 }

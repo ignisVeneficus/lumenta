@@ -343,7 +343,13 @@ func (m MetadataValue) AsInt() (int64, bool) {
 }
 
 func (m MetadataValue) AsString() (string, bool) {
-	return fmt.Sprint(m.Value), true
+	switch v := m.Value.(type) {
+	case time.Time:
+		return fmt.Sprintln(v.Format("2006-01-02 15:04:05")), true
+	default:
+		log.Logger.Warn().Str("type", fmt.Sprintf("%T\n", m.Value)).Any("value", m.Value).Msg("")
+		return fmt.Sprint(m.Value), true
+	}
 }
 
 func (m MetadataValue) AsList() ([]string, bool) {
@@ -364,6 +370,62 @@ func (m MetadataValue) AsList() ([]string, bool) {
 		return ret, true
 	}
 	return nil, false
+}
+
+func (m *MetadataValue) UnmarshalJSON(data []byte) error {
+	type rawMetadata struct {
+		Alias  string          `json:"alias"`
+		Ref    string          `json:"ref"`
+		Type   MetadataType    `json:"type"`
+		Value  json.RawMessage `json:"value"`
+		Unit   string          `json:"unit"`
+		Source MetadataSource  `json:"source"`
+	}
+
+	var raw rawMetadata
+
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	m.Alias = raw.Alias
+	m.Ref = raw.Ref
+	m.Type = raw.Type
+	m.Unit = raw.Unit
+	m.Source = raw.Source
+	switch raw.Type {
+	case MetaString:
+		var v string
+		json.Unmarshal(raw.Value, &v)
+		m.Value = v
+	case MetaInt:
+		var v int64
+		json.Unmarshal(raw.Value, &v)
+		m.Value = v
+	case MetaFloat:
+		var v float64
+		json.Unmarshal(raw.Value, &v)
+		m.Value = v
+	case MetaDateTime:
+		var s string
+		json.Unmarshal(raw.Value, &s)
+		t, err := time.Parse(time.RFC3339, s)
+		if err != nil {
+			return err
+		}
+		m.Value = t
+	case MetaList:
+		var v []string
+		if err := json.Unmarshal(raw.Value, &v); err != nil {
+			return err
+		}
+		m.Value = v
+	default:
+		var v any
+		json.Unmarshal(raw.Value, &v)
+		m.Value = v
+	}
+
+	return nil
 }
 
 func join(a, b *string, spacer string) *string {

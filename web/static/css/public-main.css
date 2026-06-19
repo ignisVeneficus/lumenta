@@ -270,14 +270,14 @@
   height: 100%;
   align-items: flex-start;
 }
-.image-nav.left{
+.image-nav.left-panel{
   width: clamp(80px, 10vw, 180px);
   align-self: stretch;
   display: flex;
   align-items: center;
   justify-content: center;
 }
-.right{
+.right-panel{
     width: clamp(80px, 10vw, 180px);
     display:flex;
     flex-direction: row;
@@ -308,7 +308,7 @@
 
 
 
-.image-nav.up {
+.image-nav.up-panel {
   height: 80px;
   flex: 1;
   display: flex;

@@ -581,3 +581,13 @@ div > ul.tree{
 .overlay{
   box-shadow: var(--shadow-overlay);
 }
+
+/* ==========================================================================
+   COMMON
+   ========================================================================== */
+.number-table{
+  font-variant-numeric: tabular-nums;
+}
+.align-right{
+  text-align: right;
+}

@@ -31,9 +31,9 @@ func getDisplayValues(m data.MetadataValue) []string {
 
 	case []string:
 		if m.Unit == "" {
+			utils.SortStrings(v)
 			return v
 		}
-
 		result := make([]string, len(v))
 		for i, s := range v {
 			result[i] = s + " " + m.Unit
@@ -52,12 +52,13 @@ func getDisplayValues(m data.MetadataValue) []string {
 		utils.SortStrings(result)
 		return result
 	default:
-		s := fmt.Sprint(v)
-
+		s, ok := m.AsString()
+		if !ok {
+			s = fmt.Sprint(v)
+		}
 		if m.Unit != "" {
 			s += " " + m.Unit
 		}
-
 		return []string{s}
 	}
 }
@@ -135,7 +136,7 @@ func ImagePage(r *tpl.TemplateResolver, cfg config.Config, i18n *i18n.Service) g
 
 		imageID, err := tpl.ParseImageID(imageIDStr)
 		if err != nil {
-			logging.ExitErr(logScope, fmt.Errorf("invalid image Id"))
+			logScope.ExitErr(fmt.Errorf("invalid image Id"))
 			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "invalid image Id"})
 			return
 		}
@@ -146,18 +147,18 @@ func ImagePage(r *tpl.TemplateResolver, cfg config.Config, i18n *i18n.Service) g
 		image, err := dao.GetImageByIdWTags(database, ctx, dbImageID)
 		switch {
 		case errors.Is(err, dao.ErrDataNotFound):
-			logging.ExitErr(logScope, err)
+			logScope.ExitErr(err)
 			pages.Soft404(r, cfg, c, tplData.SurfaceAdmin, "image", routes.CreateAdminRootPath(), uint64(imageID))
 			return
 		case err != nil:
-			logging.ExitErr(logScope, err)
+			logScope.ExitErr(err)
 			c.AbortWithStatus(http.StatusInternalServerError)
 			return
 		}
 		// Last sync / history
 		syncData, err := createHistoryDate(database, ctx, image.Root, image.Path, image.Filename, image.Ext)
 		if err != nil {
-			logging.ExitErr(logScope, err)
+			logScope.ExitErr(err)
 			c.AbortWithStatus(http.StatusInternalServerError)
 			return
 		}
@@ -165,7 +166,7 @@ func ImagePage(r *tpl.TemplateResolver, cfg config.Config, i18n *i18n.Service) g
 		// Album related query
 		coverAlbums, err := dao.QueryAlbumsIdByCover(database, ctx, dbImageID)
 		if err != nil {
-			logging.ExitErr(logScope, err)
+			logScope.ExitErr(err)
 			c.AbortWithStatus(http.StatusInternalServerError)
 			return
 		}
@@ -178,7 +179,7 @@ func ImagePage(r *tpl.TemplateResolver, cfg config.Config, i18n *i18n.Service) g
 		//metadata
 		metadata, err := tpl.GetImageMetadata(c, image)
 		if err != nil {
-			logging.ExitErr(logScope, err)
+			logScope.ExitErr(err)
 			c.AbortWithStatus(http.StatusInternalServerError)
 			return
 		}
@@ -193,13 +194,13 @@ func ImagePage(r *tpl.TemplateResolver, cfg config.Config, i18n *i18n.Service) g
 		//albums
 		albumsId, err := dao.QueryAlbumsIDByImageID(database, ctx, dbImageID)
 		if err != nil {
-			logging.ExitErr(logScope, err)
+			logScope.ExitErr(err)
 			c.AbortWithStatus(http.StatusInternalServerError)
 			return
 		}
 		albums, err := tpl.CollectAlbums(database, ctx, albumsId)
 		if err != nil {
-			logging.ExitErr(logScope, err)
+			logScope.ExitErr(err)
 			c.AbortWithStatus(http.StatusInternalServerError)
 			return
 		}
@@ -238,9 +239,9 @@ func ImagePage(r *tpl.TemplateResolver, cfg config.Config, i18n *i18n.Service) g
 
 		if err := r.RenderPage(c.Writer, "admin/image", imageCtx, loc, i18n); err != nil {
 			c.AbortWithStatus(http.StatusInternalServerError)
-			logging.ExitErr(logScope, err)
+			logScope.ExitErr(err)
 			return
 		}
-		logging.Exit(logScope, "ok", nil)
+		logScope.Exit("ok", nil)
 	}
 }

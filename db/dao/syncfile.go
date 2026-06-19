@@ -85,6 +85,12 @@ FROM sync_files f
 WHERE 1 = 1
 `
 
+const countSyncFilesStatusBySyncID = `
+SELECT f.status, COUNT(*) from sync_files f 
+WHERE f.sync_id = ?
+GROUP BY f.status
+`
+
 const purgeSyncFileByType = `
 DELETE FROM sync_run_files
 WHERE id IN (
@@ -273,6 +279,27 @@ func (q *Queries) CountSyncFileBySearchByStatus(ctx context.Context, search stri
 	return count, err
 }
 
+func (q *Queries) CountSyncFileStatusBySyncID(ctx context.Context, syncID dbo.SyncRunID) (map[dbo.SyncFileStatus]uint64, error) {
+	rows, err := q.db.QueryContext(ctx, countSyncFilesStatusBySyncID, syncID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make(map[dbo.SyncFileStatus]uint64, 0)
+	for rows.Next() {
+		var key dbo.SyncFileStatus
+		var qty uint64
+		if err := rows.Scan(&key, &qty); err != nil {
+			return nil, err
+		}
+		out[key] = qty
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 //
 // =========================================================
 // Public API functions
@@ -290,7 +317,7 @@ func CreateSyncFile(db *sql.DB, c context.Context, f dbo.SyncFile) error {
 
 	tx, err := GetTx(db, ctx)
 	if err != nil {
-		logging.ExitErr(logScope, err)
+		logScope.ExitErr(err)
 		return err
 	}
 	defer tx.Rollback()
@@ -299,11 +326,11 @@ func CreateSyncFile(db *sql.DB, c context.Context, f dbo.SyncFile) error {
 
 	if err := q.CreateSyncFile(ctx, f); err != nil {
 		err = NormalizeSQLError(err)
-		logging.ExitErr(logScope, err)
+		logScope.ExitErr(err)
 		return err
 	}
 
-	return logging.Return(logScope, tx.Commit())
+	return logScope.Return(tx.Commit())
 }
 func GetSyncFileById(db *sql.DB, c context.Context, syncFileID dbo.SyncFileID) (dbo.SyncFile, error) {
 	logScope, ctx := logging.Enter(c, "dao/sync_file/get/byId", syncFileID, map[string]any{
@@ -324,11 +351,11 @@ func QuerySyncFileBySyncIDPaged(db *sql.DB, c context.Context, syncRunID dbo.Syn
 	q := NewQueries(db)
 	files, err := q.QuerySyncFileBySyncIDPaged(ctx, syncRunID, stats, from, qty)
 	if err != nil {
-		logging.ExitErr(logScope, err)
+		logScope.ExitErr(err)
 		return nil, err
 	}
 
-	logging.Exit(logScope, "ok", map[string]any{
+	logScope.Exit("ok", map[string]any{
 		"found": len(files),
 	})
 
@@ -342,10 +369,10 @@ func CountSyncFileBySyncID(db *sql.DB, c context.Context, syncRunID dbo.SyncRunI
 	q := NewQueries(db)
 	qty, err := q.CountSyncFileBySyncID(ctx, syncRunID, status)
 	if err != nil {
-		logging.ExitErr(logScope, err)
+		logScope.ExitErr(err)
 		return 0, err
 	}
-	logging.Exit(logScope, "ok", map[string]any{"return": qty})
+	logScope.Exit("ok", map[string]any{"return": qty})
 	return qty, nil
 }
 
@@ -362,11 +389,11 @@ func QuerySyncFileByFilePathPaged(db *sql.DB, c context.Context, root, path, fil
 	q := NewQueries(db)
 	files, err := q.QuerySyncFileByFilePathPaged(ctx, root, path, filename, ext, from, qty)
 	if err != nil {
-		logging.ExitErr(logScope, err)
+		logScope.ExitErr(err)
 		return nil, err
 	}
 
-	logging.Exit(logScope, "ok", map[string]any{
+	logScope.Exit("ok", map[string]any{
 		"found": len(files),
 	})
 
@@ -383,10 +410,10 @@ func CountSyncFileByPath(db *sql.DB, c context.Context, root, path, filename, ex
 	q := NewQueries(db)
 	qty, err := q.CountSyncFileByPath(ctx, root, path, filename, ext)
 	if err != nil {
-		logging.ExitErr(logScope, err)
+		logScope.ExitErr(err)
 		return 0, err
 	}
-	logging.Exit(logScope, "ok", map[string]any{"return": qty})
+	logScope.Exit("ok", map[string]any{"return": qty})
 	return qty, nil
 }
 func GetSyncFileByPathByStatusLast(db *sql.DB, c context.Context, root, path, filename, ext string, status dbo.SyncFileStatus) (dbo.SyncFile, error) {
@@ -413,11 +440,11 @@ func QuerySyncFileBySearchByStatusPaged(db *sql.DB, c context.Context, search st
 	q := NewQueries(db)
 	files, err := q.QuerySyncFileBySearchByStatusPaged(ctx, search, status, from, qty)
 	if err != nil {
-		logging.ExitErr(logScope, err)
+		logScope.ExitErr(err)
 		return nil, err
 	}
 
-	logging.Exit(logScope, "ok", map[string]any{
+	logScope.Exit("ok", map[string]any{
 		"found": len(files),
 	})
 
@@ -425,16 +452,30 @@ func QuerySyncFileBySearchByStatusPaged(db *sql.DB, c context.Context, search st
 }
 
 func CountSyncFileBySearchByStatus(db *sql.DB, c context.Context, search string, status []string) (uint64, error) {
-	logScope, ctx := logging.Enter(c, "dao.sync_file.count.byPath", nil, map[string]any{
+	logScope, ctx := logging.Enter(c, "dao/sync_file/count/byPath", nil, map[string]any{
 		"search": search,
 		"status": status,
 	})
 	q := NewQueries(db)
 	qty, err := q.CountSyncFileBySearchByStatus(ctx, search, status)
 	if err != nil {
-		logging.ExitErr(logScope, err)
+		logScope.ExitErr(err)
 		return 0, err
 	}
-	logging.Exit(logScope, "ok", map[string]any{"return": qty})
+	logScope.Exit("ok", map[string]any{"return": qty})
 	return qty, nil
+}
+
+func CountSyncFileStatusBySyncID(db *sql.DB, c context.Context, syncID dbo.SyncRunID) (map[dbo.SyncFileStatus]uint64, error) {
+	logScope, ctx := logging.Enter(c, "dao/sync_file/count/status/bySyncID", syncID, map[string]any{
+		"sync_id": syncID,
+	})
+	q := NewQueries(db)
+	count, err := q.CountSyncFileStatusBySyncID(ctx, syncID)
+	if err != nil {
+		logScope.ExitErr(err)
+		return nil, err
+	}
+	logScope.Exit("ok", nil)
+	return count, nil
 }

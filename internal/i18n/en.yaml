@@ -413,7 +413,17 @@ page:
   admin:
     common:
       no_records: "No records found"
-      acl_settings: "ACL Settings"      
+      acl_settings: "ACL Settings"
+    main:
+      image:
+        total: "Total"
+        public: "Public"
+        user: "Users"
+        admin: "Admin"
+      album:
+        total: "Total"
+        with_albums: "Linked images"
+        without_albums: "Orphan images"
     sync:
       path:
         short: "Image"
