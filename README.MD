@@ -1,6 +1,17 @@
 # Lumenta
 
-**Lumenta is a rule-driven, self-hosted gallery engine for people who already manage their photos properly — and don’t want to manage them again in their gallery.**
+**Lumenta is a rule-driven, self-hosted gallery engine for people who already manage their photos properly - and don't want to manage them again in their gallery.**
+
+Lumenta is not a replacement for a traditional web album manager.
+
+The central abstraction is not an uploaded image album.
+It is a reproducible projection of an existing filesystem archive, produced from metadata, configuration and rules.
+
+Lumenta is closer to a deterministic publishing pipeline for a filesystem-based photo archive than to a traditional web album application.
+
+Traditional galleries usually ask: "Which images did the user upload into this album?"
+
+Lumenta asks: "Given this archive, metadata and rule set, what should the visible gallery state be?"
 
 It is not just a gallery.  
 It is a structured rule system from which albums are generated automatically.
@@ -16,7 +27,15 @@ No album micromanagement.
 No per-image ACL tweaking.
 
 Lumenta reads your filesystem directly, extracts metadata, stores it in a database, and evaluates your rules to build albums automatically.  
-The web layer operates exclusively from this indexed model — reflecting the structure you already created.
+The web layer operates exclusively from this indexed model - reflecting the structure you already created.
+
+| Traditional gallery | Lumenta |
+|---|---|
+| Upload images into albums | Scan an existing archive |
+| Gallery owns presentation state | Rules derive presentation state |
+| Albums are manually curated | Albums are generated |
+| Metadata is edited in the web UI | Metadata remains external |
+| Database is primary content storage | Database is a rebuildable runtime model |
 
 Designed for large photo collections, Lumenta removes repeated work and long-term maintenance overhead.
 
@@ -24,9 +43,9 @@ Designed for large photo collections, Lumenta removes repeated work and long-ter
 
 Automation. Without chaos.
 
-## Where Lumenta fits in a photographer’s workflow
+## Where Lumenta fits in a photographer's workflow
 
-Lumenta typically enters at the end of your workflow — **after editing and tagging**.
+Lumenta typically enters at the end of your workflow - **after editing and tagging**.
 
 A typical process:
 
@@ -46,7 +65,7 @@ There is:
 
 You simply point Lumenta to your existing filesystem-based archive, and it builds the web presentation layer on top of it.
 
-## Why Lumenta is not “just another photo album”
+## Why Lumenta is not "just another photo album"
 
 Lumenta follows a **single-owner model**.
 
@@ -58,7 +77,7 @@ This means:
 - Users exist only with different read-level permissions (e.g., guest, authenticated user)
 
 The archive belongs to one photographer.  
-Access levels control visibility — not authorship.
+Access levels control visibility - not authorship.
 
 ## Filesystem-first design
 
@@ -94,7 +113,7 @@ Lumenta provides a flexible and configurable metadata system.
 - Most rule definitions are built on top of metadata
 - Hierarchical tags are fully supported
 
-Hierarchical tagging — still uncommon in many web galleries — is treated as a first-class concept.
+Hierarchical tagging - still uncommon in many web galleries - is treated as a first-class concept.
 
 The goal is not to re-edit metadata in the web layer, but to faithfully represent and leverage the structure already created in your photo workflow.
 
@@ -123,33 +142,51 @@ The web layer is template-based.
 - The structure allows future theme support
 - The goal is visual flexibility without compromising backend determinism
 
+## Technology stack
+
+- Go backend with explicit packages for synchronization, metadata handling, rule evaluation, derivatives, logging and web presentation
+- Gin-based HTTP routing with server-rendered Go templates and small JavaScript-enhanced interactions where useful
+- MySQL/MariaDB runtime database accessed through purpose-built DAO queries
+- YAML-based configuration model for indexing, metadata mapping, rule logic, ACL defaults, derivatives and presentation settings
+- Concurrent filesystem ingestion pipeline built around worker stages, dirty checks, metadata reuse and trace recording
+- OIDC/JWT-compatible authentication integration, designed to sit behind external auth or reverse-proxy boundaries
+- Image derivative generation built on Go image processing libraries
+- Structured logging and synchronization diagnostics using `zerolog` and a project-specific contextual logging layer
+
 ## Design story
 
-Why Lumenta exists, what problems led to it,
-and how its architecture evolved from real-world workflow limitations:
+Lumenta's architecture did not start from a generic gallery checklist.
+It grew out of a real archive workflow that kept breaking the assumptions of traditional web galleries.
+
+The design story explains the reasoning behind the synchronization pipeline, rebuildable runtime database,
+rule-driven album generation, ACL model, metadata handling, query shape and operational trade-offs.
+
+If you are reviewing this project as an engineering reference, this is the best place to understand why the system is shaped the way it is:
 
 [From Piwigo to Lumenta](./doc/design-story.md)
 
 ## Development status
 
-This project is in **early development**.  
-The focus so far has been on validating the core architecture, data flow, and abstractions rather than on feature completeness.
+This project is in **active development**.  
+The core architecture, ingestion pipeline, runtime data model and server-rendered browsing/admin foundations are already implemented and usable.
+The remaining work is mostly around hardening, documentation, packaging, broader test coverage and UI refinement rather than proving the basic architecture.
 
-The following areas are implemented or actively being refined and are usable, though still evolving:
+The following areas are implemented and operational, though still evolving:
 
 ### Data ingestion and backend core
 
-The complete filesystem → database ingestion pipeline is implemented and operational.
+The core filesystem → database ingestion pipeline is implemented and operational.
 
 Implemented features include:
 
-- Database schema and access layer centered around the `images` domain model
-- Concurrent filesystem scanning and synchronization pipeline
+- Database schema and DAO layer for images, albums, tags, users, filtered inputs and synchronization traces
+- Concurrent filesystem scanning and staged synchronization pipeline
 - Deterministic rule-driven import and filtering
 - Metadata-based indexing and hierarchical tag support
-- Rule evaluation tracing and debug logging for full decision transparency
+- Per-file rule evaluation traces and structured debug logging for synchronization diagnostics
 - Structured configuration loading and validation
 - Incremental synchronization with change detection and metadata reuse
+- Derivative generation and serving foundations
 
 The ingestion system is designed for large real-world archives, including mixed JPG/TIFF workloads stored on NAS systems.
 
@@ -164,9 +201,10 @@ The server-side web foundation is functional:
 - Image grid rendering and basic gallery presentation
 - Tag tree rendering
 - Tag browser page
-- Generic image page with openable info panel, fullscreen capatible and slideshow
+- Generic image page with openable info panel, fullscreen support, slideshow controls and context-aware previous/next navigation for album and tag views
 - Map (leaflet) integration for single image
 - Internationalization (i18n) support with structured translation keys
+- Derivative image serving through configured public routes
 
 Admin interface:
 
@@ -175,7 +213,7 @@ Admin interface:
 - Sync run and file-level logging views
 - Rule evaluation debug and tracing interface
 
-These components provide the foundation for browsing and interacting with the indexed collection, while higher-level UI features and refinements will evolve over time.
+These components provide the foundation for browsing and interacting with the indexed collection, while higher-level UI polish, broader automated test coverage and operational tooling will evolve over time.
 
 ## Performance (typical photography setup)
 
@@ -273,7 +311,7 @@ Notes:
 ### Admin image details page
 ![admin image page](./doc/img/admin-img.png)
 
-More image int the [Ui section](doc/_ui.md)
+More image in the [Ui section](doc/_ui.md)
 
 ## Build
 
