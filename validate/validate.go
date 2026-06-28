@@ -27,7 +27,7 @@ func ValidateAlbum(album dbo.Album, albums []*dbo.AlbumGraph) ValidationErrors {
 		validateErrors.AddError(definitions.AlbumFieldParentID, "Parent cannot be the album itself.")
 	}
 	if !dbo.ValidateACLLevel(album.ACLLevel) {
-		validateErrors.AddError(definitions.AlbumFieldACLLevel, "Invalud value")
+		validateErrors.AddError(definitions.AlbumFieldACLLevel, "Invalid value")
 	}
 	if album.ParentID != nil && album.ParentID != album.ID {
 		var albumId dbo.AlbumID = 0
@@ -45,4 +45,35 @@ func ValidateAlbum(album dbo.Album, albums []*dbo.AlbumGraph) ValidationErrors {
 		}
 	}
 	return validateErrors
+}
+func ValidateImage(image dbo.Image) ValidationErrors {
+	validateErrors := make(ValidationErrors)
+	if !dbo.ValidateACLLevel(image.ACLLevel) {
+		validateErrors.AddError(definitions.ImageFieldACLLevel, "Invalid value")
+	}
+	if !dbo.ValidateImageFocusMode(image.FocusMode) {
+		validateErrors.AddError(definitions.ImageFieldFocusMode, "Invalid value")
+	}
+	switch image.FocusMode {
+	case dbo.ImageFocusModeManual:
+		if image.FocusX == nil {
+			validateErrors.AddError(definitions.ImageFieldFocusX, "Mandatory")
+		} else if !dbo.ValidateImageFocus(image.FocusX) {
+			validateErrors.AddError(definitions.ImageFieldFocusX, "Invalid value")
+		}
+		if image.FocusY == nil {
+			validateErrors.AddError(definitions.ImageFieldFocusY, "Mandatory")
+		} else if !dbo.ValidateImageFocus(image.FocusY) {
+			validateErrors.AddError(definitions.ImageFieldFocusY, "Invalid value")
+		}
+	default:
+		if image.FocusX != nil {
+			validateErrors.AddError(definitions.ImageFieldFocusX, "Must empty")
+		}
+		if image.FocusY != nil {
+			validateErrors.AddError(definitions.ImageFieldFocusY, "Must empty")
+		}
+	}
+	return validateErrors
+
 }

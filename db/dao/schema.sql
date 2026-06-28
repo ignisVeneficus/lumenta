@@ -87,6 +87,9 @@ CREATE TABLE IF NOT EXISTS images (
     COMMENT 'Normalized vertical focus point (0..1)',
   focus_mode ENUM('auto','manual','center','top','bottom','left','right') DEFAULT 'auto'
     COMMENT 'Focus point selection mode',
+  focus_source ENUM('filesystem','user') NOT NULL default 'filesystem'
+    COMMENT 'Source of the focus_mode value',
+
 
   exif_json JSON NULL
     COMMENT 'EXIF/XMP metadata dump in key-value format',
@@ -95,6 +98,8 @@ CREATE TABLE IF NOT EXISTS images (
     COMMENT 'Final image-level access control level',
   acl_user_id BIGINT UNSIGNED DEFAULT 0
     COMMENT 'User ID for user-level access 0: no user assigned',
+  acl_source ENUM('filesystem','user') NOT NULL default 'filesystem'
+    COMMENT 'Source of the ACL value',
 
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     COMMENT 'Image record creation timestamp',

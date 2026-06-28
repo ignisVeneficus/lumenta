@@ -55,7 +55,7 @@ type AlbumContext struct {
 	AlbumCount uint64
 	ImageCount uint64
 	State      FormState
-	Flash      Flash
+	Flash      *Flash
 }
 
 type AlbumPageContext struct {

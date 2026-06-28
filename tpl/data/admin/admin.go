@@ -19,13 +19,18 @@ var (
 	StateSaved    FormState = "saved"
 )
 
-type Flash string
+type Flash struct {
+	Type        string `json:"type"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
+}
+type FlashString string
 
 var (
-	FlashNone    Flash = ""
-	FlashCreated Flash = "created"
-	FlashSaved   Flash = "saved"
-	FlashDeleted Flash = "deleted"
+	FlashNone    FlashString = ""
+	FlashCreated FlashString = "created"
+	FlashSaved   FlashString = "saved"
+	FlashDeleted FlashString = "deleted"
 )
 
 type FsPageContext struct {

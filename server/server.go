@@ -126,6 +126,9 @@ func Server(cfg config.Config, i18n *i18n.Service, ctx context.Context) {
 		// albums
 		apiAdminGrp.GET(routes.GetApiAdminAlbumsPath(), endpoint.AlbumQuery(cfg))
 		apiAdminGrp.PATCH(routes.GetApiAdminAlbumPath(), endpoint.AlbumPatch(cfg))
+
+		apiAdminGrp.PATCH(routes.GetApiAdminImagePath(), endpoint.ImagePatch(cfg))
+
 	}
 
 	srv := &http.Server{

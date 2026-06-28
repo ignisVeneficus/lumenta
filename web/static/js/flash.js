@@ -1,4 +1,5 @@
 (function () {
+
   const container = document.getElementById("flash-container");
   if (!container) return;
 
@@ -26,11 +27,12 @@
     setTimeout(() => el.remove(), 3000);
   }
 
-  // 🔹 server flash
+  // server flash
   if (window.FLASH_FROM_SERVER) {
     renderFlash(window.FLASH_FROM_SERVER);
   }
 
-  // 🔹 global API
+  // global API
   window.showFlash = renderFlash;
+  console.debug("afterflash",window.showFlash);
 })();

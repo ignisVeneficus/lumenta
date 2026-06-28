@@ -1,7 +1,14 @@
 {{ define "page-head" }}
     {{template "partials/dropdown-head.html" }}
     {{template "partials/rules-head.html" }}
-    <script src="/static/js/admin-album.js" defer></script>        
+    <script src="/static/js/admin-album.js" defer></script>
+    <script src="/static/js/flash.js" defer></script>
+{{ end }}
+
+{{ define "page-js" }}
+        {{- if .Album.Flash -}}
+            window.FLASH_FROM_SERVER = {{ toJSON .Album.Flash }};
+        {{- end -}}
 {{ end }}
 
 
@@ -16,18 +23,8 @@
     {{- template "partials/admin/action-rail.html" . -}}
 
     <div class="content">
-
-        {{- with .Album.Flash -}}
-            {{- if eq . "saved" -}}
-                <div class="flash flash-success">Saved</div>
-            {{- end -}}
-            {{- if eq . "created" -}}
-                <div class="flash flash-success">Created</div>
-            {{- end -}}
-            {{- if eq . "deleted" -}}
-                <div class="flash flash-success">Deleted</div>
-            {{- end -}}
-        {{ end }}
+        <div id="flash-container">
+        </div>
 
         <form method="POST" action="">
             <div class="form-action">

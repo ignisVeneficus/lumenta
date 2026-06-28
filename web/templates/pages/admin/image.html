@@ -5,6 +5,7 @@
     {{template "partials/dropdown-head.html" }}
     <script src="/static/js/pathbuilder.js"></script>
     <script src="/static/js/admin-image.js" defer></script>
+    <script src="/static/js/flash.js" defer></script>
 {{ end }}
 
 {{ define "page-js" }}
@@ -27,6 +28,8 @@
     {{- template "partials/admin/action-rail.html" . -}}
 
     <div class="content">
+        <div id="flash-container">
+        </div>
         <div class="column column-1">
             <div class="image-panel panel panel-pos" >
                 <div class="image-preview " style="--ratio: {{.Image.ClampedAspect}};">

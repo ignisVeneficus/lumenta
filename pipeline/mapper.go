@@ -47,7 +47,7 @@ func UpdateImageMetadata(i *dbo.Image, metadata data.Metadata) error {
 	return nil
 }
 
-func getDBOImageFromJob(job WorkItem, syncID dbo.SyncRunID) {
+func getDBOImageFromJob(job WorkItem, syncID dbo.SyncRunID, isForced bool) {
 	job.DBImage.Root = job.RootName
 	job.DBImage.Path = job.Path
 	job.DBImage.Filename = job.Filename
@@ -62,10 +62,16 @@ func getDBOImageFromJob(job WorkItem, syncID dbo.SyncRunID) {
 	} else {
 		job.DBImage.Panorama = 0
 	}
-	if job.ACLLevel != nil {
-		job.DBImage.ACLLevel = *job.ACLLevel
+	if job.DBImage.ACLSource != dbo.ValueSourceUser || isForced {
+		if job.ACLLevel != nil {
+			job.DBImage.ACLLevel = *job.ACLLevel
+		}
+		job.DBImage.ACLUserID = dbo.UserID(job.ACLUser)
+		job.DBImage.ACLSource = dbo.ValueSourceFilesystem
 	}
-	job.DBImage.ACLUserID = dbo.UserID(job.ACLUser)
+	if job.DBImage.FocusSource != dbo.ValueSourceUser || isForced {
+		job.DBImage.FocusSource = dbo.ValueSourceFilesystem
+	}
 	UpdateImageMetadata(job.DBImage, job.Metadata)
 }
 func getDBOFilteredFromJob(job WorkItem, syncRunID dbo.SyncRunID) dbo.FilteredOut {

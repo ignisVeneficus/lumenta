@@ -2,7 +2,9 @@ package data
 
 import (
 	"github.com/ignisVeneficus/lumenta/db/dbo"
+	"github.com/ignisVeneficus/lumenta/definitions"
 	"github.com/ignisVeneficus/lumenta/server/routes"
+	"github.com/rs/zerolog"
 )
 
 type ImageID uint64
@@ -25,5 +27,24 @@ func CreateImageCoord(img dbo.ImageCoord, creator func(uint64) string) ImageCoor
 		URL:       creator(uint64(img.ID)),
 		ImageURL:  routes.CreateDerivativePath(routes.ImageID(img.ID), "s400"),
 		Label:     img.Title,
+	}
+}
+
+type ImagePatch struct {
+	ACLLevel  Field[dbo.DBACLLevel]     `json:"acl_scope"`
+	ACLUserID Field[dbo.UserID]         `json:"acl_user_id"`
+	FocusMode Field[dbo.ImageFocusMode] `json:"focus"`
+	FocusX    Field[float32]            `json:"focus_x"`
+	FocusY    Field[float32]            `json:"focus_y"`
+}
+
+func (i *ImagePatch) MarshalZerologObjectWithLevel(e *zerolog.Event, level zerolog.Level) {
+	if level <= zerolog.DebugLevel {
+
+		if i.ACLLevel.Set && i.ACLLevel.Valid {
+			e.Uint64(string(definitions.ImageFieldACLLevel), uint64(i.ACLLevel.Value))
+		}
+
+		FieldUserIDIf(e, string(definitions.ImageFieldACLUserID), i.ACLUserID)
 	}
 }

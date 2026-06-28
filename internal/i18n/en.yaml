@@ -477,6 +477,16 @@ page:
       cover_placeholder: "No cover image"
       parent_album: "Parent album"
       rules: "Rules"
+      flash:
+        created:
+          title: "Album created"
+          description: "New album created."
+        saved:
+          title: "Album saved"
+          description: "Changes saved."
+        deleted:
+          title: "Album deleted"
+          description: "Album removed."
     fs:
       directories: "Directories"
       no_directories: "No subdirectories"

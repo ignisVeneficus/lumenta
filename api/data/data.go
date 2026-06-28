@@ -110,11 +110,10 @@ func (f Field[T]) Apply(dst *T) {
 	}
 	if !f.Valid {
 		var zero T
-		dst = &zero
+		*dst = zero
 		return
 	}
-	v := f.Value
-	dst = &v
+	*dst = f.Value
 }
 
 func (f *Field[T]) UnmarshalJSON(data []byte) error {

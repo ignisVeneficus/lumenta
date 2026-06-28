@@ -649,7 +649,7 @@ func dbImageWriterWorker(ctx *PipelineContext, tagCache *TagCache) error {
 		})
 
 		if job.IsDirty {
-			getDBOImageFromJob(job, ctx.SyncId)
+			getDBOImageFromJob(job, ctx.SyncId, ctx.Force)
 			updateID, err := dao.CreateOrUpdateImage(ctx.Database, ctx.Ctx, job.DBImage)
 			if err != nil {
 				logging.ExitErrParams(logScope, err, map[string]any{"is_dirty": job.IsDirty})

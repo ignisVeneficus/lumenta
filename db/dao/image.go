@@ -19,9 +19,9 @@ i.file_size, i.mtime, i.file_hash, i.meta_hash,
 i.title, i.caption,
 i.taken_at, i.camera, i.lens, i.focal_length, i.aperture, i.exposure, i.iso,
 i.latitude, i.longitude, i.rotation, i.rating, i.width, i.height, i.panorama,
-i.focus_x, i.focus_y, i.focus_mode,
+i.focus_x, i.focus_y, i.focus_mode, i.focus_source,
 i.exif_json,
-i.acl_level, i.acl_user_id, 
+i.acl_level, i.acl_user_id, i.acl_source,
 i.created_at, i.updated_at, i.last_seen_sync
 `
 
@@ -53,10 +53,10 @@ INSERT INTO images (
   taken_at, order_date, 
   camera, lens, focal_length, aperture, exposure, iso,
   latitude, longitude, rotation, rating, width, height, panorama,
-  focus_x, focus_y, focus_mode,
+  focus_x, focus_y, focus_mode, focus_source,
   exif_json,
-  acl_level, acl_user_id, last_seen_sync
-) VALUES (?,?,?,?,?,?,?,?,?,?,?,IFNULL(taken_at, '1000-01-01 00:00:00'),?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+  acl_level, acl_user_id, acl_source, last_seen_sync
+) VALUES (?,?,?,?,?,?,?,?,?,?,?,IFNULL(taken_at, '1000-01-01 00:00:00'),?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
 
 const deleteImage = `DELETE FROM images WHERE id=?`
 
@@ -68,9 +68,9 @@ UPDATE images SET
   taken_at=?, order_date = IFNULL(taken_at, '1000-01-01 00:00:00'),
   camera=?, lens=?, focal_length=?, aperture=?, exposure=?, iso=?,
   latitude=?, longitude=?, rotation=?, rating=?, width=?, height=?, panorama=?,
-  focus_x=?, focus_y=?, focus_mode=?,
+  focus_x=?, focus_y=?, focus_mode=?, focus_source=?, 
   exif_json=?,
-  acl_level=?, acl_user_id=?, last_seen_sync=?
+  acl_level=?, acl_user_id=?, acl_source=?, last_seen_sync=?
 WHERE id=?`
 
 const bindImageTag = `INSERT IGNORE INTO image_tags (image_id, tag_id) VALUES (?,?)`
@@ -233,6 +233,12 @@ LEFT JOIN (
 ) ai ON ai.image_id = i.id;
 `
 
+const patchImage = `
+UPDATE images SET
+  focus_x=?, focus_y=?, focus_mode=?, focus_source=?,
+  acl_level=?, acl_user_id=?, acl_source=?
+WHERE id=?`
+
 // parseImage scans a single image row into an Image value.
 //
 // Input:
@@ -272,9 +278,11 @@ func parseImage(row *sql.Row) (dbo.Image, error) {
 		&i.FocusX,
 		&i.FocusY,
 		&i.FocusMode,
+		&i.FocusSource,
 		&i.ExifJSON,
 		&i.ACLLevel,
 		&i.ACLUserID,
+		&i.ACLSource,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.LastSeenSync,
@@ -343,9 +351,11 @@ func parseImageRows(rows *sql.Rows) ([]dbo.Image, error) {
 			&i.FocusX,
 			&i.FocusY,
 			&i.FocusMode,
+			&i.FocusSource,
 			&i.ExifJSON,
 			&i.ACLLevel,
 			&i.ACLUserID,
+			&i.ACLSource,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.LastSeenSync,
@@ -428,9 +438,11 @@ func (q *Queries) CreateImage(ctx context.Context, i dbo.Image) error {
 		i.FocusX,
 		i.FocusY,
 		i.FocusMode,
+		i.FocusSource,
 		i.ExifJSON,
 		i.ACLLevel,
 		i.ACLUserID,
+		i.ACLSource,
 		i.LastSeenSync,
 	)
 	return err
@@ -491,9 +503,11 @@ func (q *Queries) UpdateImage(ctx context.Context, i dbo.Image) error {
 		i.FocusX,
 		i.FocusY,
 		i.FocusMode,
+		i.FocusSource,
 		i.ExifJSON,
 		i.ACLLevel,
 		i.ACLUserID,
+		i.ACLSource,
 		i.LastSeenSync,
 		i.ID,
 	)
@@ -712,9 +726,11 @@ func (q *Queries) QueryImageWLastSyncByWUserPathPaged(ctx context.Context, root,
 			&i.FocusX,
 			&i.FocusY,
 			&i.FocusMode,
+			&i.FocusSource,
 			&i.ExifJSON,
 			&i.ACLLevel,
 			&i.ACLUserID,
+			&i.ACLSource,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.LastSeenSync,
@@ -1439,6 +1455,25 @@ func (q *Queries) CountImageByAlbumsBinding(ctx context.Context) (uint64, uint64
 	return withAlbum, withoutAlbum, err
 }
 
+func (q *Queries) PatchImage(ctx context.Context, i dbo.Image) error {
+	if i.ID == nil {
+		return sql.ErrNoRows
+	}
+	_, err := q.db.ExecContext(
+		ctx,
+		patchImage,
+		i.FocusX,
+		i.FocusY,
+		i.FocusMode,
+		i.FocusSource,
+		i.ACLLevel,
+		i.ACLUserID,
+		i.ACLSource,
+		i.ID,
+	)
+	return err
+}
+
 //
 // =========================================================
 // Public API functions
@@ -1627,7 +1662,7 @@ func DeleteImage(db *sql.DB, c context.Context, imageID dbo.ImageID) error {
 	return logging.Return(logScope, tx.Commit())
 }
 
-// GetImageById reads an image by ID with logging.
+// GetImageByID reads an image by ID with logging.
 //
 // Input:
 //   - db: database handle.
@@ -1637,7 +1672,7 @@ func DeleteImage(db *sql.DB, c context.Context, imageID dbo.ImageID) error {
 // Output:
 //   - dbo.Image: matching image.
 //   - error: wrapped not-found, query, or scan error.
-func GetImageById(db *sql.DB, c context.Context, imageID dbo.ImageID) (dbo.Image, error) {
+func GetImageByID(db *sql.DB, c context.Context, imageID dbo.ImageID) (dbo.Image, error) {
 	logScope, ctx := logging.Enter(c, "dao/image/get/byId", imageID, map[string]any{
 		"image_id": imageID,
 	})
@@ -2767,4 +2802,28 @@ func CountImageByAlbumsBinding(db *sql.DB, c context.Context) (uint64, uint64, e
 		"without_album": withoutAlbum,
 	})
 	return withAlbum, withoutAlbum, nil
+}
+
+func PatchImage(db *sql.DB, c context.Context, i dbo.Image) error {
+	logScope, ctx := logging.Enter(c, "dao/image/patch", i.ID, map[string]any{"image": i})
+	if i.ID == nil {
+		err := sql.ErrNoRows
+		logging.ExitErr(logScope, err)
+		return err
+	}
+
+	tx, err := GetTx(db, ctx)
+	if err != nil {
+		logging.ExitErr(logScope, err)
+		return err
+	}
+	defer tx.Rollback()
+
+	q := NewQueries(tx)
+	if err := q.PatchImage(ctx, i); err != nil {
+		logging.ExitErr(logScope, err)
+		return err
+	}
+
+	return logging.Return(logScope, tx.Commit())
 }

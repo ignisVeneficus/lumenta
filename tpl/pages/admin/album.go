@@ -27,6 +27,22 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+func createFlash(loc string, i18n *i18n.Service, flash string) *adminData.Flash {
+	flashStr := adminData.FlashString(flash)
+	switch flashStr {
+	case adminData.FlashSaved, adminData.FlashCreated, adminData.FlashDeleted:
+		root := fmt.Sprintf("page.admin.album.flash.%s.", flashStr)
+		return &adminData.Flash{
+			Type:        "success",
+			Title:       i18n.T(loc, root+"title", nil),
+			Description: i18n.T(loc, root+"description", nil),
+		}
+	default:
+		return nil
+	}
+
+}
+
 func createAlbumBreadcrumbs(lastItem string) tplData.Breadcrumbs {
 	return tplData.Breadcrumbs{
 		tpl.GetAdminMain(),
@@ -202,10 +218,10 @@ func EditAlbumPage(r *tpl.TemplateResolver, cfg config.Config, i18n *i18n.Servic
 	return func(c *gin.Context) {
 		loc := tpl.L(c)
 		albumIDStr := c.Param("id")
-		flash := c.Query(routes.QueryFlash)
+		flashStr := c.Query(routes.QueryFlash)
 		logScope, ctx := logging.Enter(c.Request.Context(), "server/page/admin/album/edit", albumIDStr, map[string]any{
 			"album": albumIDStr,
-			"flash": flash,
+			"flash": flashStr,
 		})
 		albumID, err := tpl.ParseAlbumID(albumIDStr)
 		if err != nil {
@@ -252,7 +268,7 @@ func EditAlbumPage(r *tpl.TemplateResolver, cfg config.Config, i18n *i18n.Servic
 		albumPageCtx := adminData.AlbumPageContext{}
 		pageCtx := albumPageCtx.GetPage()
 		tpl.CreatePageContext(pageCtx, cfg, c, "album", tplData.SurfaceAdmin)
-		albumCtx.Flash = adminData.Flash(flash)
+		albumCtx.Flash = createFlash(loc, i18n, flashStr)
 		albumPageCtx.Album = *albumCtx
 		albumPageCtx.Breadcrumbs = createAlbumBreadcrumbs("Edit: " + name)
 

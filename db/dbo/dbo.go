@@ -11,7 +11,6 @@ import (
 
 type SyncMode string
 type TagSource string
-type ImageFocusMode string
 type DBACLLevel int
 type ACLScope string
 
@@ -61,14 +60,6 @@ const (
 	SyncModePartial     SyncMode = "partial"
 
 	TagSourceDigikam TagSource = "digikam"
-
-	ImageFocusModeAuto   ImageFocusMode = "auto"
-	ImageFocusModeManual ImageFocusMode = "manual"
-	ImageFocusModeCenter ImageFocusMode = "center"
-	ImageFocusModeTop    ImageFocusMode = "top"
-	ImageFocusModeBottom ImageFocusMode = "bottom"
-	ImageFocusModeLeft   ImageFocusMode = "left"
-	ImageFocusModeRight  ImageFocusMode = "right"
 
 	DBACLLevelPublic        DBACLLevel = 0
 	DBACLLevelAuthenticated DBACLLevel = 1
